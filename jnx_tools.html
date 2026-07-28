@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADC 数据工具</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --text-muted:#64748b; --text-light:#94a3b8;
+    --accent:#3b82f6; --accent-soft:#eff6ff;
+    --c-color:#3b82f6; --b-color:#f59e0b; --t-color:#10b981;
+    --ble-color:#6366f1; --ble-soft:#eef2ff;
+    --danger:#ef4444; --success:#10b981; --warn:#f59e0b;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --radius:12px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:24px; line-height:1.6;
+  }
+  .container{max-width:1240px;margin:0 auto;}
+  header{margin-bottom:20px;}
+  header h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+  header h1 .icon{font-size:1.5rem;}
+  header p{color:var(--text-muted);margin-top:4px;font-size:.95rem;}
+
+  /* ---- Tabs ---- */
+  .tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:2px solid var(--border);padding-bottom:0;}
+  .tab{
+    padding:10px 24px;font-size:.95rem;font-weight:600;color:var(--text-muted);
+    cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;
+    transition:all .2s;border-radius:8px 8px 0 0;user-select:none;
+    display:flex;align-items:center;gap:8px;
+  }
+  .tab:hover{color:var(--text);background:var(--accent-soft);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-page{display:none;}
+  .tab-page.active{display:block;}
+
+  /* ---- Shared components ---- */
+  .btn{
+    padding:8px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    color:var(--text);font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--border);color:var(--text);}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-primary:hover{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .btn-danger:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
+  .btn-sm{padding:4px 12px;font-size:.8rem;}
+
+  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
+  .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  /* ---- Upload Zone (Log page) ---- */
+  .upload-zone{
+    border:2px dashed var(--border); border-radius:var(--radius);
+    padding:20px 24px; text-align:center; background:var(--surface);
+    transition:all .25s ease; cursor:pointer; position:relative;
+    box-shadow:var(--shadow);
+  }
+  .upload-zone:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .upload-zone.drag-over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.01);}
+  .upload-zone .upload-icon{font-size:1.5rem;margin-right:8px;display:inline;}
+  .upload-zone .upload-title{font-size:1rem;font-weight:600;display:inline;}
+  .upload-zone .upload-hint{color:var(--text-muted);font-size:.875rem;display:inline;margin-left:12px;}
+  .upload-zone.loaded{border-style:solid;border-color:var(--border);}
+  .btn-reload{margin-left:12px;padding:4px 14px;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text-muted);font-size:.825rem;cursor:pointer;transition:all .2s;}
+  .btn-reload:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* ---- Grid layouts ---- */
+  .main-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;margin-top:20px;}
+  @media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+  .ble-grid{display:grid;grid-template-columns:320px 1fr;gap:20px;margin-top:16px;}
+  @media(max-width:900px){.ble-grid{grid-template-columns:1fr;}}
+
+  /* ---- Chart ---- */
+  .chart-card{min-height:420px;display:flex;flex-direction:column;}
+  .legend-toggle{display:flex;gap:8px;flex-wrap:wrap;}
+  .legend-toggle .toggle-btn{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
+    border:1.5px solid var(--border);background:var(--surface);font-size:.825rem;font-weight:500;
+    cursor:pointer;transition:all .2s;user-select:none;
+  }
+  .legend-toggle .toggle-btn .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .legend-toggle .toggle-btn.inactive{opacity:.4;}
+  .chart-wrap{flex:1;position:relative;min-height:350px;}
+  .chart-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    height:100%;color:var(--text-light);}
+  .chart-placeholder .ph-icon{font-size:3rem;margin-bottom:8px;}
+
+  /* ---- Stats ---- */
+  .stats-panel{display:flex;flex-direction:column;gap:16px;}
+  .stat-card h3{font-size:.875rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:.9rem;}
+  .stat-row .label{color:var(--text-muted);}
+  .stat-row .value{font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat-row .swatch{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+  .summary-card .total{font-size:2rem;font-weight:700;letter-spacing:-.02em;}
+  .summary-card .total-label{color:var(--text-muted);font-size:.875rem;}
+  .range-bar{height:6px;border-radius:3px;margin-top:6px;position:relative;background:var(--bg);}
+  .range-bar .fill{position:absolute;height:100%;border-radius:3px;}
+
+  /* ---- BLE page ---- */
+  .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .status-badge{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
+    font-size:.825rem;font-weight:500;
+  }
+  .status-badge .status-dot{width:8px;height:8px;border-radius:50%;}
+  .status-badge.disconnected{background:#f1f5f9;color:var(--text-muted);}
+  .status-badge.disconnected .status-dot{background:var(--text-light);}
+  .status-badge.connecting{background:#fef3c7;color:#92400e;}
+  .status-badge.connecting .status-dot{background:var(--warn);animation:pulse 1s infinite;}
+  .status-badge.connected{background:#d1fae5;color:#065f46;}
+  .status-badge.connected .status-dot{background:var(--success);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .device-name{font-size:.875rem;color:var(--text-muted);}
+  .device-name strong{color:var(--text);}
+
+  .ble-warning{
+    background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--radius);
+    padding:14px 18px;margin-bottom:16px;font-size:.875rem;color:#92400e;
+    display:none;
+  }
+  .ble-warning.show{display:block;}
+
+  /* GATT tree */
+  .gatt-tree{max-height:520px;overflow-y:auto;}
+  .gatt-service{margin-bottom:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .gatt-service-header{
+    padding:10px 14px;background:var(--bg);font-weight:600;font-size:.85rem;cursor:pointer;
+    display:flex;align-items:center;gap:8px;user-select:none;
+  }
+  .gatt-service-header:hover{background:var(--accent-soft);}
+  .gatt-service-header .arrow{transition:transform .2s;font-size:.75rem;color:var(--text-muted);}
+  .gatt-service.expanded .gatt-service-header .arrow{transform:rotate(90deg);}
+  .gatt-service-body{display:none;padding:4px 0;}
+  .gatt-service.expanded .gatt-service-body{display:block;}
+  .gatt-char{
+    padding:8px 14px 8px 36px;font-size:.825rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    border-top:1px solid var(--bg);
+  }
+  .gatt-char .char-uuid{font-family:'Consolas','Monaco',monospace;font-weight:600;color:var(--ble-color);}
+  .char-prop{
+    display:inline-block;padding:1px 8px;border-radius:10px;font-size:.7rem;font-weight:500;
+  }
+  .char-prop.read{background:#dbeafe;color:#1e40af;}
+  .char-prop.write{background:#fef3c7;color:#92400e;}
+  .char-prop.notify{background:#d1fae5;color:#065f46;}
+  .char-prop.indicate{background:#e0e7ff;color:#3730a3;}
+  .char-prop.other{background:#f1f5f9;color:var(--text-muted);}
+  .char-value{display:none;}
+  .poll-interval{
+    width:52px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;
+    font-size:.75rem;font-family:'Consolas','Monaco',monospace;text-align:center;
+  }
+  .poll-ms{font-size:.7rem;color:var(--text-muted);}
+
+  /* BLE chart + raw log */
+  .ble-right{display:flex;flex-direction:column;gap:16px;}
+  .ble-chart-card{min-height:340px;display:flex;flex-direction:column;}
+  .raw-log{
+    background:#1e293b;color:#a5b4fc;border-radius:8px;padding:12px 14px;
+    font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
+    max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+  }
+  .raw-log:empty::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
+
+  .ble-stats{display:flex;gap:20px;flex-wrap:wrap;}
+  .ble-stat{font-size:.825rem;}
+  .ble-stat .num{font-size:1.3rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+  .ble-stat .lbl{color:var(--text-muted);font-size:.78rem;}
+
+  footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text-light);}
+  .raw-log::-webkit-scrollbar-thumb{background:#475569;}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span class="icon">📡</span> ADC 数据工具</h1>
+    <p>日志离线分析 & BLE 实时采集，同一工具两种模式。</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="log"><span>📊</span> 日志分析</div>
+    <div class="tab" data-tab="ble"><span>🔵</span> BLE 实时</div>
+  </div>
+
+  <!-- ========== Page 1: Log Analysis ========== -->
+  <div class="tab-page active" id="page-log">
+    <input type="file" id="fileInput" accept=".log,.txt,.csv,*" style="display:none;">
+    <div class="upload-zone" id="uploadZone">
+      <span class="upload-icon">📁</span>
+      <span class="upload-title">点击选择或拖拽 .log 文件到此处</span>
+      <span class="upload-hint">支持标准 ADC 日志格式：C / B / T / Diff</span>
+    </div>
+
+    <div class="main-grid">
+      <div class="card chart-card">
+        <div class="card-title">
+          <span>数据折线图</span>
+          <div class="legend-toggle" id="legendToggle" style="display:none;">
+            <div class="toggle-btn active" data-line="C"><span class="dot" style="background:var(--c-color)"></span>C 线</div>
+            <div class="toggle-btn active" data-line="B"><span class="dot" style="background:var(--b-color)"></span>B 线</div>
+            <div class="toggle-btn active" data-line="T"><span class="dot" style="background:var(--t-color)"></span>T 线</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-placeholder" id="chartPlaceholder">
+            <div class="ph-icon">📈</div>
+            <div>加载日志文件后将显示折线图</div>
+          </div>
+          <canvas id="logChart" style="display:none;"></canvas>
+        </div>
+      </div>
+
+      <div class="stats-panel">
+        <div class="card stat-card summary-card">
+          <h3>概览</h3>
+          <div class="total" id="totalCount">—</div>
+          <div class="total-label">有效数据点</div>
+          <div style="margin-top:10px;font-size:.85rem;color:var(--text-muted);" id="fileInfo"></div>
+        </div>
+        <div class="card stat-card" id="statC" style="display:none;">
+          <h3><span class="swatch" style="background:var(--c-color)"></span>C 线统计</h3>
+          <div class="stat-row"><span class="label">最小值</span><span class="value" id="cMin">—</span></div>
+          <div class="stat-row"><span class="label">最大值</span><span class="value" id="cMax">—</span></div>
+          <div class="stat-row"><span class="label">平均值</span><span class="value" id="cAvg">—</span></div>
+          <div class="stat-row"><span class="label">波动范围</span><span class="value" id="cRange">—</span></div>
+          <div class="range-bar"><div class="fill" id="cBar" style="background:var(--c-color);"></div></div>
+        </div>
+        <div class="card stat-card" id="statB" style="display:none;">
+          <h3><span class="swatch" style="background:var(--b-color)"></span>B 线统计</h3>
+          <div class="stat-row"><span class="label">最小值</span><span class="value" id="bMin">—</span></div>
+          <div class="stat-row"><span class="label">最大值</span><span class="value" id="bMax">—</span></div>
+          <div class="stat-row"><span class="label">平均值</span><span class="value" id="bAvg">—</span></div>
+          <div class="stat-row"><span class="label">波动范围</span><span class="value" id="bRange">—</span></div>
+          <div class="range-bar"><div class="fill" id="bBar" style="background:var(--b-color);"></div></div>
+        </div>
+        <div class="card stat-card" id="statT" style="display:none;">
+          <h3><span class="swatch" style="background:var(--t-color)"></span>T 线统计</h3>
+          <div class="stat-row"><span class="label">最小值</span><span class="value" id="tMin">—</span></div>
+          <div class="stat-row"><span class="label">最大值</span><span class="value" id="tMax">—</span></div>
+          <div class="stat-row"><span class="label">平均值</span><span class="value" id="tAvg">—</span></div>
+          <div class="stat-row"><span class="label">波动范围</span><span class="value" id="tRange">—</span></div>
+          <div class="range-bar"><div class="fill" id="tBar" style="background:var(--t-color);"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Page 2: BLE Real-time ========== -->
+  <div class="tab-page" id="page-ble">
+    <div class="ble-warning" id="bleWarning">
+      ⚠️ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome、Edge 或 Opera（需 HTTPS 或 localhost 访问）。
+    </div>
+
+    <div class="ble-toolbar">
+      <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
+      <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+      <div class="status-badge disconnected" id="bleStatus">
+        <span class="status-dot"></span><span id="bleStatusText">未连接</span>
+      </div>
+      <span class="device-name" id="bleDeviceName"></span>
+    </div>
+
+    <div class="ble-grid">
+      <!-- Left: GATT Profile -->
+      <div class="card">
+        <div class="card-title">GATT Profile</div>
+        <div class="gatt-tree" id="gattTree">
+          <div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">
+            连接设备后将显示 GATT 服务与特征值
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Chart + Raw Log -->
+      <div class="ble-right">
+        <div class="card ble-chart-card">
+          <div class="card-title">
+            <span>实时折线图</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <div class="ble-stats">
+                <div class="ble-stat"><span class="num" id="blePointCount">0</span><span class="lbl"> 数据点</span></div>
+                <div class="ble-stat"><span class="num" id="bleRate">0</span><span class="lbl"> pts/s</span></div>
+              </div>
+              <button class="btn btn-sm" id="btnClearBle">清空</button>
+              <button class="btn btn-sm" id="btnExportBle" disabled>导出</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="min-height:280px;">
+            <div class="chart-placeholder" id="bleChartPlaceholder">
+              <div class="ph-icon">📊</div>
+              <div>连接 BLE 设备并接收数据后显示</div>
+            </div>
+            <canvas id="bleChart" style="display:none;"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><span>数据日志</span></div>
+          <div class="raw-log" id="rawLog"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>ADC Data Tool · 日志分析 + BLE 实时 · 数据均在本地处理</footer>
+</div>
+
+<script>
+/* ================================================================
+ *  Shared Utilities
+ * ================================================================ */
+const Utils = {
+  DATA_REGEX: /C\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*B\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*T\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*Diff\s*:\s*(-?\d+(?:\.\d+)?)/i,
+
+  parseLog(text){
+    const lines = text.split(/\r?\n/);
+    const points = [];
+    let skipped = 0;
+    for(const line of lines){
+      const trimmed = line.trim();
+      if(!trimmed){skipped++;continue;}
+      const m = trimmed.match(this.DATA_REGEX);
+      if(m){
+        points.push({c:parseFloat(m[1]),b:parseFloat(m[2]),t:parseFloat(m[3]),diff:parseFloat(m[4])});
+      } else { skipped++; }
+    }
+    points.sort((a,b)=>a.diff-b.diff);
+    return {points, skipped};
+  },
+
+  parseLine(line){
+    const m = line.match(this.DATA_REGEX);
+    if(m) return {c:parseFloat(m[1]),b:parseFloat(m[2]),t:parseFloat(m[3]),diff:parseFloat(m[4])};
+    return null;
+  },
+
+  getCSSVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  },
+  hexToRgba(hex, alpha){
+    hex = hex.replace('#','');
+    if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+    const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  },
+  escapeHtml(str){
+    const d=document.createElement('div');d.textContent=str;return d.innerHTML;
+  },
+  formatUuid(uuid){
+    const known={
+      '00001800-0000-1000-8000-00805f9b34fb':'Generic Access',
+      '00001801-0000-1000-8000-00805f9b34fb':'Generic Attribute',
+      '0000180a-0000-1000-8000-00805f9b34fb':'Device Information',
+      '0000ffe0-0000-1000-8000-00805f9b34fb':'FFE0',
+      '0000ffe1-0000-1000-8000-00805f9b34fb':'FFE1 (Serial)',
+      '0000ffe2-0000-1000-8000-00805f9b34fb':'FFE2',
+    };
+    return known[uuid]||uuid;
+  },
+  shortUuid(uuid){
+    const m=uuid.match(/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i);
+    return m?'0x'+m[1].toUpperCase():uuid;
+  },
+  // Build a standard Chart.js config for C/B/T lines
+  makeChartConfig(labels, cData, bData, tData, realtime){
+    const c=Utils.getCSSVar('--c-color'),b=Utils.getCSSVar('--b-color'),t=Utils.getCSSVar('--t-color');
+    return {
+      type:'line',
+      data:{
+        labels:labels,
+        datasets:[
+          {label:'C',data:cData,borderColor:c,backgroundColor:Utils.hexToRgba(c,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
+          {label:'B',data:bData,borderColor:b,backgroundColor:Utils.hexToRgba(b,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
+          {label:'T',data:tData,borderColor:t,backgroundColor:Utils.hexToRgba(t,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        animation: realtime?false:true,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'rgba(30,41,59,.92)',titleColor:'#fff',bodyColor:'#e2e8f0',
+            borderColor:'rgba(255,255,255,.1)',borderWidth:1,padding:12,cornerRadius:8,
+            titleFont:{size:13,weight:'600'},bodyFont:{size:12},
+            callbacks:{title:items=>`Diff: ${items[0].label}`,label:ctx=>`  ${ctx.dataset.label}: ${ctx.parsed.y}`}
+          }
+        },
+        scales:{
+          x:{title:{display:true,text:'Diff (测量次数)',color:Utils.getCSSVar('--text-muted'),font:{size:12}},
+             grid:{color:'rgba(0,0,0,.05)'},ticks:{color:Utils.getCSSVar('--text-muted'),maxRotation:0,autoSkip:true,maxTicksLimit:20}},
+          y:{title:{display:true,text:'测量值',color:Utils.getCSSVar('--text-muted'),font:{size:12}},
+             grid:{color:'rgba(0,0,0,.05)'},ticks:{color:Utils.getCSSVar('--text-muted')}}
+        }
+      }
+    };
+  }
+};
+
+/* ================================================================
+ *  Tab Navigation
+ * ================================================================ */
+(function(){
+  const tabs=document.querySelectorAll('.tab');
+  const pages=document.querySelectorAll('.tab-page');
+  tabs.forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      const target=tab.dataset.tab;
+      tabs.forEach(t=>t.classList.toggle('active',t===tab));
+      pages.forEach(p=>p.classList.toggle('active',p.id==='page-'+target));
+    });
+  });
+})();
+
+/* ================================================================
+ *  Page 1: Log Analysis  (isolated IIFE)
+ * ================================================================ */
+(function(){
+  const uploadZone=document.getElementById('uploadZone');
+  const fileInput=document.getElementById('fileInput');
+  const chartPlaceholder=document.getElementById('chartPlaceholder');
+  const chartCanvas=document.getElementById('logChart');
+  const legendToggle=document.getElementById('legendToggle');
+  let chart=null, parsedData=null;
+
+  uploadZone.addEventListener('click',()=>fileInput.click());
+  uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
+  uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('drag-over');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);});
+  fileInput.addEventListener('change',e=>{
+    if(e.target.files.length) handleFile(e.target.files[0]);
+    e.target.value='';
+  });
+
+  function handleFile(file){
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const data=Utils.parseLog(ev.target.result);
+      if(data.points.length===0){alert('未在文件中找到符合格式的数据行。\n\n期望格式：C: <数值>, B: <数值>, T: <数值>, Diff: <数值>');return;}
+      parsedData=data;
+      renderChart(data);renderStats(data);updateUploadUI(file.name,data.points.length);
+    };
+    reader.readAsText(file,'UTF-8');
+  }
+
+  function renderChart(data){
+    chartPlaceholder.style.display='none';
+    chartCanvas.style.display='block';
+    legendToggle.style.display='flex';
+    if(chart) chart.destroy();
+    const ctx=chartCanvas.getContext('2d');
+    chart=new Chart(ctx,Utils.makeChartConfig(
+      data.points.map(p=>p.diff),data.points.map(p=>p.c),data.points.map(p=>p.b),data.points.map(p=>p.t),false
+    ));
+  }
+
+  legendToggle.addEventListener('click',e=>{
+    const btn=e.target.closest('.toggle-btn');if(!btn)return;
+    btn.classList.toggle('inactive');
+    const idx={C:0,B:1,T:2}[btn.dataset.line];
+    chart.setDatasetVisibility(idx,!btn.classList.contains('inactive'));
+    chart.update();
+  });
+
+  function renderStats(data){
+    document.getElementById('totalCount').textContent=data.points.length;
+    document.getElementById('fileInfo').textContent=`Diff 范围: ${data.points[0].diff} ~ ${data.points[data.points.length-1].diff}`;
+    renderLineStats('c',data.points.map(p=>p.c));
+    renderLineStats('b',data.points.map(p=>p.b));
+    renderLineStats('t',data.points.map(p=>p.t));
+  }
+
+  function renderLineStats(prefix,values){
+    document.getElementById('stat'+prefix.toUpperCase()).style.display='block';
+    const min=Math.min(...values),max=Math.max(...values),avg=values.reduce((a,b)=>a+b,0)/values.length,range=max-min;
+    document.getElementById(prefix+'Min').textContent=min.toFixed(2);
+    document.getElementById(prefix+'Max').textContent=max.toFixed(2);
+    document.getElementById(prefix+'Avg').textContent=avg.toFixed(2);
+    document.getElementById(prefix+'Range').textContent=range.toFixed(2);
+    const refMax=Math.max(...parsedData.points.map(p=>p.c),...parsedData.points.map(p=>p.b),...parsedData.points.map(p=>p.t));
+    const refMin=Math.min(...parsedData.points.map(p=>p.c),...parsedData.points.map(p=>p.b),...parsedData.points.map(p=>p.t));
+    const globalRange=refMax-refMin||1;
+    document.getElementById(prefix+'Bar').style.width=Math.max(2,(range/globalRange)*100)+'%';
+  }
+
+  function updateUploadUI(filename,count){
+    uploadZone.classList.add('loaded');
+    uploadZone.innerHTML=`
+      <span class="upload-icon">✅</span>
+      <span class="upload-title">${Utils.escapeHtml(filename)}</span>
+      <span class="upload-hint">${count} 条有效数据 · 点击区域或按钮重新选择</span>
+      <button class="btn-reload" id="btnReload">重新选择</button>`;
+    document.getElementById('btnReload').addEventListener('click',e=>{e.stopPropagation();fileInput.click();});
+  }
+})();
+
+/* ================================================================
+ *  Page 2: BLE Real-time  (isolated IIFE)
+ * ================================================================ */
+(function(){
+  // Elements
+  const btnConnect=document.getElementById('btnConnect');
+  const btnDisconnect=document.getElementById('btnDisconnect');
+  const bleStatus=document.getElementById('bleStatus');
+  const bleStatusText=document.getElementById('bleStatusText');
+  const bleDeviceName=document.getElementById('bleDeviceName');
+  const bleWarning=document.getElementById('bleWarning');
+  const gattTree=document.getElementById('gattTree');
+  const bleChartPlaceholder=document.getElementById('bleChartPlaceholder');
+  const bleChartCanvas=document.getElementById('bleChart');
+  const rawLog=document.getElementById('rawLog');
+  const blePointCount=document.getElementById('blePointCount');
+  const bleRate=document.getElementById('bleRate');
+  const btnClearBle=document.getElementById('btnClearBle');
+  const btnExportBle=document.getElementById('btnExportBle');
+
+  // State
+  let device=null, server=null, bleChart=null;
+  let bleBuffer='', blePoints=[], bleRawLines=[];
+  let rateCount=0, rateTimer=null;
+  const activePolls=new Map(); // characteristic -> intervalId
+  const MAX_POINTS=500, MAX_RAW=200;
+  const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+
+  // Check support
+  if(!navigator.bluetooth){
+    bleWarning.classList.add('show');
+    btnConnect.disabled=true;
+  }
+
+  // ---- Connect ----
+  btnConnect.addEventListener('click', async ()=>{
+    try{
+      setStatus('connecting','');
+      device=await navigator.bluetooth.requestDevice({
+        acceptAllDevices:true,
+        optionalServices:COMMON_SERVICES
+      });
+      device.addEventListener('gattserverdisconnected',onDisconnected);
+      setStatus('connecting', device.name||device.id);
+      server=await device.gatt.connect();
+      setStatus('connected', device.name||'未知设备');
+      btnConnect.disabled=true;
+      btnDisconnect.disabled=false;
+      await discoverGATT(server);
+    }catch(err){
+      console.error('BLE connect error:',err);
+      setStatus('disconnected','');
+      if(err.name!=='NotFoundError'){
+        alert('连接失败: '+err.message);
+      }
+    }
+  });
+
+  // ---- Disconnect ----
+  btnDisconnect.addEventListener('click', ()=>{
+    if(device&&device.gatt.connected) device.gatt.disconnect();
+  });
+
+  function onDisconnected(){
+    // Stop all polling
+    activePolls.forEach(id=>clearInterval(id));
+    activePolls.clear();
+    setStatus('disconnected','');
+    btnConnect.disabled=false;
+    btnDisconnect.disabled=true;
+    device=null;server=null;
+  }
+
+  function setStatus(state, name){
+    bleStatus.className='status-badge '+state;
+    bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
+    if(name) bleDeviceName.innerHTML='设备: <strong>'+Utils.escapeHtml(name)+'</strong>';
+    else bleDeviceName.innerHTML='';
+  }
+
+  // ---- GATT Discovery ----
+  async function discoverGATT(server){
+    gattTree.innerHTML='<div style="color:var(--text-muted);padding:12px;">正在发现服务...</div>';
+    try{
+      const services=await server.getPrimaryServices();
+      gattTree.innerHTML='';
+      for(const svc of services){
+        const svcDiv=document.createElement('div');
+        svcDiv.className='gatt-service';
+        const isFFE1=svc.uuid===FFE1_SERVICE;
+        svcDiv.innerHTML=`
+          <div class="gatt-service-header">
+            <span class="arrow">▶</span>
+            <span>${Utils.formatUuid(svc.uuid)}</span>
+            <span style="font-family:monospace;font-size:.75rem;color:var(--text-muted);">${Utils.shortUuid(svc.uuid)}</span>
+          </div>
+          <div class="gatt-service-body"></div>`;
+        const body=svcDiv.querySelector('.gatt-service-body');
+        svcDiv.querySelector('.gatt-service-header').addEventListener('click',()=>svcDiv.classList.toggle('expanded'));
+
+        try{
+          const chars=await svc.getCharacteristics();
+          for(const ch of chars){
+            const charDiv=document.createElement('div');
+            charDiv.className='gatt-char';
+            const props=getPropList(ch);
+            const shortU=Utils.shortUuid(ch.uuid);
+            charDiv.innerHTML=`
+              <span class="char-uuid">${shortU}</span>
+              ${props.map(p=>`<span class="char-prop ${p}">${p}</span>`).join('')}
+              ${ch.properties.read?`
+                <button class="btn btn-sm char-read-btn">读取</button>
+                <button class="btn btn-sm char-poll-btn">订阅</button>
+                <input class="poll-interval" type="number" value="1000" min="500" step="100" title="轮询间隔(ms)">ms
+              `:''}`;
+            if(ch.properties.read){
+              const readBtn=charDiv.querySelector('.char-read-btn');
+              const pollBtn=charDiv.querySelector('.char-poll-btn');
+              const intervalInput=charDiv.querySelector('.poll-interval');
+
+              async function doRead(prefix){
+                try{
+                  const dv=await ch.readValue();
+                  logToPanel(prefix,shortU,formatDataView(dv));
+                }catch(err){
+                  logToPanel(prefix+'-Err',shortU,err.message);
+                }
+              }
+
+              // Read once
+              readBtn.addEventListener('click',async(e)=>{
+                e.stopPropagation();
+                readBtn.textContent='...';
+                await doRead('Read');
+                readBtn.textContent='读取';
+              });
+
+              // Toggle polling
+              pollBtn.addEventListener('click',(e)=>{
+                e.stopPropagation();
+                if(activePolls.has(ch)){
+                  clearInterval(activePolls.get(ch));
+                  activePolls.delete(ch);
+                  pollBtn.textContent='订阅';
+                  pollBtn.classList.remove('btn-danger');
+                }else{
+                  let ms=parseInt(intervalInput.value)||1000;
+                  if(ms<500){ms=500;intervalInput.value=500;}
+                  doRead('Poll');
+                  activePolls.set(ch,setInterval(()=>doRead('Poll'),ms));
+                  pollBtn.textContent='停止';
+                  pollBtn.classList.add('btn-danger');
+                }
+              });
+
+              // Interval change — restart if polling
+              intervalInput.addEventListener('change',()=>{
+                let ms=parseInt(intervalInput.value)||1000;
+                if(ms<500){ms=500;intervalInput.value=500;}
+                if(activePolls.has(ch)){
+                  clearInterval(activePolls.get(ch));
+                  doRead('Poll');
+                  activePolls.set(ch,setInterval(()=>doRead('Poll'),ms));
+                }
+              });
+            }
+            // Auto-subscribe to FFE1 notify
+            if(isFFE1&&ch.properties.notify){
+              try{
+                await ch.startNotifications();
+                ch.addEventListener('characteristicvaluechanged',onCharChanged);
+                charDiv.style.background='var(--ble-soft)';
+                charDiv.insertAdjacentHTML('afterbegin','<span style="font-size:.7rem;color:var(--ble-color);font-weight:600;">● 监听中</span>');
+              }catch(err){console.warn('Subscribe failed:',err);}
+            }
+            // Also try FFE1 characteristic on FFE0 service
+            if(svc.uuid==='0000ffe0-0000-1000-8000-00805f9b34fb'&&ch.uuid===FFE1_SERVICE&&ch.properties.notify){
+              try{
+                await ch.startNotifications();
+                ch.addEventListener('characteristicvaluechanged',onCharChanged);
+                charDiv.style.background='var(--ble-soft)';
+                charDiv.insertAdjacentHTML('afterbegin','<span style="font-size:.7rem;color:var(--ble-color);font-weight:600;">● 监听中</span>');
+              }catch(err){console.warn('Subscribe failed:',err);}
+            }
+            body.appendChild(charDiv);
+          }
+        }catch(err){
+          body.innerHTML='<div style="padding:8px 14px;color:var(--text-light);font-size:.8rem;">无法获取特征值</div>';
+        }
+        // Auto-expand FFE1
+        if(isFFE1||svc.uuid==='0000ffe0-0000-1000-8000-00805f9b34fb') svcDiv.classList.add('expanded');
+        gattTree.appendChild(svcDiv);
+      }
+      if(services.length===0) gattTree.innerHTML='<div style="color:var(--text-light);padding:20px;text-align:center;">未发现任何服务</div>';
+    }catch(err){
+      gattTree.innerHTML='<div style="color:var(--danger);padding:12px;">发现服务失败: '+Utils.escapeHtml(err.message)+'</div>';
+    }
+  }
+
+  function getPropList(ch){
+    const p=ch.properties;
+    const list=[];
+    if(p.read) list.push('read');
+    if(p.write) list.push('write');
+    if(p.writeWithoutResponse) list.push('write');
+    if(p.notify) list.push('notify');
+    if(p.indicate) list.push('indicate');
+    if(p.broadcast) list.push('other');
+    return list;
+  }
+
+  function formatDataView(dv){
+    const arr=[];
+    for(let i=0;i<dv.byteLength;i++) arr.push(dv.getUint8(i));
+    // Try as text first
+    const text=arr.map(b=>String.fromCharCode(b)).join('');
+    if(/^[\x20-\x7e\r\n\t]+$/.test(text)) return text.trim().substring(0,40);
+    return arr.map(b=>b.toString(16).padStart(2,'0')).join(' ');
+  }
+
+  // ---- BLE Data Handling ----
+
+  // Log read/poll results to the right-side panel with timestamp
+  function logToPanel(prefix,uuid,value){
+    const now=new Date();
+    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
+    bleRawLines.push(line);
+    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
+    rawLog.textContent=bleRawLines.join('\n');
+    rawLog.scrollTop=rawLog.scrollHeight;
+    // Try to parse as ADC data for chart
+    const pt=Utils.parseLine(value);
+    if(pt){
+      blePoints.push(pt);
+      if(blePoints.length>MAX_POINTS) blePoints.shift();
+      rateCount++;
+      updateBleChart();
+      blePointCount.textContent=blePoints.length;
+      btnExportBle.disabled=false;
+    }
+  }
+
+  function onCharChanged(event){
+    const dv=event.target.value;
+    const text=decodeDataView(dv);
+    bleBuffer+=text;
+    const lines=bleBuffer.split(/\r?\n/);
+    bleBuffer=lines.pop(); // keep partial
+    for(const line of lines){
+      processBleLine(line.trim());
+    }
+  }
+
+  function decodeDataView(dv){
+    let s='';
+    for(let i=0;i<dv.byteLength;i++) s+=String.fromCharCode(dv.getUint8(i));
+    return s;
+  }
+
+  function processBleLine(line){
+    if(!line) return;
+    // Add to raw log
+    bleRawLines.push(line);
+    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
+    rawLog.textContent=bleRawLines.join('\n');
+    rawLog.scrollTop=rawLog.scrollHeight;
+
+    // Parse and add to chart
+    const pt=Utils.parseLine(line);
+    if(pt){
+      blePoints.push(pt);
+      if(blePoints.length>MAX_POINTS) blePoints.shift();
+      rateCount++;
+      updateBleChart();
+      blePointCount.textContent=blePoints.length;
+      btnExportBle.disabled=false;
+    }
+  }
+
+  function updateBleChart(){
+    if(blePoints.length===0) return;
+    if(bleChartPlaceholder) bleChartPlaceholder.style.display='none';
+    if(bleChartCanvas) bleChartCanvas.style.display='block';
+
+    const labels=blePoints.map(p=>p.diff);
+    if(!bleChart){
+      const ctx=bleChartCanvas.getContext('2d');
+      bleChart=new Chart(ctx,Utils.makeChartConfig(
+        labels,blePoints.map(p=>p.c),blePoints.map(p=>p.b),blePoints.map(p=>p.t),true
+      ));
+    }else{
+      bleChart.data.labels=labels;
+      bleChart.data.datasets[0].data=blePoints.map(p=>p.c);
+      bleChart.data.datasets[1].data=blePoints.map(p=>p.b);
+      bleChart.data.datasets[2].data=blePoints.map(p=>p.t);
+      bleChart.update('none');
+    }
+  }
+
+  // ---- Rate calculator ----
+  rateTimer=setInterval(()=>{
+    bleRate.textContent=rateCount;
+    rateCount=0;
+  },1000);
+
+  // ---- Clear ----
+  btnClearBle.addEventListener('click',()=>{
+    // Stop all polling
+    activePolls.forEach(id=>clearInterval(id));
+    activePolls.clear();
+    // Reset poll buttons
+    document.querySelectorAll('.char-poll-btn').forEach(b=>{b.textContent='订阅';b.classList.remove('btn-danger');});
+    blePoints=[];bleRawLines=[];bleBuffer='';
+    rawLog.textContent='';
+    blePointCount.textContent='0';
+    bleRate.textContent='0';
+    if(bleChart){bleChart.destroy();bleChart=null;}
+    if(bleChartPlaceholder) bleChartPlaceholder.style.display='flex';
+    if(bleChartCanvas) bleChartCanvas.style.display='none';
+    btnExportBle.disabled=true;
+  });
+
+  // ---- Export ----
+  btnExportBle.addEventListener('click',()=>{
+    if(bleRawLines.length===0) return;
+    const content=bleRawLines.join('\n')+'\n';
+    const blob=new Blob([content],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const now=new Date();
+    const ts=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
+    a.download='ble_adc_'+ts+'.log';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  function pad(n){return String(n).padStart(2,'0');}
+})();
+</script>
+</body>
+</html>
