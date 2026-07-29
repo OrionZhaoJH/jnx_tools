@@ -58,6 +58,14 @@
   @media(max-width:900px){.ble-grid{grid-template-columns:1fr;}}
 
   .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .name-filter{display:flex;align-items:center;gap:6px;}
+  .name-filter label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .name-filter input{
+    padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:.875rem;color:var(--text);width:180px;transition:all .2s;outline:none;
+  }
+  .name-filter input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .name-filter input::placeholder{color:var(--text-light);}
   .status-badge{
     display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
     font-size:.825rem;font-weight:500;
@@ -144,6 +152,10 @@
   <div class="ble-toolbar">
     <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
     <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+    <div class="name-filter">
+      <label for="nameFilter">名称过滤</label>
+      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JN" value="JN" autocomplete="off">
+    </div>
     <div class="status-badge disconnected" id="bleStatus">
       <span class="status-dot"></span><span id="bleStatusText">未连接</span>
     </div>
@@ -221,6 +233,7 @@ const Utils = {
   const logLineCount=document.getElementById('logLineCount');
   const btnClearLog=document.getElementById('btnClearLog');
   const btnExportLog=document.getElementById('btnExportLog');
+  const nameFilter=document.getElementById('nameFilter');
 
   // State
   let device=null, server=null;
@@ -241,11 +254,21 @@ const Utils = {
   btnConnect.addEventListener('click', async ()=>{
     try{
       setStatus('connecting','');
-      device=await navigator.bluetooth.requestDevice({
-        acceptAllDevices:true,
-        optionalServices:COMMON_SERVICES
-      });
+      const keyword=nameFilter.value.trim();
+      // Web Bluetooth API 的 requestDevice 仅支持 namePrefix / name 过滤，
+      // 不支持"包含"过滤。因此展示全部设备，连接前按"包含"规则二次校验。
+      const options={optionalServices:COMMON_SERVICES, acceptAllDevices:true};
+      device=await navigator.bluetooth.requestDevice(options);
       device.addEventListener('gattserverdisconnected',onDisconnected);
+
+      // 名称包含校验：设备名需包含关键字（忽略大小写）
+      if(keyword && !(device.name||device.id).toLowerCase().includes(keyword.toLowerCase())){
+        alert('设备名 "'+(device.name||device.id)+'" 不包含 "'+keyword+'"，请重新选择。');
+        setStatus('disconnected','');
+        if(device.gatt&&device.gatt.connected) device.gatt.disconnect();
+        device=null;
+        return;
+      }
       setStatus('connecting', device.name||device.id);
       server=await device.gatt.connect();
       setStatus('connected', device.name||'未知设备');
