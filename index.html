@@ -1,13 +1,190 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=./jnx_tools.html">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ADC 数据工具</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JNx 工具箱</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --text-muted:#64748b; --text-light:#94a3b8;
+    --accent:#3b82f6; --accent-soft:#eff6ff;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+    --radius:14px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    display:flex;flex-direction:column; line-height:1.6;
+  }
+  .container{max-width:900px;margin:0 auto;width:100%;padding:40px 24px;flex:1;}
+
+  header{text-align:center;margin-bottom:48px;}
+  header h1{
+    font-size:2.25rem;font-weight:700;letter-spacing:-.02em;
+    display:flex;align-items:center;justify-content:center;gap:12px;
+  }
+  header h1 .icon{font-size:2rem;}
+  header p{color:var(--text-muted);margin-top:8px;font-size:1rem;}
+
+  /* ---- Tool grid ---- */
+  .tool-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:20px;
+  }
+
+  .tool-card{
+    background:var(--surface);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:28px 24px;
+    text-decoration:none;color:inherit;
+    display:flex;flex-direction:column;gap:12px;
+    transition:all .25s ease;
+    border:1.5px solid transparent;
+    position:relative;overflow:hidden;
+  }
+  .tool-card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:var(--card-accent,var(--accent));
+    transform:scaleX(0);transform-origin:left;transition:transform .3s ease;
+  }
+  .tool-card:hover{
+    box-shadow:var(--shadow-lg);
+    border-color:var(--card-accent,var(--accent));
+    transform:translateY(-2px);
+  }
+  .tool-card:hover::before{transform:scaleX(1);}
+
+  .tool-icon{
+    width:48px;height:48px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.5rem;
+    background:var(--card-accent-soft,var(--accent-soft));
+  }
+  .tool-title{font-size:1.15rem;font-weight:700;letter-spacing:-.01em;}
+  .tool-desc{color:var(--text-muted);font-size:.875rem;line-height:1.5;}
+  .tool-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:8px;}
+  .tool-tag{
+    font-size:.72rem;padding:2px 10px;border-radius:12px;
+    background:var(--bg);color:var(--text-muted);font-weight:500;
+  }
+  .tool-arrow{
+    position:absolute;right:20px;bottom:20px;
+    color:var(--card-accent,var(--accent));
+    opacity:0;transform:translateX(-4px);transition:all .25s ease;
+    font-size:1.2rem;
+  }
+  .tool-card:hover .tool-arrow{opacity:1;transform:translateX(0);}
+
+  /* ---- Coming soon placeholder ---- */
+  .tool-card.disabled{
+    opacity:.55;cursor:not-allowed;
+  }
+  .tool-card.disabled:hover{
+    transform:none;border-color:transparent;box-shadow:var(--shadow);
+  }
+  .tool-card.disabled:hover::before{transform:scaleX(0);}
+  .coming-badge{
+    font-size:.7rem;padding:2px 10px;border-radius:12px;
+    background:var(--bg);color:var(--text-light);font-weight:500;
+    display:inline-block;margin-top:4px;
+  }
+
+  footer{text-align:center;padding:24px;color:var(--text-light);font-size:.8rem;}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+</style>
 </head>
 <body>
-  <p>正在跳转到JNx工具...</p>
-  <p>如果没有自动跳转，请点击 <a href="./jnx_tools.html">这里</a>。</p>
+<div class="container">
+  <header>
+    <h1><span class="icon">🛠️</span> JNx 工具箱</h1>
+    <p>JNx 系列产品辅助工具集合，数据均在本地处理</p>
+  </header>
+
+  <div class="tool-grid" id="toolGrid"></div>
+</div>
+
+<footer>JNx 工具箱 · 数据均在本地处理 · 不上传任何数据</footer>
+
+<script>
+/*
+ * ================================================================
+ *  Tool Registry
+ *  新增工具只需在此数组中添加一个配置对象即可
+ * ================================================================
+ */
+const TOOLS = [
+  {
+    id: 'adc-analysis',
+    title: 'ADC 数据分析',
+    icon: '📊',
+    desc: '离线分析 ADC 日志文件，支持 C / B / T / Diff 数据折线图与统计',
+    href: './adc_analysis.html',
+    accent: '#3b82f6',
+    accentSoft: '#eff6ff',
+    tags: ['离线分析', '日志', '图表'],
+    enabled: true,
+  },
+  {
+    id: 'ble-analysis',
+    title: 'BLE 分析',
+    icon: '🔵',
+    desc: '通过 Web Bluetooth API 实时连接 BLE 设备，采集并可视化 ADC 数据',
+    href: './ble_analysis.html',
+    accent: '#6366f1',
+    accentSoft: '#eef2ff',
+    tags: ['BLE', '实时采集', 'Web Bluetooth'],
+    enabled: true,
+  },
+  // ---- 后续新增工具在此添加 ----
+  // {
+  //   id: 'your-tool',
+  //   title: '工具名称',
+  //   icon: '🔧',
+  //   desc: '工具描述',
+  //   href: './your_tool.html',
+  //   accent: '#10b981',
+  //   accentSoft: '#ecfdf5',
+  //   tags: ['标签1', '标签2'],
+  //   enabled: true,
+  // },
+];
+
+/* ================================================================
+ *  Render tool cards
+ * ================================================================ */
+(function(){
+  const grid = document.getElementById('toolGrid');
+  for(const tool of TOOLS){
+    const card = document.createElement('a');
+    card.className = 'tool-card' + (tool.enabled ? '' : ' disabled');
+    if(tool.enabled){
+      card.href = tool.href;
+    }
+    card.style.setProperty('--card-accent', tool.accent || 'var(--accent)');
+    card.style.setProperty('--card-accent-soft', tool.accentSoft || 'var(--accent-soft)');
+
+    const tagsHtml = (tool.tags || [])
+      .map(t => `<span class="tool-tag">${t}</span>`)
+      .join('');
+
+    card.innerHTML = `
+      <div class="tool-icon">${tool.icon || '🔧'}</div>
+      <div class="tool-title">${tool.title}</div>
+      <div class="tool-desc">${tool.desc || ''}</div>
+      <div class="tool-tags">${tagsHtml}</div>
+      ${tool.enabled
+        ? '<span class="tool-arrow">→</span>'
+        : '<span class="coming-badge">敬请期待</span>'}
+    `;
+    grid.appendChild(card);
+  }
+})();
+</script>
 </body>
 </html>

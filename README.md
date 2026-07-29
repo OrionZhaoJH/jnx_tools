@@ -1,11 +1,37 @@
-# ADC 数据工具
+# JNx 工具箱
 
-这是一个JNx系列产品静态网页工具，支持离线分析 ADC 日志，以及 BLE 实时采集。
+JNx 系列产品辅助工具集合，数据均在本地处理，不上传任何数据。
+
+## 工具列表
+
+| 工具 | 说明 | 入口 |
+| --- | --- | --- |
+| ADC 数据分析 | 离线分析 ADC 日志文件，支持 C / B / T / Diff 数据折线图与统计 | [adc_analysis.html](adc_analysis.html) |
+| BLE 分析 | 通过 Web Bluetooth API 实时连接 BLE 设备，采集并可视化 ADC 数据 | [ble_analysis.html](ble_analysis.html) |
 
 ## 目录说明
 
-- [adc log analysis.html](adc%20log%20analysis.html) ：主页面
-- [index.html](index.html) ：GitHub Pages 首页入口，会自动跳转到主页面
+- [index.html](index.html) ：工具箱首页，展示所有工具入口卡片（可扩展）
+- [adc_analysis.html](adc_analysis.html) ：ADC 数据分析工具
+- [ble_analysis.html](ble_analysis.html) ：BLE 分析工具
+
+### 新增工具
+
+在 `index.html` 的 `TOOLS` 数组中添加一个配置对象即可，无需修改其他代码：
+
+```js
+{
+  id: 'your-tool',
+  title: '工具名称',
+  icon: '🔧',
+  desc: '工具描述',
+  href: './your_tool.html',
+  accent: '#10b981',
+  accentSoft: '#ecfdf5',
+  tags: ['标签1', '标签2'],
+  enabled: true,
+}
+```
 
 ## GitHub Pages 自动部署
 
@@ -26,7 +52,7 @@
 
 ## 本地预览
 
-如果你想在本地先预览，可以直接双击打开 [adc log analysis.html](adc%20log%20analysis.html)，或者使用一个简单的静态服务器：
+如果你想在本地先预览，可以直接双击打开 [index.html](index.html)，或者使用一个简单的静态服务器：
 
 ```bash
 python -m http.server 8000

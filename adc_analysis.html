@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADC 数据分析工具</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --text-muted:#64748b; --text-light:#94a3b8;
+    --accent:#3b82f6; --accent-soft:#eff6ff;
+    --c-color:#3b82f6; --b-color:#f59e0b; --t-color:#10b981;
+    --danger:#ef4444; --success:#10b981; --warn:#f59e0b;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --radius:12px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:24px; line-height:1.6;
+  }
+  .container{max-width:1240px;margin:0 auto;}
+
+  /* ---- Nav ---- */
+  .nav-back{
+    display:inline-flex;align-items:center;gap:6px;
+    color:var(--text-muted);font-size:.875rem;text-decoration:none;
+    margin-bottom:16px;transition:color .2s;
+  }
+  .nav-back:hover{color:var(--accent);}
+
+  header{margin-bottom:20px;}
+  header h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+  header h1 .icon{font-size:1.5rem;}
+  header p{color:var(--text-muted);margin-top:4px;font-size:.95rem;}
+
+  /* ---- Shared components ---- */
+  .btn{
+    padding:8px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    color:var(--text);font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--border);color:var(--text);}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-primary:hover{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .btn-sm{padding:4px 12px;font-size:.8rem;}
+
+  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
+  .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  /* ---- Upload Zone ---- */
+  .upload-zone{
+    border:2px dashed var(--border); border-radius:var(--radius);
+    padding:20px 24px; text-align:center; background:var(--surface);
+    transition:all .25s ease; cursor:pointer; position:relative;
+    box-shadow:var(--shadow);
+  }
+  .upload-zone:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .upload-zone.drag-over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.01);}
+  .upload-zone .upload-icon{font-size:1.5rem;margin-right:8px;display:inline;}
+  .upload-zone .upload-title{font-size:1rem;font-weight:600;display:inline;}
+  .upload-zone .upload-hint{color:var(--text-muted);font-size:.875rem;display:inline;margin-left:12px;}
+  .upload-zone.loaded{border-style:solid;border-color:var(--border);}
+  .btn-reload{margin-left:12px;padding:4px 14px;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text-muted);font-size:.825rem;cursor:pointer;transition:all .2s;}
+  .btn-reload:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* ---- Grid layouts ---- */
+  .main-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;margin-top:20px;}
+  @media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+
+  /* ---- Chart ---- */
+  .chart-card{min-height:420px;display:flex;flex-direction:column;}
+  .legend-toggle{display:flex;gap:8px;flex-wrap:wrap;}
+  .legend-toggle .toggle-btn{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
+    border:1.5px solid var(--border);background:var(--surface);font-size:.825rem;font-weight:500;
+    cursor:pointer;transition:all .2s;user-select:none;
+  }
+  .legend-toggle .toggle-btn .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .legend-toggle .toggle-btn.inactive{opacity:.4;}
+  .chart-wrap{flex:1;position:relative;min-height:350px;}
+  .chart-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    height:100%;color:var(--text-light);}
+  .chart-placeholder .ph-icon{font-size:3rem;margin-bottom:8px;}
+
+  /* ---- Stats ---- */
+  .stats-panel{display:flex;flex-direction:column;gap:16px;}
+  .stat-card h3{font-size:.875rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:.9rem;}
+  .stat-row .label{color:var(--text-muted);}
+  .stat-row .value{font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat-row .swatch{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+  .summary-card .total{font-size:2rem;font-weight:700;letter-spacing:-.02em;}
+  .summary-card .total-label{color:var(--text-muted);font-size:.875rem;}
+  .range-bar{height:6px;border-radius:3px;margin-top:6px;position:relative;background:var(--bg);}
+  .range-bar .fill{position:absolute;height:100%;border-radius:3px;}
+
+  footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text-light);}
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="./index.html" class="nav-back">← 返回首页</a>
+
+  <header>
+    <h1><span class="icon">📊</span> ADC 数据分析工具</h1>
+    <p>离线分析 ADC 日志文件，支持 C / B / T / Diff 数据折线图与统计。</p>
+  </header>
+
+  <input type="file" id="fileInput" accept=".log,.txt,.csv,*" style="display:none;">
+  <div class="upload-zone" id="uploadZone">
+    <span class="upload-icon">📁</span>
+    <span class="upload-title">点击选择或拖拽 .log 文件到此处</span>
+    <span class="upload-hint">支持标准 ADC 日志格式：C / B / T / Diff</span>
+  </div>
+
+  <div class="main-grid">
+    <div class="card chart-card">
+      <div class="card-title">
+        <span>数据折线图</span>
+        <div class="legend-toggle" id="legendToggle" style="display:none;">
+          <div class="toggle-btn active" data-line="C"><span class="dot" style="background:var(--c-color)"></span>C 线</div>
+          <div class="toggle-btn active" data-line="B"><span class="dot" style="background:var(--b-color)"></span>B 线</div>
+          <div class="toggle-btn active" data-line="T"><span class="dot" style="background:var(--t-color)"></span>T 线</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-placeholder" id="chartPlaceholder">
+          <div class="ph-icon">📈</div>
+          <div>加载日志文件后将显示折线图</div>
+        </div>
+        <canvas id="logChart" style="display:none;"></canvas>
+      </div>
+    </div>
+
+    <div class="stats-panel">
+      <div class="card stat-card summary-card">
+        <h3>概览</h3>
+        <div class="total" id="totalCount">—</div>
+        <div class="total-label">有效数据点</div>
+        <div style="margin-top:10px;font-size:.85rem;color:var(--text-muted);" id="fileInfo"></div>
+      </div>
+      <div class="card stat-card" id="statC" style="display:none;">
+        <h3><span class="swatch" style="background:var(--c-color)"></span>C 线统计</h3>
+        <div class="stat-row"><span class="label">最小值</span><span class="value" id="cMin">—</span></div>
+        <div class="stat-row"><span class="label">最大值</span><span class="value" id="cMax">—</span></div>
+        <div class="stat-row"><span class="label">平均值</span><span class="value" id="cAvg">—</span></div>
+        <div class="stat-row"><span class="label">波动范围</span><span class="value" id="cRange">—</span></div>
+        <div class="range-bar"><div class="fill" id="cBar" style="background:var(--c-color);"></div></div>
+      </div>
+      <div class="card stat-card" id="statB" style="display:none;">
+        <h3><span class="swatch" style="background:var(--b-color)"></span>B 线统计</h3>
+        <div class="stat-row"><span class="label">最小值</span><span class="value" id="bMin">—</span></div>
+        <div class="stat-row"><span class="label">最大值</span><span class="value" id="bMax">—</span></div>
+        <div class="stat-row"><span class="label">平均值</span><span class="value" id="bAvg">—</span></div>
+        <div class="stat-row"><span class="label">波动范围</span><span class="value" id="bRange">—</span></div>
+        <div class="range-bar"><div class="fill" id="bBar" style="background:var(--b-color);"></div></div>
+      </div>
+      <div class="card stat-card" id="statT" style="display:none;">
+        <h3><span class="swatch" style="background:var(--t-color)"></span>T 线统计</h3>
+        <div class="stat-row"><span class="label">最小值</span><span class="value" id="tMin">—</span></div>
+        <div class="stat-row"><span class="label">最大值</span><span class="value" id="tMax">—</span></div>
+        <div class="stat-row"><span class="label">平均值</span><span class="value" id="tAvg">—</span></div>
+        <div class="stat-row"><span class="label">波动范围</span><span class="value" id="tRange">—</span></div>
+        <div class="range-bar"><div class="fill" id="tBar" style="background:var(--t-color);"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>ADC 数据分析工具 · 日志离线分析 · 数据均在本地处理</footer>
+</div>
+
+<script>
+/* ================================================================
+ *  Shared Utilities
+ * ================================================================ */
+const Utils = {
+  DATA_REGEX: /C\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*B\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*T\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*Diff\s*:\s*(-?\d+(?:\.\d+)?)/i,
+
+  parseLog(text){
+    const lines = text.split(/\r?\n/);
+    const points = [];
+    let skipped = 0;
+    for(const line of lines){
+      const trimmed = line.trim();
+      if(!trimmed){skipped++;continue;}
+      const m = trimmed.match(this.DATA_REGEX);
+      if(m){
+        points.push({c:parseFloat(m[1]),b:parseFloat(m[2]),t:parseFloat(m[3]),diff:parseFloat(m[4])});
+      } else { skipped++; }
+    }
+    points.sort((a,b)=>a.diff-b.diff);
+    return {points, skipped};
+  },
+
+  parseLine(line){
+    const m = line.match(this.DATA_REGEX);
+    if(m) return {c:parseFloat(m[1]),b:parseFloat(m[2]),t:parseFloat(m[3]),diff:parseFloat(m[4])};
+    return null;
+  },
+
+  getCSSVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  },
+  hexToRgba(hex, alpha){
+    hex = hex.replace('#','');
+    if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+    const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  },
+  escapeHtml(str){
+    const d=document.createElement('div');d.textContent=str;return d.innerHTML;
+  },
+  // Build a standard Chart.js config for C/B/T lines
+  makeChartConfig(labels, cData, bData, tData, realtime){
+    const c=Utils.getCSSVar('--c-color'),b=Utils.getCSSVar('--b-color'),t=Utils.getCSSVar('--t-color');
+    return {
+      type:'line',
+      data:{
+        labels:labels,
+        datasets:[
+          {label:'C',data:cData,borderColor:c,backgroundColor:Utils.hexToRgba(c,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
+          {label:'B',data:bData,borderColor:b,backgroundColor:Utils.hexToRgba(b,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
+          {label:'T',data:tData,borderColor:t,backgroundColor:Utils.hexToRgba(t,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        animation: realtime?false:true,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'rgba(30,41,59,.92)',titleColor:'#fff',bodyColor:'#e2e8f0',
+            borderColor:'rgba(255,255,255,.1)',borderWidth:1,padding:12,cornerRadius:8,
+            titleFont:{size:13,weight:'600'},bodyFont:{size:12},
+            callbacks:{title:items=>`Diff: ${items[0].label}`,label:ctx=>`  ${ctx.dataset.label}: ${ctx.parsed.y}`}
+          }
+        },
+        scales:{
+          x:{title:{display:true,text:'Diff (测量次数)',color:Utils.getCSSVar('--text-muted'),font:{size:12}},
+             grid:{color:'rgba(0,0,0,.05)'},ticks:{color:Utils.getCSSVar('--text-muted'),maxRotation:0,autoSkip:true,maxTicksLimit:20}},
+          y:{title:{display:true,text:'测量值',color:Utils.getCSSVar('--text-muted'),font:{size:12}},
+             grid:{color:'rgba(0,0,0,.05)'},ticks:{color:Utils.getCSSVar('--text-muted')}}
+        }
+      }
+    };
+  }
+};
+
+/* ================================================================
+ *  Log Analysis  (isolated IIFE)
+ * ================================================================ */
+(function(){
+  const uploadZone=document.getElementById('uploadZone');
+  const fileInput=document.getElementById('fileInput');
+  const chartPlaceholder=document.getElementById('chartPlaceholder');
+  const chartCanvas=document.getElementById('logChart');
+  const legendToggle=document.getElementById('legendToggle');
+  let chart=null, parsedData=null;
+
+  uploadZone.addEventListener('click',()=>fileInput.click());
+  uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
+  uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('drag-over');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);});
+  fileInput.addEventListener('change',e=>{
+    if(e.target.files.length) handleFile(e.target.files[0]);
+    e.target.value='';
+  });
+
+  function handleFile(file){
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const data=Utils.parseLog(ev.target.result);
+      if(data.points.length===0){alert('未在文件中找到符合格式的数据行。\n\n期望格式：C: <数值>, B: <数值>, T: <数值>, Diff: <数值>');return;}
+      parsedData=data;
+      renderChart(data);renderStats(data);updateUploadUI(file.name,data.points.length);
+    };
+    reader.readAsText(file,'UTF-8');
+  }
+
+  function renderChart(data){
+    chartPlaceholder.style.display='none';
+    chartCanvas.style.display='block';
+    legendToggle.style.display='flex';
+    if(chart) chart.destroy();
+    const ctx=chartCanvas.getContext('2d');
+    chart=new Chart(ctx,Utils.makeChartConfig(
+      data.points.map(p=>p.diff),data.points.map(p=>p.c),data.points.map(p=>p.b),data.points.map(p=>p.t),false
+    ));
+  }
+
+  legendToggle.addEventListener('click',e=>{
+    const btn=e.target.closest('.toggle-btn');if(!btn)return;
+    btn.classList.toggle('inactive');
+    const idx={C:0,B:1,T:2}[btn.dataset.line];
+    chart.setDatasetVisibility(idx,!btn.classList.contains('inactive'));
+    chart.update();
+  });
+
+  function renderStats(data){
+    document.getElementById('totalCount').textContent=data.points.length;
+    document.getElementById('fileInfo').textContent=`Diff 范围: ${data.points[0].diff} ~ ${data.points[data.points.length-1].diff}`;
+    renderLineStats('c',data.points.map(p=>p.c));
+    renderLineStats('b',data.points.map(p=>p.b));
+    renderLineStats('t',data.points.map(p=>p.t));
+  }
+
+  function renderLineStats(prefix,values){
+    document.getElementById('stat'+prefix.toUpperCase()).style.display='block';
+    const min=Math.min(...values),max=Math.max(...values),avg=values.reduce((a,b)=>a+b,0)/values.length,range=max-min;
+    document.getElementById(prefix+'Min').textContent=min.toFixed(2);
+    document.getElementById(prefix+'Max').textContent=max.toFixed(2);
+    document.getElementById(prefix+'Avg').textContent=avg.toFixed(2);
+    document.getElementById(prefix+'Range').textContent=range.toFixed(2);
+    const refMax=Math.max(...parsedData.points.map(p=>p.c),...parsedData.points.map(p=>p.b),...parsedData.points.map(p=>p.t));
+    const refMin=Math.min(...parsedData.points.map(p=>p.c),...parsedData.points.map(p=>p.b),...parsedData.points.map(p=>p.t));
+    const globalRange=refMax-refMin||1;
+    document.getElementById(prefix+'Bar').style.width=Math.max(2,(range/globalRange)*100)+'%';
+  }
+
+  function updateUploadUI(filename,count){
+    uploadZone.classList.add('loaded');
+    uploadZone.innerHTML=`
+      <span class="upload-icon">✅</span>
+      <span class="upload-title">${Utils.escapeHtml(filename)}</span>
+      <span class="upload-hint">${count} 条有效数据 · 点击区域或按钮重新选择</span>
+      <button class="btn-reload" id="btnReload">重新选择</button>`;
+    document.getElementById('btnReload').addEventListener('click',e=>{e.stopPropagation();fileInput.click();});
+  }
+})();
+</script>
+</body>
+</html>
