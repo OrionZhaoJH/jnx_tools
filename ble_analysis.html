@@ -285,9 +285,11 @@ const Utils = {
   });
 
   function onDisconnected(){
-    // Stop all polling
+    // 停止所有轮询/订阅
     activePolls.forEach(id=>clearInterval(id));
     activePolls.clear();
+    // 复位 GATT Profile 到初始状态（与主动断开保持一致）
+    gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
@@ -346,6 +348,11 @@ const Utils = {
                   const dv=await ch.readValue();
                   logToPanel(prefix,shortU,formatDataView(dv));
                 }catch(err){
+                  // 设备已断开则停止该轮询，避免持续报错
+                  if(!device||!device.gatt||!device.gatt.connected){
+                    if(activePolls.has(ch)){clearInterval(activePolls.get(ch));activePolls.delete(ch);}
+                    return;
+                  }
                   logToPanel(prefix+'-Err',shortU,err.message);
                 }
               }
