@@ -255,20 +255,15 @@ const Utils = {
     try{
       setStatus('connecting','');
       const keyword=nameFilter.value.trim();
-      // Web Bluetooth API 的 requestDevice 仅支持 namePrefix / name 过滤，
-      // 不支持"包含"过滤。因此展示全部设备，连接前按"包含"规则二次校验。
-      const options={optionalServices:COMMON_SERVICES, acceptAllDevices:true};
+      // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
+      const options={optionalServices:COMMON_SERVICES};
+      if(keyword){
+        options.filters=[{namePrefix:keyword}];
+      }else{
+        options.acceptAllDevices=true;
+      }
       device=await navigator.bluetooth.requestDevice(options);
       device.addEventListener('gattserverdisconnected',onDisconnected);
-
-      // 名称包含校验：设备名需包含关键字（忽略大小写）
-      if(keyword && !(device.name||device.id).toLowerCase().includes(keyword.toLowerCase())){
-        alert('设备名 "'+(device.name||device.id)+'" 不包含 "'+keyword+'"，请重新选择。');
-        setStatus('disconnected','');
-        if(device.gatt&&device.gatt.connected) device.gatt.disconnect();
-        device=null;
-        return;
-      }
       setStatus('connecting', device.name||device.id);
       server=await device.gatt.connect();
       setStatus('connected', device.name||'未知设备');
