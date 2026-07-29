@@ -4,14 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BLE 分析工具</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
     --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
     --text:#1e293b; --text-muted:#64748b; --text-light:#94a3b8;
     --accent:#3b82f6; --accent-soft:#eff6ff;
-    --c-color:#3b82f6; --b-color:#f59e0b; --t-color:#10b981;
     --ble-color:#6366f1; --ble-soft:#eef2ff;
     --danger:#ef4444; --success:#10b981; --warn:#f59e0b;
     --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
@@ -54,13 +52,6 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-
-  /* ---- Chart ---- */
-  .chart-card{min-height:420px;display:flex;flex-direction:column;}
-  .chart-wrap{flex:1;position:relative;min-height:350px;}
-  .chart-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    height:100%;color:var(--text-light);}
-  .chart-placeholder .ph-icon{font-size:3rem;margin-bottom:8px;}
 
   /* ---- BLE page ---- */
   .ble-grid{display:grid;grid-template-columns:320px 1fr;gap:20px;margin-top:16px;}
@@ -114,27 +105,20 @@
   .char-prop.notify{background:#d1fae5;color:#065f46;}
   .char-prop.indicate{background:#e0e7ff;color:#3730a3;}
   .char-prop.other{background:#f1f5f9;color:var(--text-muted);}
-  .char-value{display:none;}
   .poll-interval{
     width:52px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;
     font-size:.75rem;font-family:'Consolas','Monaco',monospace;text-align:center;
   }
   .poll-ms{font-size:.7rem;color:var(--text-muted);}
 
-  /* BLE chart + raw log */
+  /* Raw log */
   .ble-right{display:flex;flex-direction:column;gap:16px;}
-  .ble-chart-card{min-height:340px;display:flex;flex-direction:column;}
   .raw-log{
     background:#1e293b;color:#a5b4fc;border-radius:8px;padding:12px 14px;
     font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
-    max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+    max-height:520px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
   }
   .raw-log:empty::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
-
-  .ble-stats{display:flex;gap:20px;flex-wrap:wrap;}
-  .ble-stat{font-size:.825rem;}
-  .ble-stat .num{font-size:1.3rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
-  .ble-stat .lbl{color:var(--text-muted);font-size:.78rem;}
 
   footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
   ::-webkit-scrollbar{width:8px;height:8px;}
@@ -150,7 +134,7 @@
 
   <header>
     <h1><span class="icon">🔵</span> BLE 分析工具</h1>
-    <p>通过 Web Bluetooth API 实时连接 BLE 设备，采集并可视化 ADC 数据。</p>
+    <p>通过 Web Bluetooth API 实时连接 BLE 设备，采集并记录数据。</p>
   </header>
 
   <div class="ble-warning" id="bleWarning">
@@ -177,31 +161,17 @@
       </div>
     </div>
 
-    <!-- Right: Chart + Raw Log -->
+    <!-- Right: Data Log -->
     <div class="ble-right">
-      <div class="card ble-chart-card">
-        <div class="card-title">
-          <span>实时折线图</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <div class="ble-stats">
-              <div class="ble-stat"><span class="num" id="blePointCount">0</span><span class="lbl"> 数据点</span></div>
-              <div class="ble-stat"><span class="num" id="bleRate">0</span><span class="lbl"> pts/s</span></div>
-            </div>
-            <button class="btn btn-sm" id="btnClearBle">清空</button>
-            <button class="btn btn-sm" id="btnExportBle" disabled>导出</button>
-          </div>
-        </div>
-        <div class="chart-wrap" style="min-height:280px;">
-          <div class="chart-placeholder" id="bleChartPlaceholder">
-            <div class="ph-icon">📊</div>
-            <div>连接 BLE 设备并接收数据后显示</div>
-          </div>
-          <canvas id="bleChart" style="display:none;"></canvas>
-        </div>
-      </div>
-
       <div class="card">
-        <div class="card-title"><span>数据日志</span></div>
+        <div class="card-title">
+          <span>数据日志</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:.825rem;color:var(--text-muted);"><span id="logLineCount">0</span> 行</span>
+            <button class="btn btn-sm" id="btnClearLog">清空</button>
+            <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
+          </div>
+        </div>
         <div class="raw-log" id="rawLog"></div>
       </div>
     </div>
@@ -215,39 +185,6 @@
  *  Shared Utilities
  * ================================================================ */
 const Utils = {
-  DATA_REGEX: /C\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*B\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*T\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*Diff\s*:\s*(-?\d+(?:\.\d+)?)/i,
-
-  parseLog(text){
-    const lines = text.split(/\r?\n/);
-    const points = [];
-    let skipped = 0;
-    for(const line of lines){
-      const trimmed = line.trim();
-      if(!trimmed){skipped++;continue;}
-      const m = trimmed.match(this.DATA_REGEX);
-      if(m){
-        points.push({c:parseFloat(m[1]),b:parseFloat(m[2]),t:parseFloat(m[3]),diff:parseFloat(m[4])});
-      } else { skipped++; }
-    }
-    points.sort((a,b)=>a.diff-b.diff);
-    return {points, skipped};
-  },
-
-  parseLine(line){
-    const m = line.match(this.DATA_REGEX);
-    if(m) return {c:parseFloat(m[1]),b:parseFloat(m[2]),t:parseFloat(m[3]),diff:parseFloat(m[4])};
-    return null;
-  },
-
-  getCSSVar(name){
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  },
-  hexToRgba(hex, alpha){
-    hex = hex.replace('#','');
-    if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
-    const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
-    return `rgba(${r},${g},${b},${alpha})`;
-  },
   escapeHtml(str){
     const d=document.createElement('div');d.textContent=str;return d.innerHTML;
   },
@@ -266,41 +203,6 @@ const Utils = {
     const m=uuid.match(/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i);
     return m?'0x'+m[1].toUpperCase():uuid;
   },
-  // Build a standard Chart.js config for C/B/T lines
-  makeChartConfig(labels, cData, bData, tData, realtime){
-    const c=Utils.getCSSVar('--c-color'),b=Utils.getCSSVar('--b-color'),t=Utils.getCSSVar('--t-color');
-    return {
-      type:'line',
-      data:{
-        labels:labels,
-        datasets:[
-          {label:'C',data:cData,borderColor:c,backgroundColor:Utils.hexToRgba(c,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
-          {label:'B',data:bData,borderColor:b,backgroundColor:Utils.hexToRgba(b,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
-          {label:'T',data:tData,borderColor:t,backgroundColor:Utils.hexToRgba(t,.1),borderWidth:2,pointRadius:realtime?0:3,pointHoverRadius:5,tension:.3,fill:false},
-        ]
-      },
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        animation: realtime?false:true,
-        interaction:{mode:'index',intersect:false},
-        plugins:{
-          legend:{display:false},
-          tooltip:{
-            backgroundColor:'rgba(30,41,59,.92)',titleColor:'#fff',bodyColor:'#e2e8f0',
-            borderColor:'rgba(255,255,255,.1)',borderWidth:1,padding:12,cornerRadius:8,
-            titleFont:{size:13,weight:'600'},bodyFont:{size:12},
-            callbacks:{title:items=>`Diff: ${items[0].label}`,label:ctx=>`  ${ctx.dataset.label}: ${ctx.parsed.y}`}
-          }
-        },
-        scales:{
-          x:{title:{display:true,text:'Diff (测量次数)',color:Utils.getCSSVar('--text-muted'),font:{size:12}},
-             grid:{color:'rgba(0,0,0,.05)'},ticks:{color:Utils.getCSSVar('--text-muted'),maxRotation:0,autoSkip:true,maxTicksLimit:20}},
-          y:{title:{display:true,text:'测量值',color:Utils.getCSSVar('--text-muted'),font:{size:12}},
-             grid:{color:'rgba(0,0,0,.05)'},ticks:{color:Utils.getCSSVar('--text-muted')}}
-        }
-      }
-    };
-  }
 };
 
 /* ================================================================
@@ -315,20 +217,17 @@ const Utils = {
   const bleDeviceName=document.getElementById('bleDeviceName');
   const bleWarning=document.getElementById('bleWarning');
   const gattTree=document.getElementById('gattTree');
-  const bleChartPlaceholder=document.getElementById('bleChartPlaceholder');
-  const bleChartCanvas=document.getElementById('bleChart');
   const rawLog=document.getElementById('rawLog');
-  const blePointCount=document.getElementById('blePointCount');
-  const bleRate=document.getElementById('bleRate');
-  const btnClearBle=document.getElementById('btnClearBle');
-  const btnExportBle=document.getElementById('btnExportBle');
+  const logLineCount=document.getElementById('logLineCount');
+  const btnClearLog=document.getElementById('btnClearLog');
+  const btnExportLog=document.getElementById('btnExportLog');
 
   // State
-  let device=null, server=null, bleChart=null;
-  let bleBuffer='', blePoints=[], bleRawLines=[];
-  let rateCount=0, rateTimer=null;
+  let device=null, server=null;
+  let bleBuffer='';
+  let bleRawLines=[];
   const activePolls=new Map(); // characteristic -> intervalId
-  const MAX_POINTS=500, MAX_RAW=200;
+  const MAX_RAW=500;
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
 
@@ -526,25 +425,12 @@ const Utils = {
 
   // ---- BLE Data Handling ----
 
-  // Log read/poll results to the right-side panel with timestamp
+  // Log read/poll results to the panel with timestamp
   function logToPanel(prefix,uuid,value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
     const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
-    bleRawLines.push(line);
-    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
-    rawLog.textContent=bleRawLines.join('\n');
-    rawLog.scrollTop=rawLog.scrollHeight;
-    // Try to parse as ADC data for chart
-    const pt=Utils.parseLine(value);
-    if(pt){
-      blePoints.push(pt);
-      if(blePoints.length>MAX_POINTS) blePoints.shift();
-      rateCount++;
-      updateBleChart();
-      blePointCount.textContent=blePoints.length;
-      btnExportBle.disabled=false;
-    }
+    appendRawLine(line);
   }
 
   function onCharChanged(event){
@@ -566,69 +452,29 @@ const Utils = {
 
   function processBleLine(line){
     if(!line) return;
-    // Add to raw log
+    appendRawLine(line);
+  }
+
+  function appendRawLine(line){
     bleRawLines.push(line);
     if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
     rawLog.textContent=bleRawLines.join('\n');
     rawLog.scrollTop=rawLog.scrollHeight;
-
-    // Parse and add to chart
-    const pt=Utils.parseLine(line);
-    if(pt){
-      blePoints.push(pt);
-      if(blePoints.length>MAX_POINTS) blePoints.shift();
-      rateCount++;
-      updateBleChart();
-      blePointCount.textContent=blePoints.length;
-      btnExportBle.disabled=false;
-    }
+    logLineCount.textContent=bleRawLines.length;
+    btnExportLog.disabled=false;
   }
 
-  function updateBleChart(){
-    if(blePoints.length===0) return;
-    if(bleChartPlaceholder) bleChartPlaceholder.style.display='none';
-    if(bleChartCanvas) bleChartCanvas.style.display='block';
-
-    const labels=blePoints.map(p=>p.diff);
-    if(!bleChart){
-      const ctx=bleChartCanvas.getContext('2d');
-      bleChart=new Chart(ctx,Utils.makeChartConfig(
-        labels,blePoints.map(p=>p.c),blePoints.map(p=>p.b),blePoints.map(p=>p.t),true
-      ));
-    }else{
-      bleChart.data.labels=labels;
-      bleChart.data.datasets[0].data=blePoints.map(p=>p.c);
-      bleChart.data.datasets[1].data=blePoints.map(p=>p.b);
-      bleChart.data.datasets[2].data=blePoints.map(p=>p.t);
-      bleChart.update('none');
-    }
-  }
-
-  // ---- Rate calculator ----
-  rateTimer=setInterval(()=>{
-    bleRate.textContent=rateCount;
-    rateCount=0;
-  },1000);
-
-  // ---- Clear ----
-  btnClearBle.addEventListener('click',()=>{
-    // Stop all polling
-    activePolls.forEach(id=>clearInterval(id));
-    activePolls.clear();
-    // Reset poll buttons
-    document.querySelectorAll('.char-poll-btn').forEach(b=>{b.textContent='订阅';b.classList.remove('btn-danger');});
-    blePoints=[];bleRawLines=[];bleBuffer='';
+  // ---- Clear log ----
+  btnClearLog.addEventListener('click',()=>{
+    bleRawLines=[];
+    bleBuffer='';
     rawLog.textContent='';
-    blePointCount.textContent='0';
-    bleRate.textContent='0';
-    if(bleChart){bleChart.destroy();bleChart=null;}
-    if(bleChartPlaceholder) bleChartPlaceholder.style.display='flex';
-    if(bleChartCanvas) bleChartCanvas.style.display='none';
-    btnExportBle.disabled=true;
+    logLineCount.textContent='0';
+    btnExportLog.disabled=true;
   });
 
-  // ---- Export ----
-  btnExportBle.addEventListener('click',()=>{
+  // ---- Export log ----
+  btnExportLog.addEventListener('click',()=>{
     if(bleRawLines.length===0) return;
     const content=bleRawLines.join('\n')+'\n';
     const blob=new Blob([content],{type:'text/plain'});
@@ -637,7 +483,7 @@ const Utils = {
     a.href=url;
     const now=new Date();
     const ts=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
-    a.download='ble_adc_'+ts+'.log';
+    a.download='ble_log_'+ts+'.log';
     a.click();
     URL.revokeObjectURL(url);
   });
