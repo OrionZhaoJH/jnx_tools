@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JNA 工具</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --text-muted:#64748b; --text-light:#94a3b8;
+    --accent:#3b82f6; --accent-soft:#eff6ff;
+    --ble-color:#6366f1; --ble-soft:#eef2ff;
+    --danger:#ef4444; --success:#10b981; --warn:#f59e0b;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --radius:12px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:24px; line-height:1.6;
+  }
+  .container{max-width:1240px;margin:0 auto;}
+
+  /* ---- Nav ---- */
+  .nav-back{
+    display:inline-flex;align-items:center;gap:6px;
+    color:var(--text-muted);font-size:.875rem;text-decoration:none;
+    margin-bottom:16px;transition:color .2s;
+  }
+  .nav-back:hover{color:var(--accent);}
+
+  header{margin-bottom:20px;}
+  header h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+  header h1 .icon{font-size:1.5rem;}
+  header p{color:var(--text-muted);margin-top:4px;font-size:.95rem;}
+
+  /* ---- Shared components ---- */
+  .btn{
+    padding:8px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    color:var(--text);font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--border);color:var(--text);}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-primary:hover{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .btn-danger:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
+  .btn-sm{padding:4px 12px;font-size:.8rem;}
+
+  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
+  .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  /* ---- BLE page ---- */
+  .ble-grid{display:grid;grid-template-columns:320px 1fr;gap:20px;margin-top:16px;}
+  @media(max-width:900px){.ble-grid{grid-template-columns:1fr;}}
+
+  .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .name-filter{display:flex;align-items:center;gap:6px;}
+  .name-filter label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .name-filter input{
+    padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:.875rem;color:var(--text);width:180px;transition:all .2s;outline:none;
+  }
+  .name-filter input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .name-filter input::placeholder{color:var(--text-light);}
+  .status-badge{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
+    font-size:.825rem;font-weight:500;
+  }
+  .status-badge .status-dot{width:8px;height:8px;border-radius:50%;}
+  .status-badge.disconnected{background:#f1f5f9;color:var(--text-muted);}
+  .status-badge.disconnected .status-dot{background:var(--text-light);}
+  .status-badge.connecting{background:#fef3c7;color:#92400e;}
+  .status-badge.connecting .status-dot{background:var(--warn);animation:pulse 1s infinite;}
+  .status-badge.connected{background:#d1fae5;color:#065f46;}
+  .status-badge.connected .status-dot{background:var(--success);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .device-name{font-size:.875rem;color:var(--text-muted);}
+  .device-name strong{color:var(--text);}
+
+  .ble-warning{
+    background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--radius);
+    padding:14px 18px;margin-bottom:16px;font-size:.875rem;color:#92400e;
+    display:none;
+  }
+  .ble-warning.show{display:block;}
+
+  /* GATT tree */
+  .gatt-tree{max-height:520px;overflow-y:auto;}
+  .gatt-service{margin-bottom:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .gatt-service-header{
+    padding:10px 14px;background:var(--bg);font-weight:600;font-size:.85rem;cursor:pointer;
+    display:flex;align-items:center;gap:8px;user-select:none;
+  }
+  .gatt-service-header:hover{background:var(--accent-soft);}
+  .gatt-service-header .arrow{transition:transform .2s;font-size:.75rem;color:var(--text-muted);}
+  .gatt-service.expanded .gatt-service-header .arrow{transform:rotate(90deg);}
+  .gatt-service-body{display:none;padding:4px 0;}
+  .gatt-service.expanded .gatt-service-body{display:block;}
+  .gatt-char{
+    padding:8px 14px 8px 36px;font-size:.825rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    border-top:1px solid var(--bg);
+  }
+  .gatt-char .char-uuid{font-family:'Consolas','Monaco',monospace;font-weight:600;color:var(--ble-color);}
+  .char-prop{
+    display:inline-block;padding:1px 8px;border-radius:10px;font-size:.7rem;font-weight:500;
+  }
+  .char-prop.read{background:#dbeafe;color:#1e40af;}
+  .char-prop.write{background:#fef3c7;color:#92400e;}
+  .char-prop.notify{background:#d1fae5;color:#065f46;}
+  .char-prop.indicate{background:#e0e7ff;color:#3730a3;}
+  .char-prop.other{background:#f1f5f9;color:var(--text-muted);}
+  .poll-interval{
+    width:52px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;
+    font-size:.75rem;font-family:'Consolas','Monaco',monospace;text-align:center;
+  }
+  .poll-ms{font-size:.7rem;color:var(--text-muted);}
+
+  /* Raw log */
+  .ble-right{display:flex;flex-direction:column;gap:16px;}
+  .raw-log{
+    background:#1e293b;color:#a5b4fc;border-radius:8px;padding:12px 14px;
+    font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
+    max-height:520px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+  }
+  .raw-log:empty::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
+
+  footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text-light);}
+  .raw-log::-webkit-scrollbar-thumb{background:#475569;}
+
+  /* JNA 解析数据面板 */
+  .jna-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:4px;}
+  .field-box{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px;transition:border-color .2s;
+  }
+  .field-label{font-size:.75rem;color:var(--text-muted);margin-bottom:4px;}
+  .field-value{
+    font-size:1.15rem;font-weight:700;color:var(--text);
+    font-family:'Consolas','Monaco',monospace;word-break:break-all;
+  }
+  .field-box.flash{animation:flashBg .7s ease;}
+  @keyframes flashBg{
+    0%{background:var(--ble-soft);border-color:var(--ble-color);}
+    100%{background:var(--surface);border-color:var(--border);}
+  }
+
+  /* JNA 模式：隐藏左侧 GATT Profile，右侧占满 */
+  .jna .gatt-card{display:none;}
+  .jna .ble-grid{grid-template-columns:1fr;}
+</style>
+</head>
+<body>
+<div class="container jna">
+  <a href="./index.html" class="nav-back">← 返回首页</a>
+
+  <header>
+    <h1><span class="icon">🔧</span> JNA 工具</h1>
+    <p>自动连接 JNA 开头的 BLE 设备，并以 1000ms 间隔订阅 FFE1 数据。</p>
+  </header>
+
+  <div class="ble-warning" id="bleWarning">
+    ⚠️ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome、Edge 或 Opera（需 HTTPS 或 localhost 访问）。
+  </div>
+
+  <div class="ble-toolbar">
+    <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
+    <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+    <div class="name-filter">
+      <label for="nameFilter">名称过滤</label>
+      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNA" value="JNA" autocomplete="off">
+    </div>
+    <div class="status-badge disconnected" id="bleStatus">
+      <span class="status-dot"></span><span id="bleStatusText">未连接</span>
+    </div>
+    <span class="device-name" id="bleDeviceName"></span>
+  </div>
+
+  <div class="ble-grid">
+    <!-- Left: GATT Profile (JNA 模式隐藏) -->
+    <div class="card gatt-card">
+      <div class="card-title">GATT Profile</div>
+      <div class="gatt-tree" id="gattTree">
+        <div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">
+          连接设备后将显示 GATT 服务与特征值
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Parsed Data + Data Log -->
+    <div class="ble-right">
+      <!-- 解析数据面板 -->
+      <div class="card">
+        <div class="card-title">解析数据 (FFE1)</div>
+        <div id="jnaFields" class="jna-fields" style="display:none;">
+          <div class="field-box" data-key="status"><div class="field-label">检测状态</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="detectTime"><div class="field-label">检测进行时间</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="result"><div class="field-label">检测结果</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="timestamp"><div class="field-label">时间戳</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="startTime"><div class="field-label">开始时间</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="endTime"><div class="field-label">结束时间</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="swVersion"><div class="field-label">软件版本号</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="C"><div class="field-label">C值</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="B"><div class="field-label">B值</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="T"><div class="field-label">T值</div><div class="field-value">--</div></div>
+        </div>
+        <div id="jnaFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">等待符合格式的数据包...</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>数据日志</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:.825rem;color:var(--text-muted);"><span id="logLineCount">0</span> 行</span>
+            <button class="btn btn-sm" id="btnClearLog">清空</button>
+            <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
+          </div>
+        </div>
+        <div class="raw-log" id="rawLog"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>JNA 工具 · 自动订阅 FFE1 · 数据均在本地处理</footer>
+</div>
+
+<script>
+/* ================================================================
+ *  Shared Utilities
+ * ================================================================ */
+const Utils = {
+  escapeHtml(str){
+    const d=document.createElement('div');d.textContent=str;return d.innerHTML;
+  },
+  formatUuid(uuid){
+    const known={
+      '00001800-0000-1000-8000-00805f9b34fb':'Generic Access',
+      '00001801-0000-1000-8000-00805f9b34fb':'Generic Attribute',
+      '0000180a-0000-1000-8000-00805f9b34fb':'Device Information',
+      '0000ffe0-0000-1000-8000-00805f9b34fb':'FFE0',
+      '0000ffe1-0000-1000-8000-00805f9b34fb':'FFE1 (Serial)',
+      '0000ffe2-0000-1000-8000-00805f9b34fb':'FFE2',
+    };
+    return known[uuid]||uuid;
+  },
+  shortUuid(uuid){
+    const m=uuid.match(/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i);
+    return m?'0x'+m[1].toUpperCase():uuid;
+  },
+};
+
+/* ================================================================
+ *  JNA Real-time  (isolated IIFE)
+ * ================================================================ */
+(function(){
+  // Elements
+  const btnConnect=document.getElementById('btnConnect');
+  const btnDisconnect=document.getElementById('btnDisconnect');
+  const bleStatus=document.getElementById('bleStatus');
+  const bleStatusText=document.getElementById('bleStatusText');
+  const bleDeviceName=document.getElementById('bleDeviceName');
+  const bleWarning=document.getElementById('bleWarning');
+  const gattTree=document.getElementById('gattTree');
+  const rawLog=document.getElementById('rawLog');
+  const logLineCount=document.getElementById('logLineCount');
+  const btnClearLog=document.getElementById('btnClearLog');
+  const btnExportLog=document.getElementById('btnExportLog');
+  const nameFilter=document.getElementById('nameFilter');
+  const jnaFields=document.getElementById('jnaFields');
+  const jnaFieldsEmpty=document.getElementById('jnaFieldsEmpty');
+  const fieldEls={};
+  jnaFields.querySelectorAll('.field-box').forEach(el=>{fieldEls[el.dataset.key]=el;});
+
+  // State
+  let device=null, server=null;
+  let bleRawLines=[];
+  const activePolls=new Map(); // characteristic -> intervalId
+  const MAX_RAW=500;
+  const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+  const POLL_INTERVAL=1000; // JNA 模式固定 1000ms 订阅 FFE1
+
+  // Check support
+  if(!navigator.bluetooth){
+    bleWarning.classList.add('show');
+    btnConnect.disabled=true;
+  }
+
+  // ---- Connect ----
+  btnConnect.addEventListener('click', async ()=>{
+    try{
+      setStatus('connecting','');
+      const keyword=nameFilter.value.trim();
+      // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
+      const options={optionalServices:COMMON_SERVICES};
+      if(keyword){
+        options.filters=[{namePrefix:keyword}];
+      }else{
+        options.acceptAllDevices=true;
+      }
+      device=await navigator.bluetooth.requestDevice(options);
+      device.addEventListener('gattserverdisconnected',onDisconnected);
+      setStatus('connecting', device.name||device.id);
+      server=await device.gatt.connect();
+      setStatus('connected', device.name||'未知设备');
+      btnConnect.disabled=true;
+      btnDisconnect.disabled=false;
+      // JNA 模式：连接后自动以 1000ms 间隔订阅 FFE1
+      await autoSubscribeFFE1(server);
+    }catch(err){
+      console.error('BLE connect error:',err);
+      setStatus('disconnected','');
+      if(err.name!=='NotFoundError'){
+        alert('连接失败: '+err.message);
+      }
+    }
+  });
+
+  // ---- Disconnect ----
+  btnDisconnect.addEventListener('click', ()=>{
+    if(device&&device.gatt.connected) device.gatt.disconnect();
+  });
+
+  function onDisconnected(){
+    // 停止所有轮询/订阅
+    activePolls.forEach(id=>clearInterval(id));
+    activePolls.clear();
+    // 复位 GATT Profile 到初始状态（与主动断开保持一致）
+    gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
+    // 复位解析数据面板
+    jnaFields.style.display='none';
+    jnaFieldsEmpty.style.display='block';
+    jnaFields.querySelectorAll('.field-value').forEach(el=>el.textContent='--');
+    jnaFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
+    setStatus('disconnected','');
+    btnConnect.disabled=false;
+    btnDisconnect.disabled=true;
+    device=null;server=null;
+  }
+
+  function setStatus(state, name){
+    bleStatus.className='status-badge '+state;
+    bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
+    if(name) bleDeviceName.innerHTML='设备: <strong>'+Utils.escapeHtml(name)+'</strong>';
+    else bleDeviceName.innerHTML='';
+  }
+
+  // ---- JNA 自动订阅 FFE1 ----
+  async function autoSubscribeFFE1(srv){
+    let target=null;
+    try{
+      const services=await srv.getPrimaryServices();
+      for(const svc of services){
+        const chars=await svc.getCharacteristics();
+        const ch=chars.find(c=>c.uuid.toLowerCase()===FFE1_SERVICE);
+        if(ch){target=ch;break;}
+      }
+    }catch(err){
+      console.warn('发现服务失败:',err);
+    }
+    if(!target){
+      logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
+      return;
+    }
+    const shortU=Utils.shortUuid(FFE1_SERVICE);
+
+    // 优先使用通知/指示（事件驱动，内容变化即触发，最优雅）
+    if(target.properties.notify||target.properties.indicate){
+      try{
+        await target.startNotifications();
+        target.addEventListener('characteristicvaluechanged',onCharChanged);
+        logToPanel('Sub', shortU, '已开启通知订阅（内容变化自动触发）');
+        return; // 已有设备推送，无需轮询
+      }catch(err){
+        console.warn('notify 订阅失败，回退到轮询:',err);
+      }
+    }
+
+    // 不支持通知时，回退为固定 1000ms 间隔轮询读取
+    if(target.properties.read){
+      const doPoll=async ()=>{
+        try{
+          const dv=await target.readValue();
+          handleJnaPacket(dv);
+        }catch(err){
+          // 设备已断开则停止该轮询，避免持续报错
+          if(!device||!device.gatt||!device.gatt.connected){
+            if(activePolls.has(target)){clearInterval(activePolls.get(target));activePolls.delete(target);}
+            return;
+          }
+          logToPanel('Poll-Err', shortU, err.message);
+        }
+      };
+      doPoll();
+      activePolls.set(target, setInterval(doPoll, POLL_INTERVAL));
+      logToPanel('Sub', shortU, '已回退到 '+POLL_INTERVAL+'ms 轮询订阅');
+    }
+  }
+
+  function formatDataView(dv){
+    const arr=[];
+    for(let i=0;i<dv.byteLength;i++) arr.push(dv.getUint8(i));
+    // Try as text first
+    const text=arr.map(b=>String.fromCharCode(b)).join('');
+    if(/^[\x20-\x7e\r\n\t]+$/.test(text)) return text.trim().substring(0,40);
+    return arr.map(b=>b.toString(16).padStart(2,'0')).join(' ');
+  }
+
+  // ---- BLE Data Handling ----
+
+  // Log read/poll results to the panel with timestamp
+  function logToPanel(prefix,uuid,value){
+    const now=new Date();
+    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
+    appendRawLine(line);
+  }
+
+  function onCharChanged(event){
+    handleJnaPacket(event.target.value);
+  }
+
+  // ---- JNA 二进制协议解析 ----
+  // 格式：20 字节，大端（高位在前）。
+  // 00 状态 / 01-02 检测进行时间 / 03-06 检测结果(float) /
+  // 07-08 时间戳 / 09-10 开始时间 / 11-12 结束时间 / 13 软件版本号 /
+  // 14-15 C值 / 16-17 B值 / 18-19 T值
+  function parseJna(dv){
+    if(dv.byteLength!==20) return null;
+    const status=dv.getUint8(0);
+    if(status>4) return null; // 仅接受文档定义的 0x00-0x04
+    const statusText=['未启动','正在检测','检测完成','待机超时','设备故障'][status]||('0x'+status.toString(16));
+    return {
+      status, statusText,
+      detectTime: dv.getUint16(1,false),
+      result: dv.getFloat32(3,false),
+      timestamp: dv.getUint16(7,false),
+      startTime: dv.getUint16(9,false),
+      endTime: dv.getUint16(11,false),
+      swVersion: dv.getUint8(13),
+      C: dv.getUint16(14,false),
+      B: dv.getUint16(16,false),
+      T: dv.getUint16(18,false),
+    };
+  }
+
+  function handleJnaPacket(dv){
+    const obj=parseJna(dv);
+    if(obj){
+      updateJnaTable(obj);
+    }
+    // 数据日志始终显示原始值（与上一版一致）
+    logToPanel(obj?'Data':'Raw', Utils.shortUuid(FFE1_SERVICE), formatDataView(dv));
+  }
+
+  function updateJnaTable(obj){
+    if(jnaFields.style.display==='none'){
+      jnaFields.style.display='grid';
+      jnaFieldsEmpty.style.display='none';
+    }
+    setField('status', obj.statusText);
+    setField('detectTime', String(obj.detectTime));
+    setField('result', isFinite(obj.result)?obj.result.toFixed(2):String(obj.result));
+    setField('timestamp', String(obj.timestamp));
+    setField('startTime', String(obj.startTime));
+    setField('endTime', String(obj.endTime));
+    setField('swVersion', 'v'+obj.swVersion);
+    setField('C', String(obj.C));
+    setField('B', String(obj.B));
+    setField('T', String(obj.T));
+  }
+
+  function setField(key, valueStr){
+    const el=fieldEls[key];
+    if(!el) return;
+    const valEl=el.querySelector('.field-value');
+    if(valEl.textContent!==valueStr){
+      valEl.textContent=valueStr;
+      el.classList.remove('flash');
+      void el.offsetWidth; // 触发重排以重启动画
+      el.classList.add('flash');
+    }
+  }
+
+  function appendRawLine(line){
+    bleRawLines.push(line);
+    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
+    rawLog.textContent=bleRawLines.join('\n');
+    rawLog.scrollTop=rawLog.scrollHeight;
+    logLineCount.textContent=bleRawLines.length;
+    btnExportLog.disabled=false;
+  }
+
+  // ---- Clear log ----
+  btnClearLog.addEventListener('click',()=>{
+    bleRawLines=[];
+    bleBuffer='';
+    rawLog.textContent='';
+    logLineCount.textContent='0';
+    btnExportLog.disabled=true;
+  });
+
+  // ---- Export log ----
+  btnExportLog.addEventListener('click',()=>{
+    if(bleRawLines.length===0) return;
+    const content=bleRawLines.join('\n')+'\n';
+    const blob=new Blob([content],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const now=new Date();
+    const ts=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
+    a.download='jna_log_'+ts+'.log';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  function pad(n){return String(n).padStart(2,'0');}
+})();
+</script>
+</body>
+</html>
