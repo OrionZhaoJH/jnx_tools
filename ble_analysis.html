@@ -152,6 +152,7 @@
   <div class="ble-toolbar">
     <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
     <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+    <button class="btn" id="btnClearCache" disabled><span>🧹</span> 清除缓存</button>
     <div class="name-filter">
       <label for="nameFilter">名称过滤</label>
       <input type="text" id="nameFilter" placeholder="设备名前缀，如 JN" value="JN" autocomplete="off">
@@ -234,9 +235,11 @@ const Utils = {
   const btnClearLog=document.getElementById('btnClearLog');
   const btnExportLog=document.getElementById('btnExportLog');
   const nameFilter=document.getElementById('nameFilter');
+  const btnClearCache=document.getElementById('btnClearCache');
 
   // State
   let device=null, server=null;
+  let lastDevice=null; // 断开后仍保留引用，供"清除缓存"使用
   let bleBuffer='';
   let bleRawLines=[];
   const activePolls=new Map(); // characteristic -> intervalId
@@ -263,12 +266,14 @@ const Utils = {
         options.acceptAllDevices=true;
       }
       device=await navigator.bluetooth.requestDevice(options);
+      lastDevice=device;
       device.addEventListener('gattserverdisconnected',onDisconnected);
       setStatus('connecting', device.name||device.id);
       server=await device.gatt.connect();
       setStatus('connected', device.name||'未知设备');
       btnConnect.disabled=true;
       btnDisconnect.disabled=false;
+      btnClearCache.disabled=false;
       await discoverGATT(server);
     }catch(err){
       console.error('BLE connect error:',err);
@@ -284,6 +289,28 @@ const Utils = {
     if(device&&device.gatt.connected) device.gatt.disconnect();
   });
 
+  // ---- Clear GATT cache (force fresh re-discovery next connect) ----
+  btnClearCache.addEventListener('click', async ()=>{
+    if(!lastDevice){
+      alert('当前没有可清除缓存的设备记录，请先连接一次该设备。');
+      return;
+    }
+    if(typeof lastDevice.forget!=='function'){
+      alert('当前浏览器不支持 device.forget()，无法从网页清除 GATT 缓存。\n可到系统蓝牙设置中“忽略/移除”该设备后再试。');
+      return;
+    }
+    try{
+      await lastDevice.forget();
+      logToPanel('Cache','--','已清除设备缓存，下次连接将重新识别 GATT');
+      btnClearCache.disabled=true;
+      lastDevice=null;
+      // forget 会触发断开，onDisconnected 已复位 UI；若仍连着则主动断开
+      if(device&&device.gatt&&device.gatt.connected) device.gatt.disconnect();
+    }catch(err){
+      alert('清除缓存失败: '+err.message);
+    }
+  });
+
   function onDisconnected(){
     // 停止所有轮询/订阅
     activePolls.forEach(id=>clearInterval(id));
@@ -293,6 +320,8 @@ const Utils = {
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
+    btnClearCache.disabled=!lastDevice;
+    lastDevice=device;
     device=null;server=null;
   }
 
