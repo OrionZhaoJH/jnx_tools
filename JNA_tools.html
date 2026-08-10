@@ -275,6 +275,10 @@
           <button class="btn btn-primary btn-sm" id="btnSetDetectTime">设置检测时间</button>
           <button class="btn btn-sm" id="btnReboot">设备重启</button>
           <button class="btn btn-sm" id="btnShutdown">设备关机</button>
+          <button class="btn btn-sm" id="btnIntegralSphereTest">积分球测试</button>
+          <button class="btn btn-sm" id="btnLightC">点亮C灯</button>
+          <button class="btn btn-sm" id="btnLightB">点亮B灯</button>
+          <button class="btn btn-sm" id="btnLightT">点亮T灯</button>
           <button class="btn btn-sm" id="btnSetThreshold" disabled>设置阈值</button>
           <button class="btn btn-sm" id="btnQueryCal" disabled>查询校准值</button>
         </div>
@@ -338,6 +342,10 @@ const Utils = {
   const btnSetDetectTime=document.getElementById('btnSetDetectTime');
   const btnReboot=document.getElementById('btnReboot');
   const btnShutdown=document.getElementById('btnShutdown');
+  const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
+  const btnLightC=document.getElementById('btnLightC');
+  const btnLightB=document.getElementById('btnLightB');
+  const btnLightT=document.getElementById('btnLightT');
   const btnSetThreshold=document.getElementById('btnSetThreshold');
   const btnQueryCal=document.getElementById('btnQueryCal');
   const btnPauseJna=document.getElementById('btnPauseJna');
@@ -556,7 +564,7 @@ const Utils = {
   }
 
   function lockCmdBar(ms){
-    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnSetThreshold,btnQueryCal,detectTimeSelect];
+    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnIntegralSphereTest,btnLightC,btnLightB,btnLightT,btnSetThreshold,btnQueryCal,detectTimeSelect];
     barEls.forEach(el=>{el._prevDisabled=el.disabled; el.disabled=true;});
     setTimeout(()=>{barEls.forEach(el=>{el.disabled=el._prevDisabled;});},ms);
   }
@@ -575,6 +583,14 @@ const Utils = {
   async function sendShutdown(){
     if(!confirm('确定要关闭设备吗？')) return;
     await writeCmd(buildFrame(0x03,0x02,[]));
+  }
+
+  async function sendIntegralSphereTest(){
+    await writeCmd(buildFrame(0x06,0x01,[]));
+  }
+
+  async function sendLight(lightId){
+    await writeCmd(buildFrame(0x07,lightId,[]));
   }
 
   function logCmd(direction, value){
@@ -703,6 +719,10 @@ const Utils = {
   });
   btnReboot.addEventListener('click', sendReboot);
   btnShutdown.addEventListener('click', sendShutdown);
+  btnIntegralSphereTest.addEventListener('click', sendIntegralSphereTest);
+  btnLightC.addEventListener('click', ()=>sendLight(0x01));
+  btnLightB.addEventListener('click', ()=>sendLight(0x02));
+  btnLightT.addEventListener('click', ()=>sendLight(0x03));
 
   // ---- Export log ----
   btnExportLog.addEventListener('click',()=>{
