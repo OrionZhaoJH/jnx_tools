@@ -273,7 +273,7 @@
             <option value="15" selected>15 分钟</option>
           </select>
           <button class="btn btn-primary btn-sm" id="btnSetDetectTime">设置检测时间</button>
-          <button class="btn btn-sm" id="btnReboot" disabled>设备重启</button>
+          <button class="btn btn-sm" id="btnReboot">设备重启</button>
           <button class="btn btn-sm" id="btnShutdown" disabled>设备关机</button>
           <button class="btn btn-sm" id="btnSetThreshold" disabled>设置阈值</button>
           <button class="btn btn-sm" id="btnQueryCal" disabled>查询校准值</button>
@@ -567,6 +567,11 @@ const Utils = {
     await writeCmd(buildFrame(0x01,0x02,data));
   }
 
+  async function sendReboot(){
+    if(!confirm('确定要重启设备吗？')) return;
+    await writeCmd(buildFrame(0x02,0x02,[]));
+  }
+
   function logCmd(direction, value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
@@ -691,6 +696,7 @@ const Utils = {
     const minutes=detectTimeSelect.value;
     sendSetDetectTime(minutes);
   });
+  btnReboot.addEventListener('click', sendReboot);
 
   // ---- Export log ----
   btnExportLog.addEventListener('click',()=>{
