@@ -49,6 +49,8 @@
   .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;}
   .btn-danger:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
   .btn-sm{padding:4px 12px;font-size:.8rem;}
+  .btn-warn{background:var(--warn);border-color:var(--warn);color:#fff;}
+  .btn-warn:hover{background:#d97706;border-color:#d97706;color:#fff;}
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
@@ -225,7 +227,10 @@
     <div class="ble-right">
       <!-- 解析数据面板 -->
       <div class="card">
-        <div class="card-title">解析数据 (FFE1)</div>
+        <div class="card-title">
+          <span>解析数据 (FFE1)</span>
+          <button class="btn btn-sm" id="btnPauseJna">暂停更新</button>
+        </div>
         <div id="jnaFields" class="jna-fields" style="display:none;">
           <div class="field-box" data-key="status"><div class="field-label">检测状态</div><div class="field-raw">--</div><div class="field-value">--</div></div>
           <div class="field-box" data-key="detectTime"><div class="field-label">检测进行时间</div><div class="field-raw">--</div><div class="field-value">--</div></div>
@@ -335,10 +340,12 @@ const Utils = {
   const btnShutdown=document.getElementById('btnShutdown');
   const btnSetThreshold=document.getElementById('btnSetThreshold');
   const btnQueryCal=document.getElementById('btnQueryCal');
+  const btnPauseJna=document.getElementById('btnPauseJna');
 
   // State
   let device=null, server=null;
   let ffe2Char=null;
+  let jnaPaused=false;
   let bleRawLines=[];
   const activePolls=new Map(); // characteristic -> intervalId
   const MAX_RAW=500;
@@ -402,6 +409,10 @@ const Utils = {
     jnaFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
     // 复位 FFE2 命令状态（保留命令日志）
     ffe2Char=null;
+    // 复位暂停状态
+    jnaPaused=false;
+    btnPauseJna.textContent='暂停更新';
+    btnPauseJna.classList.remove('btn-warn');
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
@@ -602,10 +613,10 @@ const Utils = {
 
   function handleJnaPacket(dv){
     const obj=parseJna(dv);
-    if(obj){
+    if(obj&&!jnaPaused){
       updateJnaTable(obj, dv);
     }
-    // 数据日志始终显示原始值（与上一版一致）
+    // 数据日志始终写入，不受暂停影响
     logToPanel(obj?'Data':'Raw', Utils.shortUuid(FFE1_SERVICE), formatDataView(dv));
   }
 
@@ -661,6 +672,17 @@ const Utils = {
     rawLog.textContent='';
     logLineCount.textContent='0';
     btnExportLog.disabled=true;
+  });
+
+  // ---- Pause/Resume JNA parsing ----
+  btnPauseJna.addEventListener('click',()=>{
+    jnaPaused=!jnaPaused;
+    btnPauseJna.textContent=jnaPaused?'继续更新':'暂停更新';
+    if(jnaPaused){
+      btnPauseJna.classList.add('btn-warn');
+    }else{
+      btnPauseJna.classList.remove('btn-warn');
+    }
   });
 
   // ---- Command buttons ----
