@@ -135,6 +135,19 @@
   ::-webkit-scrollbar-thumb:hover{background:var(--text-light);}
   .raw-log::-webkit-scrollbar-thumb{background:#475569;}
 
+  /* 命令交互区 */
+  .cmd-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .cmd-toolbar select{
+    padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);
+    background:var(--surface);color:var(--text);font-size:.875rem;outline:none;
+  }
+  .cmd-log{
+    background:#2e2a1e;color:#fcd34d;border-radius:8px;padding:12px 14px;
+    font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
+    max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+  }
+  .cmd-log:empty::before{content:'命令收发日志...';color:#a89f6a;}
+
   /* JNA 解析数据面板 */
   .jna-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:4px;}
   .field-box{
@@ -160,6 +173,15 @@
   /* JNA 模式：隐藏左侧 GATT Profile，右侧占满 */
   .jna .gatt-card{display:none;}
   .jna .ble-grid{grid-template-columns:1fr;}
+
+  /* 移动端：解析数据一行两个 */
+  @media(max-width:600px){
+    .jna-fields{grid-template-columns:repeat(2,1fr)!important;gap:8px;}
+    .field-box{padding:8px 10px;}
+    .field-label{font-size:.7rem;}
+    .field-value{font-size:1rem;}
+    .field-raw{font-size:.65rem;}
+  }
 </style>
 </head>
 <body>
@@ -230,6 +252,29 @@
         </div>
         <div class="raw-log" id="rawLog"></div>
       </div>
+
+      <!-- 命令交互 (FFE2) -->
+      <div class="card">
+        <div class="card-title">
+          <span>命令交互 (FFE2)</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-sm" id="btnClearCmd">清空</button>
+          </div>
+        </div>
+        <div class="cmd-toolbar">
+          <select id="detectTimeSelect">
+            <option value="5">5 分钟</option>
+            <option value="10">10 分钟</option>
+            <option value="15" selected>15 分钟</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btnSetDetectTime">设置检测时间</button>
+          <button class="btn btn-sm" id="btnReboot" disabled>设备重启</button>
+          <button class="btn btn-sm" id="btnShutdown" disabled>设备关机</button>
+          <button class="btn btn-sm" id="btnSetThreshold" disabled>设置阈值</button>
+          <button class="btn btn-sm" id="btnQueryCal" disabled>查询校准值</button>
+        </div>
+        <div class="cmd-log" id="cmdLog"></div>
+      </div>
     </div>
   </div>
 
@@ -282,14 +327,24 @@ const Utils = {
   const jnaFieldsEmpty=document.getElementById('jnaFieldsEmpty');
   const fieldEls={};
   jnaFields.querySelectorAll('.field-box').forEach(el=>{fieldEls[el.dataset.key]=el;});
+  const cmdLog=document.getElementById('cmdLog');
+  const btnClearCmd=document.getElementById('btnClearCmd');
+  const detectTimeSelect=document.getElementById('detectTimeSelect');
+  const btnSetDetectTime=document.getElementById('btnSetDetectTime');
+  const btnReboot=document.getElementById('btnReboot');
+  const btnShutdown=document.getElementById('btnShutdown');
+  const btnSetThreshold=document.getElementById('btnSetThreshold');
+  const btnQueryCal=document.getElementById('btnQueryCal');
 
   // State
   let device=null, server=null;
+  let ffe2Char=null;
   let bleRawLines=[];
   const activePolls=new Map(); // characteristic -> intervalId
   const MAX_RAW=500;
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
-  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+  const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE2_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
   const POLL_INTERVAL=1000; // JNA 模式固定 1000ms 订阅 FFE1
 
   // Check support
@@ -317,8 +372,9 @@ const Utils = {
       setStatus('connected', device.name||'未知设备');
       btnConnect.disabled=true;
       btnDisconnect.disabled=false;
-      // JNA 模式：连接后自动以 1000ms 间隔订阅 FFE1
+      // JNA 模式：连接后自动以 1000ms 间隔订阅 FFE1，并发现 FFE2 用于命令
       await autoSubscribeFFE1(server);
+      await discoverFFE2(server);
     }catch(err){
       console.error('BLE connect error:',err);
       setStatus('disconnected','');
@@ -344,6 +400,8 @@ const Utils = {
     jnaFieldsEmpty.style.display='block';
     jnaFields.querySelectorAll('.field-value, .field-raw').forEach(el=>el.textContent='--');
     jnaFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
+    // 复位 FFE2 命令状态（保留命令日志）
+    ffe2Char=null;
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
@@ -421,6 +479,92 @@ const Utils = {
   // ---- BLE Data Handling ----
 
   // Log read/poll results to the panel with timestamp
+  // ---- FFE2 命令交互 ----
+  async function discoverFFE2(srv){
+    try{
+      const services=await srv.getPrimaryServices();
+      for(const svc of services){
+        const chars=await svc.getCharacteristics();
+        const ch=chars.find(c=>c.uuid.toLowerCase()===FFE2_SERVICE);
+        if(ch){ffe2Char=ch;break;}
+      }
+    }catch(err){
+      console.warn('发现 FFE2 失败:',err);
+    }
+    if(ffe2Char){
+      logToPanel('CMD', Utils.shortUuid(FFE2_SERVICE), 'FFE2 已就绪');
+      if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
+        try{
+          await ffe2Char.startNotifications();
+          ffe2Char.addEventListener('characteristicvaluechanged',onFFE2Changed);
+        }catch(err){
+          console.warn('FFE2 notify 订阅失败:',err);
+        }
+      }
+    }else{
+      logToPanel('CMD-Err', Utils.shortUuid(FFE2_SERVICE), '未找到 FFE2');
+    }
+  }
+
+  function onFFE2Changed(event){
+    const dv=event.target.value;
+    logCmd('接收', formatDataView(dv));
+  }
+
+  function buildFrame(mainCmd, subCmd, dataArr=[]){
+    // 帧头 + 总长度 + 主/从指令 + 数据 + 帧尾；长度 = 3+1+1+1+N+1 = 7+N
+    const frame=[0x5B,0x0D,0x0A,7+dataArr.length,mainCmd,subCmd,...dataArr,0x5D];
+    return new Uint8Array(frame);
+  }
+
+  function frameToHex(frame){
+    return Array.from(frame,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  }
+
+  async function writeCmd(frame){
+    if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return;}
+    logCmd('发送', frameToHex(frame));
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+    }catch(err){
+      logCmd('发送失败', err.message);
+      return;
+    }
+    // 发送后禁用命令按钮栏 1s
+    lockCmdBar(1000);
+    // 发送后 500ms 读取 FFE2 值并打印
+    setTimeout(async ()=>{
+      if(!ffe2Char||!ffe2Char.properties.read) return;
+      try{
+        const dv=await ffe2Char.readValue();
+        logCmd('读取', formatDataView(dv));
+      }catch(err){
+        logCmd('读取失败', err.message);
+      }
+    },500);
+  }
+
+  function lockCmdBar(ms){
+    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnSetThreshold,btnQueryCal,detectTimeSelect];
+    barEls.forEach(el=>{el._prevDisabled=el.disabled; el.disabled=true;});
+    setTimeout(()=>{barEls.forEach(el=>{el.disabled=el._prevDisabled;});},ms);
+  }
+
+  async function sendSetDetectTime(minutes){
+    // 0x05/0x0A/0x0F 分别对应 5/10/15 分钟
+    const data=[Number(minutes)&0xFF];
+    await writeCmd(buildFrame(0x01,0x02,data));
+  }
+
+  function logCmd(direction, value){
+    const now=new Date();
+    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const line=`[${direction} @ ${ts}] ${value}`;
+    const p=document.createElement('div');p.textContent=line;
+    cmdLog.appendChild(p);
+    cmdLog.scrollTop=cmdLog.scrollHeight;
+  }
+
   function logToPanel(prefix,uuid,value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
@@ -514,10 +658,16 @@ const Utils = {
   // ---- Clear log ----
   btnClearLog.addEventListener('click',()=>{
     bleRawLines=[];
-    bleBuffer='';
     rawLog.textContent='';
     logLineCount.textContent='0';
     btnExportLog.disabled=true;
+  });
+
+  // ---- Command buttons ----
+  btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
+  btnSetDetectTime.addEventListener('click', ()=>{
+    const minutes=detectTimeSelect.value;
+    sendSetDetectTime(minutes);
   });
 
   // ---- Export log ----
