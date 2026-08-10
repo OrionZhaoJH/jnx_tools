@@ -274,7 +274,7 @@
           </select>
           <button class="btn btn-primary btn-sm" id="btnSetDetectTime">设置检测时间</button>
           <button class="btn btn-sm" id="btnReboot">设备重启</button>
-          <button class="btn btn-sm" id="btnShutdown" disabled>设备关机</button>
+          <button class="btn btn-sm" id="btnShutdown">设备关机</button>
           <button class="btn btn-sm" id="btnSetThreshold" disabled>设置阈值</button>
           <button class="btn btn-sm" id="btnQueryCal" disabled>查询校准值</button>
         </div>
@@ -572,6 +572,11 @@ const Utils = {
     await writeCmd(buildFrame(0x02,0x02,[]));
   }
 
+  async function sendShutdown(){
+    if(!confirm('确定要关闭设备吗？')) return;
+    await writeCmd(buildFrame(0x03,0x02,[]));
+  }
+
   function logCmd(direction, value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
@@ -697,6 +702,7 @@ const Utils = {
     sendSetDetectTime(minutes);
   });
   btnReboot.addEventListener('click', sendReboot);
+  btnShutdown.addEventListener('click', sendShutdown);
 
   // ---- Export log ----
   btnExportLog.addEventListener('click',()=>{
