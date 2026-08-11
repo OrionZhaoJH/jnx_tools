@@ -147,6 +147,13 @@
     100%{background:var(--surface);border-color:var(--border);}
   }
 
+  /* 解析数据：单元格数值变化闪烁提示 */
+  .channel-table td.flash{animation:flashCell .7s ease;}
+  @keyframes flashCell{
+    0%{background:var(--ble-soft);box-shadow:inset 0 0 0 2px var(--ble-color);}
+    100%{background:transparent;box-shadow:inset 0 0 0 2px transparent;}
+  }
+
   /* 高级统计：每个通道一行展示 */
   .channel-table{
     width:100%;border-collapse:separate;border-spacing:0;font-size:.875rem;
@@ -212,7 +219,7 @@
           <span>解析数据 (FFE2 查询响应)</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <label class="timeout-label" for="queryTimeout">等待(ms)</label>
-            <input type="number" id="queryTimeout" class="timeout-input" value="500" min="50" step="50" />
+            <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" />
             <button class="btn btn-primary btn-sm" id="btnQueryData">查询数据</button>
           </div>
         </div>
@@ -419,8 +426,10 @@ const Utils = {
     jncTableWrap.style.display='none';
     jncFieldsEmpty.style.display='block';
     channelRows.forEach(r=>{
-      r.tr.classList.remove('flash');
-      for(const line of LINES) r.cells[line].textContent='--';
+      for(const line of LINES){
+        r.cells[line].classList.remove('flash');
+        r.cells[line].textContent='--';
+      }
     });
     // 复位 FFE2
     ffe2Char=null;
@@ -555,9 +564,9 @@ const Utils = {
         const newVal=v==null?'--':String(v);
         if(td.textContent!==newVal){
           td.textContent=newVal;
-          row.tr.classList.remove('flash');
-          void row.tr.offsetWidth;
-          row.tr.classList.add('flash');
+          td.classList.remove('flash');
+          void td.offsetWidth;
+          td.classList.add('flash');
         }
       }
     }
