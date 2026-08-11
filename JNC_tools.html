@@ -502,7 +502,8 @@ const Utils = {
   //   A) 完整响应帧: 5B 0D 0A LL 0A 11 [24 字节数据] 5D
   //   B) 请求回显 + 数据: 5B 0D 0A 07 04 01 5D [24 字节数据]
   //   C) 裸 main/sub: 0A 11 [24 字节数据]
-  // 数据字节序：大端，12 通道 × 2 字节
+  // 数据字节序：大端，共 24 字节 = 12 个数值（4 通道 × C/B/T 三线，每值 2 字节）
+  // 排列顺序：C1,B1,T1, C2,B2,T2, C3,B3,T3, C4,B4,T4（按通道交替）
   function parseJncResponse(dv){
     const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
 
@@ -513,8 +514,8 @@ const Utils = {
         const dataStart=i+6;
         if(dataStart+24<=bytes.length){
           const vals=[];
-          for(let ch=0; ch<CHANNELS; ch++){
-            vals.push((bytes[dataStart+ch*2]<<8)|bytes[dataStart+ch*2+1]);
+          for(let k=0; k<12; k++){
+            vals.push((bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1]);
           }
           updateJncTable(vals);
           return true;
@@ -529,8 +530,8 @@ const Utils = {
         const dataStart=i+7;
         if(dataStart+24<=bytes.length){
           const vals=[];
-          for(let ch=0; ch<CHANNELS; ch++){
-            vals.push((bytes[dataStart+ch*2]<<8)|bytes[dataStart+ch*2+1]);
+          for(let k=0; k<12; k++){
+            vals.push((bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1]);
           }
           updateJncTable(vals);
           return true;
@@ -541,8 +542,8 @@ const Utils = {
     // Strategy C: 裸 0A 11 开头
     if(bytes.length>=26 && bytes[0]===0x0A && bytes[1]===0x11){
       const vals=[];
-      for(let ch=0; ch<CHANNELS; ch++){
-        vals.push((bytes[2+ch*2]<<8)|bytes[2+ch*2+1]);
+      for(let k=0; k<12; k++){
+        vals.push((bytes[2+k*2]<<8)|bytes[2+k*2+1]);
       }
       updateJncTable(vals);
       return true;
@@ -558,9 +559,11 @@ const Utils = {
     }
     for(let i=0;i<CHANNELS;i++){
       const row=channelRows[i];
-      const v=values[i];
-      for(const line of LINES){
+      for(let li=0; li<LINES.length; li++){
+        const line=LINES[li];
         const td=row.cells[line];
+        // 按通道交替布局：数值索引 = 通道*3 + 线序号（C=0,B=1,T=2）
+        const v=values[i*3+li];
         const newVal=v==null?'--':String(v);
         if(td.textContent!==newVal){
           td.textContent=newVal;
