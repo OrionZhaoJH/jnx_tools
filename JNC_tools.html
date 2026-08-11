@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JNC 工具</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --text-muted:#64748b; --text-light:#94a3b8;
+    --accent:#3b82f6; --accent-soft:#eff6ff;
+    --ble-color:#0ea5e9; --ble-soft:#e0f2fe;
+    --danger:#ef4444; --success:#10b981; --warn:#f59e0b;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --radius:12px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:24px; line-height:1.6;
+  }
+  .container{max-width:1240px;margin:0 auto;}
+
+  /* ---- Nav ---- */
+  .nav-back{
+    display:inline-flex;align-items:center;gap:6px;
+    color:var(--text-muted);font-size:.875rem;text-decoration:none;
+    margin-bottom:16px;transition:color .2s;
+  }
+  .nav-back:hover{color:var(--accent);}
+
+  header{margin-bottom:20px;}
+  header h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+  header h1 .icon{font-size:1.5rem;}
+  header p{color:var(--text-muted);margin-top:4px;font-size:.95rem;}
+
+  /* ---- Shared components ---- */
+  .btn{
+    padding:8px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    color:var(--text);font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--border);color:var(--text);}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-primary:hover{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .btn-danger:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
+  .btn-sm{padding:4px 12px;font-size:.8rem;}
+  .btn-warn{background:var(--warn);border-color:var(--warn);color:#fff;}
+  .btn-warn:hover{background:#d97706;border-color:#d97706;color:#fff;}
+
+  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
+  .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  /* ---- BLE page ---- */
+  .ble-grid{display:flex;flex-direction:column;gap:20px;margin-top:16px;}
+
+  .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .name-filter{display:flex;align-items:center;gap:6px;}
+  .name-filter label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .name-filter input{
+    padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:.875rem;color:var(--text);width:180px;transition:all .2s;outline:none;
+  }
+  .name-filter input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .name-filter input::placeholder{color:var(--text-light);}
+  .timeout-label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .timeout-input{
+    padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:.825rem;color:var(--text);width:72px;transition:all .2s;outline:none;
+  }
+  .timeout-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .timeout-input::-webkit-outer-spin-button,.timeout-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .status-badge{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
+    font-size:.825rem;font-weight:500;
+  }
+  .status-badge .status-dot{width:8px;height:8px;border-radius:50%;}
+  .status-badge.disconnected{background:#f1f5f9;color:var(--text-muted);}
+  .status-badge.disconnected .status-dot{background:var(--text-light);}
+  .status-badge.connecting{background:#fef3c7;color:#92400e;}
+  .status-badge.connecting .status-dot{background:var(--warn);animation:pulse 1s infinite;}
+  .status-badge.connected{background:#d1fae5;color:#065f46;}
+  .status-badge.connected .status-dot{background:var(--success);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .device-name{font-size:.875rem;color:var(--text-muted);}
+  .device-name strong{color:var(--text);}
+
+  .ble-warning{
+    background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--radius);
+    padding:14px 18px;margin-bottom:16px;font-size:.875rem;color:#92400e;
+    display:none;
+  }
+  .ble-warning.show{display:block;}
+
+  /* Raw log */
+  .ble-right{display:flex;flex-direction:column;gap:16px;}
+  .raw-log{
+    background:#1e293b;color:#a5b4fc;border-radius:8px;padding:12px 14px;
+    font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
+    max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+  }
+  .raw-log:empty::before{content:'等待数据... (查询请求/响应均显示在此)';color:#64748b;}
+
+  footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text-light);}
+  .raw-log::-webkit-scrollbar-thumb{background:#475569;}
+
+  /* 命令交互区 */
+  .cmd-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .cmd-toolbar select{
+    padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);
+    background:var(--surface);color:var(--text);font-size:.875rem;outline:none;
+  }
+  .cmd-log{
+    background:#2e2a1e;color:#fcd34d;border-radius:8px;padding:12px 14px;
+    font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
+    max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+  }
+  .cmd-log:empty::before{content:'命令收发日志...';color:#a89f6a;}
+
+  /* JNC 解析数据面板 */
+  .jnc-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:4px;}
+  .field-box{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px;transition:border-color .2s;
+  }
+  .field-label{font-size:.75rem;color:var(--text-muted);margin-bottom:4px;}
+  .field-value{
+    font-size:1.15rem;font-weight:700;color:var(--text);
+    font-family:'Consolas','Monaco',monospace;word-break:break-all;
+  }
+  .field-raw{
+    font-size:.7rem;color:var(--text-light);
+    font-family:'Consolas','Monaco',monospace;letter-spacing:.5px;
+    margin-bottom:2px;word-break:break-all;
+  }
+  .field-box.flash{animation:flashBg .7s ease;}
+  @keyframes flashBg{
+    0%{background:var(--ble-soft);border-color:var(--ble-color);}
+    100%{background:var(--surface);border-color:var(--border);}
+  }
+
+  /* 高级统计：每个通道一行展示 */
+  .channel-table{
+    width:100%;border-collapse:separate;border-spacing:0;font-size:.875rem;
+  }
+  .channel-table th,.channel-table td{
+    padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);
+  }
+  .channel-table th{
+    background:var(--bg);font-weight:600;font-size:.8rem;color:var(--text-muted);
+    text-transform:uppercase;letter-spacing:.5px;
+  }
+  .channel-table td{
+    font-family:'Consolas','Monaco',monospace;font-weight:600;
+  }
+  .channel-table td.lin-c{color:#0891b2;}
+  .channel-table td.lin-b{color:#7c3aed;}
+  .channel-table td.lin-t{color:#ea580c;}
+  .channel-table tr:last-child td{border-bottom:none;}
+
+  /* 移动端：解析数据一行两个 */
+  @media(max-width:600px){
+    .jnc-fields{grid-template-columns:repeat(2,1fr)!important;gap:8px;}
+    .field-box{padding:8px 10px;}
+    .field-label{font-size:.7rem;}
+    .field-value{font-size:1rem;}
+    .field-raw{font-size:.65rem;}
+    .channel-table th,.channel-table td{padding:6px 8px;font-size:.8rem;}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="./index.html" class="nav-back">← 返回首页</a>
+
+  <header>
+    <h1><span class="icon">🛰️</span> JNC 工具</h1>
+    <p>连接 JNC 开头的 BLE 设备，点击「解析数据」中的「查询数据」按钮，通过 FFE2 发送查询命令，等待一段时间后读取响应并解析 12 通道数据（等待时长可在「等待(ms)」输入框中设置，默认 500ms）。</p>
+  </header>
+
+  <div class="ble-warning" id="bleWarning">
+    ⚠️ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome、Edge 或 Opera（需 HTTPS 或 localhost 访问）。
+  </div>
+
+  <div class="ble-toolbar">
+    <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
+    <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+    <div class="name-filter">
+      <label for="nameFilter">名称过滤</label>
+      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNC" value="JNC" autocomplete="off">
+    </div>
+    <div class="status-badge disconnected" id="bleStatus">
+      <span class="status-dot"></span><span id="bleStatusText">未连接</span>
+    </div>
+    <span class="device-name" id="bleDeviceName"></span>
+  </div>
+
+  <div class="ble-grid">
+    <!-- Parsed Data + Data Log + Commands -->
+    <div class="ble-right">
+      <!-- 解析数据面板 -->
+      <div class="card">
+        <div class="card-title">
+          <span>解析数据 (FFE2 查询响应)</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label class="timeout-label" for="queryTimeout">等待(ms)</label>
+            <input type="number" id="queryTimeout" class="timeout-input" value="500" min="50" step="50" />
+            <button class="btn btn-primary btn-sm" id="btnQueryData">查询数据</button>
+          </div>
+        </div>
+        <div id="jncTableWrap" style="display:none;">
+          <table class="channel-table">
+            <thead>
+              <tr><th>通道</th><th>C线</th><th>B线</th><th>T线</th></tr>
+            </thead>
+            <tbody id="jncTableBody"></tbody>
+          </table>
+        </div>
+        <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">
+          点击「查询数据」后将显示 12 通道解析结果
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>数据日志</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:.825rem;color:var(--text-muted);"><span id="logLineCount">0</span> 行</span>
+            <button class="btn btn-sm" id="btnClearLog">清空</button>
+            <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
+          </div>
+        </div>
+        <div class="raw-log" id="rawLog"></div>
+      </div>
+
+      <!-- 命令交互 (FFE2) -->
+      <div class="card">
+        <div class="card-title">
+          <span>命令交互 (FFE2)</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-sm" id="btnClearCmd">清空</button>
+          </div>
+        </div>
+        <div class="cmd-toolbar">
+          <select id="detectTimeSelect">
+            <option value="5">5 分钟</option>
+            <option value="10">10 分钟</option>
+            <option value="15" selected>15 分钟</option>
+          </select>
+          <button class="btn btn-sm" id="btnSetDetectTime">设置检测时间</button>
+          <button class="btn btn-sm" id="btnReboot">设备重启</button>
+          <button class="btn btn-sm" id="btnShutdown">设备关机</button>
+          <button class="btn btn-sm" id="btnIntegralSphereTest">积分球测试</button>
+          <button class="btn btn-sm" id="btnLightC">点亮C灯</button>
+          <button class="btn btn-sm" id="btnLightB">点亮B灯</button>
+          <button class="btn btn-sm" id="btnLightT">点亮T灯</button>
+        </div>
+        <div class="cmd-log" id="cmdLog"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>JNC 工具 · FFE2 命令查询 · 数据均在本地处理</footer>
+</div>
+
+<script>
+/* ================================================================
+ *  Shared Utilities
+ * ================================================================ */
+const Utils = {
+  escapeHtml(str){
+    const d=document.createElement('div');d.textContent=str;return d.innerHTML;
+  },
+  formatUuid(uuid){
+    const known={
+      '00001800-0000-1000-8000-00805f9b34fb':'Generic Access',
+      '00001801-0000-1000-8000-00805f9b34fb':'Generic Attribute',
+      '0000180a-0000-1000-8000-00805f9b34fb':'Device Information',
+      '0000ffe0-0000-1000-8000-00805f9b34fb':'FFE0',
+      '0000ffe1-0000-1000-8000-00805f9b34fb':'FFE1 (Serial)',
+      '0000ffe2-0000-1000-8000-00805f9b34fb':'FFE2',
+    };
+    return known[uuid]||uuid;
+  },
+  shortUuid(uuid){
+    const m=uuid.match(/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i);
+    return m?'0x'+m[1].toUpperCase():uuid;
+  },
+};
+
+/* ================================================================
+ *  JNC Polling  (isolated IIFE)
+ * ================================================================ */
+(function(){
+  // Elements
+  const btnConnect=document.getElementById('btnConnect');
+  const btnDisconnect=document.getElementById('btnDisconnect');
+  const bleStatus=document.getElementById('bleStatus');
+  const bleStatusText=document.getElementById('bleStatusText');
+  const bleDeviceName=document.getElementById('bleDeviceName');
+  const bleWarning=document.getElementById('bleWarning');
+  const rawLog=document.getElementById('rawLog');
+  const logLineCount=document.getElementById('logLineCount');
+  const btnClearLog=document.getElementById('btnClearLog');
+  const btnExportLog=document.getElementById('btnExportLog');
+  const nameFilter=document.getElementById('nameFilter');
+  const jncTableWrap=document.getElementById('jncTableWrap');
+  const jncTableBody=document.getElementById('jncTableBody');
+  const jncFieldsEmpty=document.getElementById('jncFieldsEmpty');
+  const queryTimeout=document.getElementById('queryTimeout');
+  const btnQueryData=document.getElementById('btnQueryData');
+  const cmdLog=document.getElementById('cmdLog');
+  const btnClearCmd=document.getElementById('btnClearCmd');
+  const detectTimeSelect=document.getElementById('detectTimeSelect');
+  const btnSetDetectTime=document.getElementById('btnSetDetectTime');
+  const btnReboot=document.getElementById('btnReboot');
+  const btnShutdown=document.getElementById('btnShutdown');
+  const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
+  const btnLightC=document.getElementById('btnLightC');
+  const btnLightB=document.getElementById('btnLightB');
+  const btnLightT=document.getElementById('btnLightT');
+
+  // Init table rows (4 channels × 3 lines)
+  const CHANNELS=4;
+  const LINES=['C','B','T'];
+  const channelRows=[];
+  for(let ch=1; ch<=CHANNELS; ch++){
+    const tr=document.createElement('tr');
+    const th=document.createElement('td');
+    th.textContent='通道 '+ch;
+    th.style.fontWeight='700';
+    tr.appendChild(th);
+    const cells={};
+    for(const line of LINES){
+      const td=document.createElement('td');
+      td.className='lin-'+line.toLowerCase();
+      td.textContent='--';
+      tr.appendChild(td);
+      cells[line]=td;
+    }
+    jncTableBody.appendChild(tr);
+    channelRows.push({ch, tr, cells});
+  }
+
+  // State
+  let device=null, server=null;
+  let ffe2Char=null;
+  let bleRawLines=[];
+  const MAX_RAW=500;
+  const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
+  const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE2_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+
+  // Query state
+  let querying=false;
+  let queryReadTimer=null;
+  // 读取「等待(ms)」输入框，校验范围 [50, 60000]，默认 500
+  function getQueryTimeout(){
+    let v=parseInt(queryTimeout.value, 10);
+    if(isNaN(v)||v<50) v=500;
+    if(v>60000) v=60000;
+    return v;
+  }
+
+  // Check support
+  if(!navigator.bluetooth){
+    bleWarning.classList.add('show');
+    btnConnect.disabled=true;
+  }
+
+  // ---- Connect ----
+  btnConnect.addEventListener('click', async ()=>{
+    try{
+      setStatus('connecting','');
+      const keyword=nameFilter.value.trim();
+      const options={optionalServices:COMMON_SERVICES};
+      if(keyword){
+        options.filters=[{namePrefix:keyword}];
+      }else{
+        options.acceptAllDevices=true;
+      }
+      device=await navigator.bluetooth.requestDevice(options);
+      device.addEventListener('gattserverdisconnected',onDisconnected);
+      setStatus('connecting', device.name||device.id);
+      server=await device.gatt.connect();
+      setStatus('connected', device.name||'未知设备');
+      btnConnect.disabled=true;
+      btnDisconnect.disabled=false;
+      // 发现 FFE2 用于命令和查询
+      await discoverFFE2(server);
+    }catch(err){
+      console.error('BLE connect error:',err);
+      setStatus('disconnected','');
+      if(err.name!=='NotFoundError'){
+        alert('连接失败: '+err.message);
+      }
+    }
+  });
+
+  // ---- Disconnect ----
+  btnDisconnect.addEventListener('click', ()=>{
+    if(device&&device.gatt.connected) device.gatt.disconnect();
+  });
+
+  function onDisconnected(){
+    // 复位查询状态
+    querying=false;
+    if(queryReadTimer) clearTimeout(queryReadTimer);
+    queryReadTimer=null;
+    // 复位解析数据面板
+    jncTableWrap.style.display='none';
+    jncFieldsEmpty.style.display='block';
+    channelRows.forEach(r=>{
+      r.tr.classList.remove('flash');
+      for(const line of LINES) r.cells[line].textContent='--';
+    });
+    // 复位 FFE2
+    ffe2Char=null;
+    setStatus('disconnected','');
+    btnConnect.disabled=false;
+    btnDisconnect.disabled=true;
+    device=null;server=null;
+  }
+
+  function setStatus(state, name){
+    bleStatus.className='status-badge '+state;
+    bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
+    if(name) bleDeviceName.innerHTML='设备: <strong>'+Utils.escapeHtml(name)+'</strong>';
+    else bleDeviceName.innerHTML='';
+  }
+
+  // ---- FFE2 发现 ----
+  async function discoverFFE2(srv){
+    try{
+      const services=await srv.getPrimaryServices();
+      for(const svc of services){
+        const chars=await svc.getCharacteristics();
+        const ch=chars.find(c=>c.uuid.toLowerCase()===FFE2_SERVICE);
+        if(ch){ffe2Char=ch;break;}
+      }
+    }catch(err){
+      console.warn('发现 FFE2 失败:',err);
+    }
+    if(ffe2Char){
+      logToPanel('CMD', Utils.shortUuid(FFE2_SERVICE), 'FFE2 已就绪');
+      // 同时订阅通知作为响应接收的备用通道
+      if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
+        try{
+          await ffe2Char.startNotifications();
+          ffe2Char.addEventListener('characteristicvaluechanged',onFFE2Changed);
+        }catch(err){
+          console.warn('FFE2 notify 订阅失败:',err);
+        }
+      }
+    }else{
+      logToPanel('CMD-Err', Utils.shortUuid(FFE2_SERVICE), '未找到 FFE2');
+    }
+  }
+
+  function onFFE2Changed(event){
+    const dv=event.target.value;
+    const ok=parseJncResponse(dv);
+    logToPanel(ok?'Data':'Notify', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv));
+  }
+
+  function formatDataView(dv){
+    const arr=[];
+    for(let i=0;i<dv.byteLength;i++) arr.push(dv.getUint8(i));
+    const text=arr.map(b=>String.fromCharCode(b)).join('');
+    if(/^[\x20-\x7e\r\n\t]+$/.test(text)) return text.trim().substring(0,40);
+    return arr.map(b=>b.toString(16).padStart(2,'0')).join(' ');
+  }
+
+  function buildFrame(mainCmd, subCmd, dataArr=[]){
+    const frame=[0x5B,0x0D,0x0A,7+dataArr.length,mainCmd,subCmd,...dataArr,0x5D];
+    return new Uint8Array(frame);
+  }
+
+  function frameToHex(frame){
+    return Array.from(frame,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  }
+
+  // ---- JNC 数据请求 + 响应解析 ----
+  // 响应可能出现的格式：
+  //   A) 完整响应帧: 5B 0D 0A LL 0A 11 [24 字节数据] 5D
+  //   B) 请求回显 + 数据: 5B 0D 0A 07 04 01 5D [24 字节数据]
+  //   C) 裸 main/sub: 0A 11 [24 字节数据]
+  // 数据字节序：大端，12 通道 × 2 字节
+  function parseJncResponse(dv){
+    const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+
+    // Strategy A: 搜索响应帧 5B 0D 0A ?? 0A 11
+    for(let i=0; i<=bytes.length-6; i++){
+      if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
+         bytes[i+4]===0x0A && bytes[i+5]===0x11){
+        const dataStart=i+6;
+        if(dataStart+24<=bytes.length){
+          const vals=[];
+          for(let ch=0; ch<CHANNELS; ch++){
+            vals.push((bytes[dataStart+ch*2]<<8)|bytes[dataStart+ch*2+1]);
+          }
+          updateJncTable(vals);
+          return true;
+        }
+      }
+    }
+
+    // Strategy B: 搜索请求回显 5B 0D 0A 07 04 01 5D，取后续 24 字节
+    for(let i=0; i<=bytes.length-7; i++){
+      if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
+         bytes[i+3]===0x07 && bytes[i+4]===0x04 && bytes[i+5]===0x01 && bytes[i+6]===0x5D){
+        const dataStart=i+7;
+        if(dataStart+24<=bytes.length){
+          const vals=[];
+          for(let ch=0; ch<CHANNELS; ch++){
+            vals.push((bytes[dataStart+ch*2]<<8)|bytes[dataStart+ch*2+1]);
+          }
+          updateJncTable(vals);
+          return true;
+        }
+      }
+    }
+
+    // Strategy C: 裸 0A 11 开头
+    if(bytes.length>=26 && bytes[0]===0x0A && bytes[1]===0x11){
+      const vals=[];
+      for(let ch=0; ch<CHANNELS; ch++){
+        vals.push((bytes[2+ch*2]<<8)|bytes[2+ch*2+1]);
+      }
+      updateJncTable(vals);
+      return true;
+    }
+
+    return false;
+  }
+
+  function updateJncTable(values){
+    if(jncTableWrap.style.display==='none'){
+      jncTableWrap.style.display='block';
+      jncFieldsEmpty.style.display='none';
+    }
+    for(let i=0;i<CHANNELS;i++){
+      const row=channelRows[i];
+      const v=values[i];
+      for(const line of LINES){
+        const td=row.cells[line];
+        const newVal=v==null?'--':String(v);
+        if(td.textContent!==newVal){
+          td.textContent=newVal;
+          row.tr.classList.remove('flash');
+          void row.tr.offsetWidth;
+          row.tr.classList.add('flash');
+        }
+      }
+    }
+  }
+
+  // ---- 单次查询控制 ----
+  // 点击「查询数据」→ 发送查询帧 → 等待 N ms（输入框可设）→ 读取响应 → 解析
+  async function queryData(){
+    if(querying) return;
+    if(!ffe2Char||!device||!device.gatt.connected){
+      logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), 'FFE2 未就绪，请先连接设备');
+      return;
+    }
+    querying=true;
+    btnQueryData.disabled=true;
+    btnQueryData.textContent='查询中...';
+    const waitMs=getQueryTimeout();
+    const frame=buildFrame(0x04, 0x01, []);
+    logToPanel('Req', Utils.shortUuid(FFE2_SERVICE), frameToHex(frame));
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+    }catch(err){
+      logToPanel('Req-Err', Utils.shortUuid(FFE2_SERVICE), err.message);
+      return resetQueryBtn();
+    }
+    // 等待 N ms 让设备处理并写入响应
+    await new Promise(resolve=>{queryReadTimer=setTimeout(resolve, waitMs);});
+    if(!ffe2Char||!device||!device.gatt.connected) return resetQueryBtn();
+    if(!ffe2Char.properties.read) return resetQueryBtn();
+    try{
+      const dv=await ffe2Char.readValue();
+      const ok=parseJncResponse(dv);
+      logToPanel(ok?'Data':'Raw', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv));
+    }catch(err){
+      logToPanel('Timeout', Utils.shortUuid(FFE2_SERVICE), '读取响应失败 ('+err.message+')');
+    }finally{
+      resetQueryBtn();
+    }
+  }
+
+  function resetQueryBtn(){
+    querying=false;
+    if(queryReadTimer) clearTimeout(queryReadTimer);
+    queryReadTimer=null;
+    btnQueryData.disabled=false;
+    btnQueryData.textContent='查询数据';
+  }
+
+  // ---- FFE2 命令 ----
+  async function writeCmd(frame){
+    if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return;}
+    logCmd('发送', frameToHex(frame));
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+    }catch(err){
+      logCmd('发送失败', err.message);
+      return;
+    }
+    // 发送后 500ms 读取响应
+    setTimeout(async ()=>{
+      if(!ffe2Char||!ffe2Char.properties.read) return;
+      try{
+        const dv=await ffe2Char.readValue();
+        logCmd('读取', formatDataView(dv));
+        parseJncResponse(dv);
+      }catch(err){
+        logCmd('读取失败', err.message);
+      }
+    },500);
+  }
+
+  function lockCmdBar(ms){
+    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnIntegralSphereTest,btnLightC,btnLightB,btnLightT,detectTimeSelect];
+    barEls.forEach(el=>{el._prevDisabled=el.disabled; el.disabled=true;});
+    setTimeout(()=>{barEls.forEach(el=>{el.disabled=el._prevDisabled;});},ms);
+  }
+
+  async function sendSetDetectTime(minutes){
+    const data=[Number(minutes)&0xFF];
+    await writeCmd(buildFrame(0x01,0x02,data));
+  }
+
+  async function sendReboot(){
+    if(!confirm('确定要重启设备吗？')) return;
+    await writeCmd(buildFrame(0x02,0x02,[]));
+  }
+
+  async function sendShutdown(){
+    if(!confirm('确定要关闭设备吗？')) return;
+    await writeCmd(buildFrame(0x03,0x02,[]));
+  }
+
+  async function sendIntegralSphereTest(){
+    await writeCmd(buildFrame(0x06,0x01,[]));
+  }
+
+  async function sendLight(lightId){
+    await writeCmd(buildFrame(0x07,lightId,[]));
+  }
+
+  function logCmd(direction, value){
+    const now=new Date();
+    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const line=`[${direction} @ ${ts}] ${value}`;
+    const p=document.createElement('div');p.textContent=line;
+    cmdLog.appendChild(p);
+    cmdLog.scrollTop=cmdLog.scrollHeight;
+  }
+
+  function logToPanel(prefix,uuid,value){
+    const now=new Date();
+    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
+    appendRawLine(line);
+  }
+
+  function appendRawLine(line){
+    bleRawLines.push(line);
+    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
+    rawLog.textContent=bleRawLines.join('\n');
+    rawLog.scrollTop=rawLog.scrollHeight;
+    logLineCount.textContent=bleRawLines.length;
+    btnExportLog.disabled=false;
+  }
+
+  // ---- UI events ----
+  btnClearLog.addEventListener('click',()=>{
+    bleRawLines=[];
+    rawLog.textContent='';
+    logLineCount.textContent='0';
+    btnExportLog.disabled=true;
+  });
+
+  btnQueryData.addEventListener('click', queryData);
+
+  btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
+  btnSetDetectTime.addEventListener('click', ()=>{
+    const minutes=detectTimeSelect.value;
+    sendSetDetectTime(minutes);
+  });
+  btnReboot.addEventListener('click', sendReboot);
+  btnShutdown.addEventListener('click', sendShutdown);
+  btnIntegralSphereTest.addEventListener('click', sendIntegralSphereTest);
+  btnLightC.addEventListener('click', ()=>sendLight(0x01));
+  btnLightB.addEventListener('click', ()=>sendLight(0x02));
+  btnLightT.addEventListener('click', ()=>sendLight(0x03));
+
+  btnExportLog.addEventListener('click',()=>{
+    if(bleRawLines.length===0) return;
+    const content=bleRawLines.join('\n')+'\n';
+    const blob=new Blob([content],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const now=new Date();
+    const ts=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
+    a.download='jnc_log_'+ts+'.log';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  function pad(n){return String(n).padStart(2,'0');}
+})();
+</script>
+</body>
+</html>

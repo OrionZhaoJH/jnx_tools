@@ -7,13 +7,17 @@ JNx 系列产品辅助工具集合，数据均在本地处理，不上传任何�
 | 工具 | 说明 | 入口 |
 | --- | --- | --- |
 | ADC 数据分析 | 离线分析 ADC 日志文件，支持 C / B / T / Diff 数据折线图与统计 | [adc_analysis.html](adc_analysis.html) |
-| BLE 分析 | 通过 Web Bluetooth API 实时连接 BLE 设备，采集并可视化 ADC 数据 | [ble_analysis.html](ble_analysis.html) |
+| BLE 分析 | 通过 Web Bluetooth API 实时连接 BLE 设备，采集并记录 ADC 数据 | [ble_analysis.html](ble_analysis.html) |
+| JNA 工具 | 自动连接 JNA 开头的 BLE 设备，并以 1000ms 间隔订阅 FFE1 数据 | [JNA_tools.html](JNA_tools.html) |
+| JNC 工具 | 连接 JNC 开头的 BLE 设备，通过 FFE2 命令轮询 12 通道数据（C/B/T） | [JNC_tools.html](JNC_tools.html) |
 
 ## 目录说明
 
 - [index.html](index.html) ：工具箱首页，展示所有工具入口卡片（可扩展）
 - [adc_analysis.html](adc_analysis.html) ：ADC 数据分析工具
 - [ble_analysis.html](ble_analysis.html) ：BLE 分析工具
+- [JNA_tools.html](JNA_tools.html) ：JNA 工具（FFE1 自动订阅）
+- [JNC_tools.html](JNC_tools.html) ：JNC 工具（FFE2 命令轮询）
 
 ### 新增工具
 
