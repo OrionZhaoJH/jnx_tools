@@ -127,6 +127,18 @@
     max-height:520px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
   }
   .raw-log:empty::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
+  /* 日志按方向着色 */
+  .log-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;}
+  .log-out{color:#86efac;}   /* 发送 (Req) — 绿 */
+  .log-in{color:#a5b4fc;}    /* 接收 (Data/Raw/Notify) — 靛蓝 */
+  .log-err{color:#fca5a5;}   /* 错误 — 红 */
+  .log-sys{color:#94a3b8;}   /* 系统/状态 (CMD/Sub) — 灰 */
+  .log-legend{display:flex;gap:14px;align-items:center;font-size:.75rem;color:var(--text-muted);font-weight:400;}
+  .log-legend span{display:inline-flex;align-items:center;gap:4px;}
+  .log-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .lg-out{background:#86efac;}
+  .lg-in{background:#a5b4fc;}
+  .lg-err{background:#fca5a5;}
 
   footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
   ::-webkit-scrollbar{width:8px;height:8px;}
@@ -179,7 +191,12 @@
       <div class="card">
         <div class="card-title">
           <span>数据日志</span>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div class="log-legend" title="颜色说明">
+              <span><i class="lg-out"></i>发送</span>
+              <span><i class="lg-in"></i>接收</span>
+              <span><i class="lg-err"></i>错误</span>
+            </div>
             <span style="font-size:.825rem;color:var(--text-muted);"><span id="logLineCount">0</span> 行</span>
             <button class="btn btn-sm" id="btnClearLog">清空</button>
             <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
@@ -480,11 +497,33 @@ const Utils = {
   // ---- BLE Data Handling ----
 
   // Log read/poll results to the panel with timestamp
+  function logCategory(prefix){
+    if(prefix==='Req') return 'out';                          // 发送
+    if(prefix==='Data'||prefix==='Raw'||prefix==='Notify') return 'in'; // 接收
+    if(prefix==='Req-Err'||prefix==='Err'||prefix==='Timeout') return 'err'; // 错误
+    return 'sys';                                            // CMD / Sub / Cache 等系统信息
+  }
+
+  function pushLogLine(text, cls){
+    bleRawLines.push(text);
+    if(bleRawLines.length>MAX_RAW){
+      bleRawLines.shift();
+      if(rawLog.firstChild) rawLog.removeChild(rawLog.firstChild);
+    }
+    const div=document.createElement('div');
+    div.className='log-line '+cls;
+    div.textContent=text;
+    rawLog.appendChild(div);
+    rawLog.scrollTop=rawLog.scrollHeight;
+    logLineCount.textContent=bleRawLines.length;
+    btnExportLog.disabled=false;
+  }
+
   function logToPanel(prefix,uuid,value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
     const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
-    appendRawLine(line);
+    pushLogLine(line, 'log-'+logCategory(prefix));
   }
 
   function onCharChanged(event){
@@ -506,23 +545,14 @@ const Utils = {
 
   function processBleLine(line){
     if(!line) return;
-    appendRawLine(line);
-  }
-
-  function appendRawLine(line){
-    bleRawLines.push(line);
-    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
-    rawLog.textContent=bleRawLines.join('\n');
-    rawLog.scrollTop=rawLog.scrollHeight;
-    logLineCount.textContent=bleRawLines.length;
-    btnExportLog.disabled=false;
+    pushLogLine(line, 'log-in'); // 设备下发的文本行，归为接收(蓝)
   }
 
   // ---- Clear log ----
   btnClearLog.addEventListener('click',()=>{
     bleRawLines=[];
     bleBuffer='';
-    rawLog.textContent='';
+    rawLog.innerHTML='';
     logLineCount.textContent='0';
     btnExportLog.disabled=true;
   });

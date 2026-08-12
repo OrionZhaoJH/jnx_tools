@@ -129,6 +129,18 @@
     max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
   }
   .raw-log:empty::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
+  /* 日志按方向着色 */
+  .log-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;}
+  .log-out{color:#86efac;}   /* 发送 (Req) — 绿 */
+  .log-in{color:#a5b4fc;}    /* 接收 (Data/Raw/Notify) — 靛蓝 */
+  .log-err{color:#fca5a5;}   /* 错误 — 红 */
+  .log-sys{color:#94a3b8;}   /* 系统/状态 (CMD/Sub) — 灰 */
+  .log-legend{display:flex;gap:14px;align-items:center;font-size:.75rem;color:var(--text-muted);font-weight:400;}
+  .log-legend span{display:inline-flex;align-items:center;gap:4px;}
+  .log-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .lg-out{background:#86efac;}
+  .lg-in{background:#a5b4fc;}
+  .lg-err{background:#fca5a5;}
 
   footer{text-align:center;margin-top:32px;color:var(--text-light);font-size:.8rem;}
   ::-webkit-scrollbar{width:8px;height:8px;}
@@ -249,7 +261,12 @@
       <div class="card">
         <div class="card-title">
           <span>数据日志</span>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div class="log-legend" title="颜色说明">
+              <span><i class="lg-out"></i>发送</span>
+              <span><i class="lg-in"></i>接收</span>
+              <span><i class="lg-err"></i>错误</span>
+            </div>
             <span style="font-size:.825rem;color:var(--text-muted);"><span id="logLineCount">0</span> 行</span>
             <button class="btn btn-sm" id="btnClearLog">清空</button>
             <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
@@ -542,11 +559,14 @@ const Utils = {
 
   async function writeCmd(frame){
     if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return;}
-    logCmd('发送', frameToHex(frame));
+    const hex=frameToHex(frame);
+    logCmd('发送', hex);
+    logToPanel('Req', Utils.shortUuid(FFE2_SERVICE), hex); // 数据日志：发送(绿)
     try{
       await ffe2Char.writeValue(frame.buffer);
     }catch(err){
       logCmd('发送失败', err.message);
+      logToPanel('Req-Err', Utils.shortUuid(FFE2_SERVICE), err.message);
       return;
     }
     // 发送后禁用命令按钮栏 1s
@@ -557,8 +577,10 @@ const Utils = {
       try{
         const dv=await ffe2Char.readValue();
         logCmd('读取', formatDataView(dv));
+        logToPanel('Data', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv)); // 数据日志：接收(蓝)
       }catch(err){
         logCmd('读取失败', err.message);
+        logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), err.message);
       }
     },500);
   }
@@ -602,11 +624,29 @@ const Utils = {
     cmdLog.scrollTop=cmdLog.scrollHeight;
   }
 
+  function logCategory(prefix){
+    if(prefix==='Req') return 'out';                          // 发送
+    if(prefix==='Data'||prefix==='Raw'||prefix==='Notify') return 'in'; // 接收
+    if(prefix==='Req-Err'||prefix==='Err'||prefix==='Timeout'||prefix==='CMD-Err'||prefix==='Poll-Err') return 'err'; // 错误
+    return 'sys';                                            // CMD / Sub 等系统信息
+  }
+
   function logToPanel(prefix,uuid,value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
     const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
-    appendRawLine(line);
+    bleRawLines.push(line);
+    if(bleRawLines.length>MAX_RAW){
+      bleRawLines.shift();
+      if(rawLog.firstChild) rawLog.removeChild(rawLog.firstChild);
+    }
+    const div=document.createElement('div');
+    div.className='log-line log-'+logCategory(prefix);
+    div.textContent=line;
+    rawLog.appendChild(div);
+    rawLog.scrollTop=rawLog.scrollHeight;
+    logLineCount.textContent=bleRawLines.length;
+    btnExportLog.disabled=false;
   }
 
   function onCharChanged(event){
@@ -683,19 +723,10 @@ const Utils = {
     }
   }
 
-  function appendRawLine(line){
-    bleRawLines.push(line);
-    if(bleRawLines.length>MAX_RAW) bleRawLines.shift();
-    rawLog.textContent=bleRawLines.join('\n');
-    rawLog.scrollTop=rawLog.scrollHeight;
-    logLineCount.textContent=bleRawLines.length;
-    btnExportLog.disabled=false;
-  }
-
   // ---- Clear log ----
   btnClearLog.addEventListener('click',()=>{
     bleRawLines=[];
-    rawLog.textContent='';
+    rawLog.innerHTML='';
     logLineCount.textContent='0';
     btnExportLog.disabled=true;
   });
