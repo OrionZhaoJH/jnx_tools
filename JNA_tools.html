@@ -126,9 +126,10 @@
   .raw-log{
     background:#1e293b;color:#a5b4fc;border-radius:8px;padding:12px 14px;
     font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
-    max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+    height:260px;min-height:120px;max-height:70vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+    position:relative;
   }
-  .raw-log:empty::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
+  .raw-log:not(:has(.log-line))::before{content:'等待数据... (通知 / 读取 / 订阅结果均显示在此)';color:#64748b;}
   /* 日志按方向着色 */
   .log-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;}
   .log-out{color:#86efac;}   /* 发送 (Req) — 绿 */
@@ -158,9 +159,63 @@
   .cmd-log{
     background:#2e2a1e;color:#fcd34d;border-radius:8px;padding:12px 14px;
     font-family:'Consolas','Monaco',monospace;font-size:.78rem;line-height:1.5;
-    max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+    height:200px;min-height:100px;max-height:60vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+    margin-top:16px;position:relative;
   }
-  .cmd-log:empty::before{content:'命令收发日志...';color:#a89f6a;}
+  .cmd-log:not(:has(.log-line))::before{content:'命令收发日志...';color:#a89f6a;}
+
+  /* 可拖拽调节高度的日志区 */
+  .log-resizer{
+    position:absolute;right:0;bottom:0;width:18px;height:18px;
+    cursor:ns-resize;display:flex;align-items:flex-end;justify-content:flex-end;
+    padding:2px;pointer-events:auto;z-index:2;
+  }
+  .log-resizer::after{
+    content:'';width:10px;height:10px;
+    background:linear-gradient(135deg, transparent 35%, rgba(148,163,184,.7) 35%, rgba(148,163,184,.7) 45%, transparent 45%, transparent 55%, rgba(148,163,184,.7) 55%, rgba(148,163,184,.7) 65%, transparent 65%);
+  }
+  .cmd-log .log-resizer::after{
+    background:linear-gradient(135deg, transparent 35%, rgba(168,159,106,.7) 35%, rgba(168,159,106,.7) 45%, transparent 45%, transparent 55%, rgba(168,159,106,.7) 55%, rgba(168,159,106,.7) 65%, transparent 65%);
+  }
+  .log-resizer:hover::after{filter:brightness(1.3);}
+
+  /* 命令卡片 */
+  .cmd-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:4px;
+  }
+  .cmd-card{
+    background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .cmd-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.08);}
+  .cmd-card-title{font-size:1rem;font-weight:600;margin-bottom:6px;color:var(--text);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;}
+  .cmd-card-title .toggle-arrow{font-size:.85rem;color:var(--text-muted);transition:transform .2s;flex:none;}
+  .cmd-card.collapsed .cmd-card-title{margin-bottom:0;}
+  .cmd-card.collapsed .toggle-arrow{transform:rotate(-90deg);}
+  .cmd-card.collapsed .cmd-card-desc,
+  .cmd-card.collapsed .cmd-card-actions,
+  .cmd-card.collapsed .cmd-result{display:none;}
+  .cmd-card-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;}
+  .cmd-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  .cmd-result{
+    background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-height:70px;
+  }
+  .cmd-result-empty{color:var(--text-light);font-size:.8rem;text-align:center;padding:12px 0;}
+  .cmd-result-values{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;}
+  .cmd-result-item{text-align:center;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 4px;}
+  .cmd-result-label{font-size:.65rem;color:var(--text-muted);margin-bottom:2px;}
+  .cmd-result-num{font-size:1rem;font-weight:700;color:var(--text);font-family:'Consolas','Monaco',monospace;}
+  .cmd-result-raw{font-size:.7rem;color:var(--text-muted);font-family:'Consolas','Monaco',monospace;word-break:break-all;margin-top:4px;}
+  .cmd-result-status{font-size:.85rem;padding:8px 0;text-align:center;}
+  .cmd-result-status.info{color:var(--accent);}
+  .cmd-result-status.ok{color:var(--success);}
+  .cmd-result-status.err{color:var(--danger);}
+  @media(max-width:600px){
+    .cmd-grid{grid-template-columns:1fr;}
+    /* 按钮保持一行内联，空间不够再自动换行 */
+    .cmd-card-actions{flex-wrap:wrap;}
+  }
 
   /* JNA 解析数据面板 */
   .jna-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:4px;}
@@ -279,26 +334,78 @@
       <div class="card">
         <div class="card-title">
           <span>命令交互 (FFE2)</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-sm" id="btnClearCmd">清空</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div class="log-legend" title="颜色说明">
+              <span><i class="lg-out"></i>发送</span>
+              <span><i class="lg-in"></i>接收</span>
+              <span><i class="lg-err"></i>错误</span>
+            </div>
+            <button class="btn btn-sm" id="btnClearCmd">清空日志</button>
           </div>
         </div>
-        <div class="cmd-toolbar">
-          <select id="detectTimeSelect">
-            <option value="5">5 分钟</option>
-            <option value="10">10 分钟</option>
-            <option value="15" selected>15 分钟</option>
-          </select>
-          <button class="btn btn-primary btn-sm" id="btnSetDetectTime">设置检测时间</button>
-          <button class="btn btn-sm" id="btnReboot">设备重启</button>
-          <button class="btn btn-sm" id="btnShutdown">设备关机</button>
-          <button class="btn btn-sm" id="btnIntegralSphereTest">积分球测试</button>
-          <button class="btn btn-sm" id="btnLightC">点亮C灯</button>
-          <button class="btn btn-sm" id="btnLightB">点亮B灯</button>
-          <button class="btn btn-sm" id="btnLightT">点亮T灯</button>
-          <button class="btn btn-sm" id="btnSetThreshold" disabled>设置阈值</button>
-          <button class="btn btn-sm" id="btnQueryCal" disabled>查询校准值</button>
+
+        <div class="cmd-grid">
+          <!-- 单次测试 -->
+          <div class="cmd-card collapsed">
+            <div class="cmd-card-title"><span>单次测试</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">主指令 0x06 / 从指令 0x01。发送后等待 3 秒读取返回值；若返回格式不符则自动重试一次。</div>
+            <div class="cmd-card-actions">
+              <button class="btn btn-primary btn-sm" id="btnTestIntegral">积分球测试</button>
+              <button class="btn btn-primary btn-sm" id="btnTestNormal">普通测试</button>
+            </div>
+            <div class="cmd-result" id="resultSingleTest"><div class="cmd-result-empty">等待测试...</div></div>
+          </div>
+
+          <!-- 查询校准值 -->
+          <div class="cmd-card collapsed">
+            <div class="cmd-card-title"><span>查询校准值</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">主指令 0x05 / 从指令 0x01。查询本次开机或烧录 MAC 时的初始校准值。</div>
+            <div class="cmd-card-actions">
+              <button class="btn btn-primary btn-sm" id="btnCalBoot">本次开机</button>
+              <button class="btn btn-primary btn-sm" id="btnCalMac">烧录 MAC 时</button>
+            </div>
+            <div class="cmd-result" id="resultCal"><div class="cmd-result-empty">等待查询...</div></div>
+          </div>
+
+          <!-- 设置检测时间 -->
+          <div class="cmd-card collapsed">
+            <div class="cmd-card-title"><span>设置检测时间</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">设置检测运行时长（0x01 / 0x02）。</div>
+            <div class="cmd-card-actions">
+              <select id="detectTimeSelect">
+                <option value="5">5 分钟</option>
+                <option value="10">10 分钟</option>
+                <option value="15" selected>15 分钟</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="btnSetDetectTime">设置</button>
+            </div>
+            <div class="cmd-result" id="resultDetectTime"><div class="cmd-result-empty">等待设置...</div></div>
+          </div>
+
+          <!-- 点灯控制 -->
+          <div class="cmd-card collapsed">
+            <div class="cmd-card-title"><span>点灯控制</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">0x07 点灯命令，从指令 0x01 / 0x02 / 0x03 分别点亮 C / B / T。</div>
+            <div class="cmd-card-actions">
+              <button class="btn btn-sm" id="btnLightC">点亮 C 灯</button>
+              <button class="btn btn-sm" id="btnLightB">点亮 B 灯</button>
+              <button class="btn btn-sm" id="btnLightT">点亮 T 灯</button>
+            </div>
+            <div class="cmd-result" id="resultLight"><div class="cmd-result-empty">等待操作...</div></div>
+          </div>
+
+          <!-- 设备控制 -->
+          <div class="cmd-card collapsed">
+            <div class="cmd-card-title"><span>设备控制</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">设备重启（0x02 / 0x02）与关机（0x03 / 0x02），操作前会二次确认。</div>
+            <div class="cmd-card-actions">
+              <button class="btn btn-sm" id="btnReboot">设备重启</button>
+              <button class="btn btn-danger btn-sm" id="btnShutdown">设备关机</button>
+            </div>
+            <div class="cmd-result" id="resultDevice"><div class="cmd-result-empty">等待操作...</div></div>
+          </div>
         </div>
+
         <div class="cmd-log" id="cmdLog"></div>
       </div>
     </div>
@@ -359,25 +466,75 @@ const Utils = {
   const btnSetDetectTime=document.getElementById('btnSetDetectTime');
   const btnReboot=document.getElementById('btnReboot');
   const btnShutdown=document.getElementById('btnShutdown');
-  const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
   const btnLightC=document.getElementById('btnLightC');
   const btnLightB=document.getElementById('btnLightB');
   const btnLightT=document.getElementById('btnLightT');
-  const btnSetThreshold=document.getElementById('btnSetThreshold');
-  const btnQueryCal=document.getElementById('btnQueryCal');
   const btnPauseJna=document.getElementById('btnPauseJna');
+  // 新命令卡片
+  const btnTestIntegral=document.getElementById('btnTestIntegral');
+  const btnTestNormal=document.getElementById('btnTestNormal');
+  const btnCalBoot=document.getElementById('btnCalBoot');
+  const btnCalMac=document.getElementById('btnCalMac');
+  const resultSingleTest=document.getElementById('resultSingleTest');
+  const resultCal=document.getElementById('resultCal');
+  const resultDetectTime=document.getElementById('resultDetectTime');
+  const resultLight=document.getElementById('resultLight');
+  const resultDevice=document.getElementById('resultDevice');
 
   // State
   let device=null, server=null;
   let ffe2Char=null;
+  let ffe1Char=null;       // FFE1 特征引用（用于停止订阅/轮询）
+  let ffe1Busy=false;      // 读保护：上一次 readValue 未完成时不发起新读
   let jnaPaused=false;
   let bleRawLines=[];
   const activePolls=new Map(); // characteristic -> intervalId
+  const ffe2ResponseBuffer=[]; // FFE2 通知缓存，用于命令响应匹配
+  let cmdBusy=false;
   const MAX_RAW=500;
+
+  // 初始化可拖拽高度日志区
+  function initResizable(logEl){
+    const resizer=document.createElement('div');
+    resizer.className='log-resizer';
+    resizer.title='拖拽调节高度';
+    logEl.appendChild(resizer);
+
+    let startY=0, startH=0, dragging=false;
+    function onStart(e){
+      dragging=true;
+      startY=(e.touches?e.touches[0]:e).clientY;
+      startH=logEl.getBoundingClientRect().height;
+      document.body.style.userSelect='none';
+      e.preventDefault();
+    }
+    function onMove(e){
+      if(!dragging) return;
+      const y=(e.touches?e.touches[0]:e).clientY;
+      const h=Math.max(parseInt(getComputedStyle(logEl).minHeight)||100, startH+(y-startY));
+      const maxH=parseInt(getComputedStyle(logEl).maxHeight)||window.innerHeight*0.7;
+      logEl.style.height=Math.min(h, maxH)+'px';
+    }
+    function onEnd(){
+      dragging=false;
+      document.body.style.userSelect='';
+    }
+    resizer.addEventListener('mousedown', onStart);
+    resizer.addEventListener('touchstart', onStart, {passive:false});
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, {passive:false});
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchend', onEnd);
+  }
+
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
   const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE2_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
   const POLL_INTERVAL=1000; // JNA 模式固定 1000ms 订阅 FFE1
+
+  // 为数据日志和命令日志附加可拖拽高度把手
+  initResizable(rawLog);
+  initResizable(cmdLog);
 
   // Check support
   if(!navigator.bluetooth){
@@ -404,6 +561,8 @@ const Utils = {
       setStatus('connected', device.name||'未知设备');
       btnConnect.disabled=true;
       btnDisconnect.disabled=false;
+      // 连接成功后先清空上一会话遗留的记录与日志
+      resetSessionState();
       // JNA 模式：连接后自动以 1000ms 间隔订阅 FFE1，并发现 FFE2 用于命令
       await autoSubscribeFFE1(server);
       await discoverFFE2(server);
@@ -422,9 +581,14 @@ const Utils = {
   });
 
   function onDisconnected(){
+    resetConnectionUI();
+  }
+
+  // 复位到断开状态（停止轮询/订阅、清空面板、复位按钮与状态徽标）。
+  // 无论设备是否主动掉线，断开后都直接调用，保证 UI 立即回到未连接状态。
+  function resetConnectionUI(){
     // 停止所有轮询/订阅
-    activePolls.forEach(id=>clearInterval(id));
-    activePolls.clear();
+    stopFFE1Poll();
     // 复位 GATT Profile 到初始状态（与主动断开保持一致）
     gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
     // 复位解析数据面板
@@ -451,6 +615,54 @@ const Utils = {
     else bleDeviceName.innerHTML='';
   }
 
+  // 主动断开（立即停止 FFE1 订阅/轮询，断开 GATT 连接，并立即复位 UI 到未连接状态）
+  async function forceDisconnect(){
+    stopFFE1Poll(); // 立即停掉轮询，避免断开过程中持续报错
+    if(device && device.gatt && device.gatt.connected){
+      try{ await device.gatt.disconnect(); }
+      catch(err){ console.warn('[JNA] 主动断开失败:', err.message); }
+    }
+    resetConnectionUI(); // 不依赖 gattserverdisconnected 事件，保证 UI 立即回到断开状态
+  }
+
+  // 停止 FFE1 的轮询与通知订阅（设备断开/重启前调用，避免断开后仍持续报错）
+  function stopFFE1Poll(){
+    activePolls.forEach(id=>clearInterval(id));
+    activePolls.clear();
+    if(ffe1Char){
+      try{
+        ffe1Char.removeEventListener('characteristicvaluechanged', onCharChanged);
+        if(ffe1Char.stopNotifications) ffe1Char.stopNotifications().catch(()=>{});
+      }catch(err){ /* 忽略 */ }
+      ffe1Char=null;
+    }
+    ffe1Busy=false;
+  }
+
+  // 连接新设备前，清空并复位上一会话留下的所有记录与日志
+  function resetSessionState(){
+    // 数据日志 & 导出状态
+    bleRawLines=[];
+    rawLog.innerHTML='';
+    logLineCount.textContent='0';
+    btnExportLog.disabled=true;
+    // 命令收发日志
+    cmdLog.innerHTML='';
+    // FFE2 响应缓存
+    ffe2ResponseBuffer.length=0;
+    // 解析数据面板
+    jnaFields.style.display='none';
+    jnaFieldsEmpty.style.display='block';
+    jnaFields.querySelectorAll('.field-value, .field-raw').forEach(el=>el.textContent='--');
+    jnaFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
+    // 命令卡片结果
+    [resultSingleTest,resultCal,resultDetectTime,resultLight,resultDevice].forEach(el=>{
+      if(el) el.innerHTML='<div class="cmd-result-empty">等待操作...</div>';
+    });
+    // 连接状态
+    setStatus('connecting','');
+  }
+
   // ---- JNA 自动订阅 FFE1 ----
   async function autoSubscribeFFE1(srv){
     let target=null;
@@ -469,6 +681,7 @@ const Utils = {
       return;
     }
     const shortU=Utils.shortUuid(FFE1_SERVICE);
+    ffe1Char=target;
 
     // 优先使用通知/指示（事件驱动，内容变化即触发，最优雅）
     if(target.properties.notify||target.properties.indicate){
@@ -485,6 +698,8 @@ const Utils = {
     // 不支持通知时，回退为固定 1000ms 间隔轮询读取
     if(target.properties.read){
       const doPoll=async ()=>{
+        if(ffe1Busy) return; // 上一次读取尚未完成，跳过本次，避免 GATT 操作冲突
+        ffe1Busy=true;
         try{
           const dv=await target.readValue();
           handleJnaPacket(dv);
@@ -492,9 +707,12 @@ const Utils = {
           // 设备已断开则停止该轮询，避免持续报错
           if(!device||!device.gatt||!device.gatt.connected){
             if(activePolls.has(target)){clearInterval(activePolls.get(target));activePolls.delete(target);}
+            ffe1Busy=false;
             return;
           }
           logToPanel('Poll-Err', shortU, err.message);
+        }finally{
+          ffe1Busy=false;
         }
       };
       doPoll();
@@ -528,7 +746,7 @@ const Utils = {
       console.warn('发现 FFE2 失败:',err);
     }
     if(ffe2Char){
-      logToPanel('CMD', Utils.shortUuid(FFE2_SERVICE), 'FFE2 已就绪');
+      console.log('[JNA] FFE2 已就绪');
       if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
         try{
           await ffe2Char.startNotifications();
@@ -538,13 +756,16 @@ const Utils = {
         }
       }
     }else{
-      logToPanel('CMD-Err', Utils.shortUuid(FFE2_SERVICE), '未找到 FFE2');
+      console.warn('[JNA] 未找到 FFE2');
     }
   }
 
   function onFFE2Changed(event){
     const dv=event.target.value;
-    logCmd('接收', formatDataView(dv));
+    ffe2ResponseBuffer.push(dv);
+    const txt=formatDataView(dv);
+    console.log('[JNA] FFE2 收到通知:', txt);
+    logCmd('接收', txt); // 命令通知仅写入命令收发日志
   }
 
   function buildFrame(mainCmd, subCmd, dataArr=[]){
@@ -557,69 +778,250 @@ const Utils = {
     return Array.from(frame,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
   }
 
-  async function writeCmd(frame){
-    if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return;}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+  function setBusy(busy){
+    cmdBusy=busy;
+    const btns=[btnSetDetectTime,btnReboot,btnShutdown,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,detectTimeSelect];
+    btns.forEach(b=>b.disabled=busy);
+  }
+
+  // 仅发送，不自动读取（用于需要自定义查询时序的命令）
+  async function writeCmdRaw(frame){
+    if(!ffe2Char){throw new Error('FFE2 未就绪');}
     const hex=frameToHex(frame);
+    console.log('[JNA] 发送:', hex);
+    logCmd('发送', hex); // 仅写入命令收发日志，不污染数据日志
+    await ffe2Char.writeValue(frame.buffer);
+  }
+
+  // 通用发送 + 500ms 后自动读取；返回读取到的 DataView（如无需读取则返回 null）
+  async function writeCmd(frame){
+    if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return null;}
+    const hex=frameToHex(frame);
+    console.log('[JNA] 发送:', hex);
     logCmd('发送', hex);
-    logToPanel('Req', Utils.shortUuid(FFE2_SERVICE), hex); // 数据日志：发送(绿)
     try{
       await ffe2Char.writeValue(frame.buffer);
     }catch(err){
       logCmd('发送失败', err.message);
-      logToPanel('Req-Err', Utils.shortUuid(FFE2_SERVICE), err.message);
-      return;
+      return null;
     }
-    // 发送后禁用命令按钮栏 1s
-    lockCmdBar(1000);
+    setBusy(true);
     // 发送后 500ms 读取 FFE2 值并打印
-    setTimeout(async ()=>{
-      if(!ffe2Char||!ffe2Char.properties.read) return;
-      try{
-        const dv=await ffe2Char.readValue();
-        logCmd('读取', formatDataView(dv));
-        logToPanel('Data', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv)); // 数据日志：接收(蓝)
-      }catch(err){
-        logCmd('读取失败', err.message);
-        logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), err.message);
-      }
-    },500);
+    await sleep(500);
+    if(!ffe2Char||!ffe2Char.properties.read){setBusy(false);return null;}
+    try{
+      const dv=await ffe2Char.readValue();
+      const txt=formatDataView(dv);
+      console.log('[JNA] readValue 回读:', txt);
+      logCmd('接收', txt);
+      setBusy(false);
+      return dv;
+    }catch(err){
+      logCmd('读取失败', err.message);
+      setBusy(false);
+      return null;
+    }
   }
 
-  function lockCmdBar(ms){
-    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnIntegralSphereTest,btnLightC,btnLightB,btnLightT,btnSetThreshold,btnQueryCal,detectTimeSelect];
-    barEls.forEach(el=>{el._prevDisabled=el.disabled; el.disabled=true;});
-    setTimeout(()=>{barEls.forEach(el=>{el.disabled=el._prevDisabled;});},ms);
+  // 解析 FFE2 命令响应帧：5B 0D 0A LL MM SS [DATA...] 5D
+  function parseCmdResponse(dv){
+    const bytes=[];
+    for(let i=0;i<dv.byteLength;i++) bytes.push(dv.getUint8(i));
+    // 在缓冲区中查找完整帧
+    for(let i=0;i<=bytes.length-7;i++){
+      if(bytes[i]!==0x5B || bytes[i+1]!==0x0D || bytes[i+2]!==0x0A) continue;
+      const len=bytes[i+3];
+      if(len<7 || i+len>bytes.length) continue;
+      if(bytes[i+len-1]!==0x5D) continue;
+      const main=bytes[i+4];
+      const sub=bytes[i+5];
+      const data=bytes.slice(i+6, i+len-1);
+      const hex=bytes.slice(i, i+len).map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+      return {main, sub, data, hex, len};
+    }
+    return null;
+  }
+
+  // 将 6 字节原始数据解析为 C/B/T（大端 16bit）
+  function parseCbtValues(data){
+    if(data.length!==6) return null;
+    const c=(data[0]<<8)|data[1];
+    const b=(data[2]<<8)|data[3];
+    const t=(data[4]<<8)|data[5];
+    return {C:c,B:b,T:t};
+  }
+
+  // 发送命令后等待 delayMs，然后读取/捕获通知，用 predicate 校验；最多尝试 attempts 次
+  // 返回 {dv, raw}；raw 为最后一次回读/通知的十六进制字符串（即使格式不符也会带回，便于排查）
+  async function queryResponseAfter(frame, delayMs, predicate, attempts=2){
+    let lastRaw='';
+    for(let attempt=1; attempt<=attempts; attempt++){
+      ffe2ResponseBuffer.length=0; // 清空旧通知，避免误匹配
+      try{
+        await writeCmdRaw(frame);
+      }catch(err){
+        logCmd('发送失败', err.message);
+        return {dv:null, raw:''};
+      }
+      console.log('[JNA] 等待 '+delayMs+'ms 后回读（第 '+attempt+' 次）...');
+      await sleep(delayMs);
+      // 优先读取 readValue
+      let dv=null;
+      if(ffe2Char.properties.read){
+        try{
+          dv=await ffe2Char.readValue();
+          const txt=formatDataView(dv);
+          console.log('[JNA] readValue 回读:', txt);
+          logCmd('接收', txt); // 命令回读仅写入命令收发日志
+          lastRaw=txt;
+        }catch(err){
+          console.warn('[JNA] readValue 失败:', err.message);
+          logCmd('读取失败', err.message);
+        }
+      }else{
+        console.log('[JNA] FFE2 不支持 read，依赖通知');
+      }
+      if(dv && predicate(dv)) return {dv, raw:lastRaw};
+      // 再检查通知缓存中是否有匹配的帧
+      for(let i=ffe2ResponseBuffer.length-1;i>=0;i--){
+        const nb=ffe2ResponseBuffer[i];
+        const txt=formatDataView(nb);
+        console.log('[JNA] 通知缓存:', txt);
+        lastRaw=txt;
+        if(predicate(nb)) return {dv:nb, raw:lastRaw};
+      }
+    }
+    return {dv:null, raw:lastRaw};
+  }
+
+  function setCardResult(el, {type='empty', message='', values=null, raw=''}){
+    if(type==='values' && values){
+      el.innerHTML='<div class="cmd-result-values">'+
+        '<div class="cmd-result-item"><div class="cmd-result-label">C 值</div><div class="cmd-result-num">'+values.C+'</div></div>'+
+        '<div class="cmd-result-item"><div class="cmd-result-label">B 值</div><div class="cmd-result-num">'+values.B+'</div></div>'+
+        '<div class="cmd-result-item"><div class="cmd-result-label">T 值</div><div class="cmd-result-num">'+values.T+'</div></div>'+
+        '</div>'+
+        '<div class="cmd-result-raw">'+Utils.escapeHtml(raw)+'</div>';
+    }else{
+      let html='<div class="cmd-result-status '+type+'">'+Utils.escapeHtml(message)+'</div>';
+      if(raw) html+='<div class="cmd-result-raw">'+Utils.escapeHtml(raw)+'</div>';
+      el.innerHTML=html;
+    }
   }
 
   async function sendSetDetectTime(minutes){
-    // 0x05/0x0A/0x0F 分别对应 5/10/15 分钟
-    const data=[Number(minutes)&0xFF];
-    await writeCmd(buildFrame(0x01,0x02,data));
+    setCardResult(resultDetectTime, {type:'info', message:'正在设置检测时间...'});
+    const dv=await writeCmd(buildFrame(0x01,0x02,[Number(minutes)&0xFF]));
+    if(!dv){setCardResult(resultDetectTime, {type:'ok', message:'设置命令已发送'});return;}
+    const parsed=parseCmdResponse(dv);
+    setCardResult(resultDetectTime, {type:'ok', message:parsed?'设置成功':'设置已发送，收到原始数据', raw:parsed?parsed.hex:formatDataView(dv)});
   }
 
-  async function sendReboot(){
-    if(!confirm('确定要重启设备吗？')) return;
-    await writeCmd(buildFrame(0x02,0x02,[]));
+  // 设备控制命令（重启/关机）：发出命令后设备会立即断开链路，写操作常因链路中断而
+  // 拒绝或长时间无响应——这正是设备已执行的标志，因此加短超时且不把写失败视为错误。
+  async function sendControlCommand(mainCmd, label){
+    if(!confirm('确定要'+label+'吗？')) return;
+    if(cmdBusy) return;
+    setBusy(true);
+    setCardResult(resultDevice, {type:'info', message:'正在发送'+label+'命令...'});
+    try{
+      const writeP=writeCmdRaw(buildFrame(mainCmd,0x02,[])).catch(err=>{
+        logCmd('写入回执', '（设备可能已'+label+'，链路中断）'+err.message);
+      });
+      await Promise.race([writeP, sleep(800)]); // 最多等 800ms，避免设备重启过快导致长时间挂起
+      setCardResult(resultDevice, {type:'ok', message:label+'命令已发送，已断开连接'});
+    }catch(err){
+      setCardResult(resultDevice, {type:'ok', message:label+'命令已发送，已断开连接'});
+    }finally{
+      await forceDisconnect();
+      setBusy(false);
+    }
   }
 
-  async function sendShutdown(){
-    if(!confirm('确定要关闭设备吗？')) return;
-    await writeCmd(buildFrame(0x03,0x02,[]));
+  // 单次测试：主 0x06 / 从 0x01 / data: 0x01 积分球，0x02 普通；响应从指令为 0x11
+  async function runSingleTest(mode, resultEl, name){
+    if(cmdBusy) return;
+    setBusy(true);
+    try{
+      setCardResult(resultEl, {type:'info', message:'['+name+'] 命令发送中...'});
+      const {dv, raw}=await queryResponseAfter(
+        buildFrame(0x06,0x01,[mode]),
+        3000,
+        dv=>{
+          const p=parseCmdResponse(dv);
+          return !!(p && p.main===0x06 && p.sub===0x11 && p.data.length===6);
+        },
+        2
+      );
+      if(!dv){
+        setCardResult(resultEl, {type:'err', message:'['+name+'] 两次查询均未收到有效返回', raw: raw?('Raw: '+raw):''});
+        return;
+      }
+      const parsed=parseCmdResponse(dv);
+      const values=parseCbtValues(parsed.data);
+      if(values){
+        setCardResult(resultEl, {type:'values', values, raw:'Raw: '+parsed.hex});
+      }else{
+        setCardResult(resultEl, {type:'err', message:'['+name+'] 返回数据长度异常', raw:parsed.hex});
+      }
+    }catch(err){
+      setCardResult(resultEl, {type:'err', message:'['+name+'] 异常: '+err.message});
+    }finally{
+      setBusy(false);
+    }
   }
 
-  async function sendIntegralSphereTest(){
-    await writeCmd(buildFrame(0x06,0x01,[]));
+  // 查询校准值：主 0x05 / 从 0x01 / data: 0x01 本次开机，0x02 烧录 MAC；响应从指令为 0x11
+  async function runQueryCal(mode, resultEl, name){
+    if(cmdBusy) return;
+    setBusy(true);
+    try{
+      setCardResult(resultEl, {type:'info', message:'['+name+'] 查询中...'});
+      const {dv, raw}=await queryResponseAfter(
+        buildFrame(0x05,0x01,[mode]),
+        500,
+        dv=>{
+          const p=parseCmdResponse(dv);
+          return !!(p && p.main===0x05 && p.sub===0x11 && p.data.length===6);
+        },
+        2
+      );
+      if(!dv){
+        setCardResult(resultEl, {type:'err', message:'['+name+'] 两次查询均未收到有效返回', raw: raw?('Raw: '+raw):''});
+        return;
+      }
+      const parsed=parseCmdResponse(dv);
+      const values=parseCbtValues(parsed.data);
+      if(values){
+        setCardResult(resultEl, {type:'values', values, raw:'Raw: '+parsed.hex});
+      }else{
+        setCardResult(resultEl, {type:'err', message:'['+name+'] 返回数据长度异常', raw:parsed.hex});
+      }
+    }catch(err){
+      setCardResult(resultEl, {type:'err', message:'['+name+'] 异常: '+err.message});
+    }finally{
+      setBusy(false);
+    }
   }
 
-  async function sendLight(lightId){
-    await writeCmd(buildFrame(0x07,lightId,[]));
+  async function sendLight(lightId, resultEl, name){
+    setCardResult(resultEl, {type:'info', message:'['+name+'] 命令发送中...'});
+    const dv=await writeCmd(buildFrame(0x07,lightId,[]));
+    if(!dv){setCardResult(resultEl, {type:'err', message:'['+name+'] 无响应'});return;}
+    const parsed=parseCmdResponse(dv);
+    setCardResult(resultEl, {type:'ok', message:'['+name+'] 已发送', raw:parsed?parsed.hex:formatDataView(dv)});
   }
 
   function logCmd(direction, value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
     const line=`[${direction} @ ${ts}] ${value}`;
-    const p=document.createElement('div');p.textContent=line;
+    const p=document.createElement('div');
+    p.className='log-line log-'+
+      (direction.includes('失败')?'err':(direction.includes('发送')?'out':'in'));
+    p.textContent=line;
     cmdLog.appendChild(p);
     cmdLog.scrollTop=cmdLog.scrollHeight;
   }
@@ -748,12 +1150,22 @@ const Utils = {
     const minutes=detectTimeSelect.value;
     sendSetDetectTime(minutes);
   });
-  btnReboot.addEventListener('click', sendReboot);
-  btnShutdown.addEventListener('click', sendShutdown);
-  btnIntegralSphereTest.addEventListener('click', sendIntegralSphereTest);
-  btnLightC.addEventListener('click', ()=>sendLight(0x01));
-  btnLightB.addEventListener('click', ()=>sendLight(0x02));
-  btnLightT.addEventListener('click', ()=>sendLight(0x03));
+  btnReboot.addEventListener('click', ()=>sendControlCommand(0x02,'重启设备'));
+  btnShutdown.addEventListener('click', ()=>sendControlCommand(0x03,'关闭设备'));
+  btnTestIntegral.addEventListener('click', ()=>runSingleTest(0x01, resultSingleTest, '积分球测试'));
+  btnTestNormal.addEventListener('click', ()=>runSingleTest(0x02, resultSingleTest, '普通测试'));
+  btnCalBoot.addEventListener('click', ()=>runQueryCal(0x01, resultCal, '本次开机校准值'));
+  btnCalMac.addEventListener('click', ()=>runQueryCal(0x02, resultCal, '烧录 MAC 校准值'));
+  btnLightC.addEventListener('click', ()=>sendLight(0x01, resultLight, '点亮 C 灯'));
+  btnLightB.addEventListener('click', ()=>sendLight(0x02, resultLight, '点亮 B 灯'));
+  btnLightT.addEventListener('click', ()=>sendLight(0x03, resultLight, '点亮 T 灯'));
+
+  // ---- 命令卡片折叠 / 展开 ----
+  document.querySelectorAll('.cmd-card').forEach(card=>{
+    const title=card.querySelector('.cmd-card-title');
+    if(!title) return;
+    title.addEventListener('click',()=>card.classList.toggle('collapsed'));
+  });
 
   // ---- Export log ----
   btnExportLog.addEventListener('click',()=>{
