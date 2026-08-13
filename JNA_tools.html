@@ -26,11 +26,43 @@
   .nav-back{
     display:inline-flex;align-items:center;gap:6px;
     color:var(--text-muted);font-size:.875rem;text-decoration:none;
-    margin-bottom:16px;transition:color .2s;
+    transition:color .2s;
   }
   .nav-back:hover{color:var(--accent);}
 
-  header{margin-bottom:20px;}
+  /* ---- Sticky top bar ---- */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between; gap:10px 12px;
+    flex-wrap:wrap;
+    padding:10px 0; margin:0 0 16px;
+    background:transparent;
+    transition:background .3s ease, box-shadow .3s ease, padding .3s ease, margin .3s ease, border-radius .3s ease;
+  }
+  .topbar.scrolled{
+    background:rgba(245,247,250,.82);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    box-shadow:0 1px 0 rgba(15,23,42,.08);
+    padding:8px 14px; margin:0 -14px 16px; border-radius:12px;
+  }
+  .topbar-left{display:flex; align-items:center; gap:14px; min-width:0; flex:1 1 auto;}
+  .topbar-title{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:1rem; font-weight:600; color:var(--text); white-space:nowrap;
+    opacity:0; transform:translateX(-10px); max-width:0; overflow:hidden;
+    transition:opacity .3s ease, transform .3s ease, max-width .35s ease;
+  }
+  .topbar.scrolled .topbar-title{opacity:1; transform:translateX(0); max-width:260px;}
+  .topbar-title .icon{font-size:1.05rem;}
+  .topbar-right{display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; flex-wrap:wrap; justify-content:flex-end;}
+  @media(max-width:560px){
+    .topbar-right{width:100%; margin-left:0; justify-content:flex-start;}
+    .topbar-right .btn{padding:6px 12px; font-size:.8rem;}
+  }
+
+  header{margin-bottom:20px; max-height:200px; overflow:hidden;
+    transition:opacity .35s ease, transform .35s ease, max-height .4s ease, margin .4s ease;}
+  header.collapsed{opacity:0; transform:translateY(-12px); max-height:0; margin-bottom:0;}
   header h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
   header h1 .icon{font-size:1.5rem;}
   header p{color:var(--text-muted);margin-top:4px;font-size:.95rem;}
@@ -54,6 +86,14 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  /* ---- Collapsible card ---- */
+  .card-title-toggle{cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;}
+  .card-title-toggle .toggle-arrow{font-size:.85rem;color:var(--text-muted);transition:transform .2s;flex:none;}
+  .collapsible-card.collapsed .card-title-toggle .toggle-arrow{transform:rotate(-90deg);}
+  .collapsible-card.collapsed .card-title{margin-bottom:0;}
+  .collapsible-card .card-body{overflow:hidden;transition:max-height .3s ease, opacity .3s ease;max-height:1600px;opacity:1;}
+  .collapsible-card.collapsed .card-body{max-height:0;opacity:0;}
 
   /* ---- BLE page ---- */
   .ble-grid{display:grid;grid-template-columns:320px 1fr;gap:20px;margin-top:16px;}
@@ -255,9 +295,18 @@
 </head>
 <body>
 <div class="container jna">
-  <a href="./index.html" class="nav-back">← 返回首页</a>
+  <div class="topbar" id="topbar">
+    <div class="topbar-left">
+      <a href="./index.html" class="nav-back">← 返回首页</a>
+      <span class="topbar-title"><span class="icon">🔧</span> JNA 工具</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
+      <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+    </div>
+  </div>
 
-  <header>
+  <header id="heroHeader">
     <h1><span class="icon">🔧</span> JNA 工具</h1>
     <p>自动连接 JNA 开头的 BLE 设备，并以 1000ms 间隔订阅 FFE1 数据。</p>
   </header>
@@ -267,8 +316,6 @@
   </div>
 
   <div class="ble-toolbar">
-    <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
-    <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
     <div class="name-filter">
       <label for="nameFilter">名称过滤</label>
       <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNA" value="JNA" autocomplete="off">
@@ -296,7 +343,7 @@
       <div class="card">
         <div class="card-title">
           <span>解析数据 (FFE1)</span>
-          <button class="btn btn-sm" id="btnPauseJna">暂停更新</button>
+          <button class="btn btn-sm btn-warn" id="btnPauseJna">开始更新</button>
         </div>
         <div id="jnaFields" class="jna-fields" style="display:none;">
           <div class="field-box" data-key="status"><div class="field-label">检测状态</div><div class="field-raw">--</div><div class="field-value">--</div></div>
@@ -313,9 +360,9 @@
         <div id="jnaFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">等待符合格式的数据包...</div>
       </div>
 
-      <div class="card">
+      <div class="card collapsible-card collapsed" id="logCard">
         <div class="card-title">
-          <span>数据日志</span>
+          <span class="card-title-toggle" id="logCardToggle"><span class="toggle-arrow">▾</span> 数据日志</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <div class="log-legend" title="颜色说明">
               <span><i class="lg-out"></i>发送</span>
@@ -327,7 +374,9 @@
             <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
           </div>
         </div>
-        <div class="raw-log" id="rawLog"></div>
+        <div class="card-body" id="logCardBody">
+          <div class="raw-log" id="rawLog"></div>
+        </div>
       </div>
 
       <!-- 命令交互 (FFE2) -->
@@ -446,7 +495,8 @@ const Utils = {
   // Elements
   const btnConnect=document.getElementById('btnConnect');
   const btnDisconnect=document.getElementById('btnDisconnect');
-  const bleStatus=document.getElementById('bleStatus');
+  const topbar=document.getElementById('topbar');
+  const heroHeader=document.getElementById('heroHeader');
   const bleStatusText=document.getElementById('bleStatusText');
   const bleDeviceName=document.getElementById('bleDeviceName');
   const bleWarning=document.getElementById('bleWarning');
@@ -486,7 +536,8 @@ const Utils = {
   let ffe2Char=null;
   let ffe1Char=null;       // FFE1 特征引用（用于停止订阅/轮询）
   let ffe1Busy=false;      // 读保护：上一次 readValue 未完成时不发起新读
-  let jnaPaused=false;
+  let ffe1FeedActive=false; // FFE1 订阅/轮询是否已启动（点击“开始更新”后为 true）
+  let jnaPaused=true;
   let bleRawLines=[];
   const activePolls=new Map(); // characteristic -> intervalId
   const ffe2ResponseBuffer=[]; // FFE2 通知缓存，用于命令响应匹配
@@ -563,9 +614,11 @@ const Utils = {
       btnDisconnect.disabled=false;
       // 连接成功后先清空上一会话遗留的记录与日志
       resetSessionState();
-      // JNA 模式：连接后自动以 1000ms 间隔订阅 FFE1，并发现 FFE2 用于命令
-      await autoSubscribeFFE1(server);
+      // JNA 模式：发现 FFE1（仅探测特征，不立即轮询）与 FFE2（用于命令）
+      await discoverFFE1(server);
       await discoverFFE2(server);
+      // 若用户已提前点击“开始更新”，则立即启动 FFE1 订阅/轮询
+      if(!jnaPaused) await startFFE1Feed();
     }catch(err){
       console.error('BLE connect error:',err);
       setStatus('disconnected','');
@@ -579,6 +632,15 @@ const Utils = {
   btnDisconnect.addEventListener('click', ()=>{
     if(device&&device.gatt.connected) device.gatt.disconnect();
   });
+
+  // ---- Sticky top bar: 滚动时标题缩小并移入顶栏 ----
+  function syncTopbar(){
+    const scrolled=window.scrollY>40;
+    topbar.classList.toggle('scrolled', scrolled);
+    heroHeader.classList.toggle('collapsed', scrolled);
+  }
+  window.addEventListener('scroll', syncTopbar, {passive:true});
+  syncTopbar();
 
   function onDisconnected(){
     resetConnectionUI();
@@ -598,10 +660,10 @@ const Utils = {
     jnaFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
     // 复位 FFE2 命令状态（保留命令日志）
     ffe2Char=null;
-    // 复位暂停状态
-    jnaPaused=false;
-    btnPauseJna.textContent='暂停更新';
-    btnPauseJna.classList.remove('btn-warn');
+    // 复位暂停状态（默认暂停，需手动点击“开始更新”才解析）
+    jnaPaused=true;
+    btnPauseJna.textContent='开始更新';
+    btnPauseJna.classList.add('btn-warn');
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
@@ -627,6 +689,12 @@ const Utils = {
 
   // 停止 FFE1 的轮询与通知订阅（设备断开/重启前调用，避免断开后仍持续报错）
   function stopFFE1Poll(){
+    stopFFE1Feed();
+    ffe1Char=null;
+  }
+
+  // 暂停：停止 FFE1 订阅/轮询，但保留 ffe1Char 引用以便恢复
+  function stopFFE1Feed(){
     activePolls.forEach(id=>clearInterval(id));
     activePolls.clear();
     if(ffe1Char){
@@ -634,8 +702,8 @@ const Utils = {
         ffe1Char.removeEventListener('characteristicvaluechanged', onCharChanged);
         if(ffe1Char.stopNotifications) ffe1Char.stopNotifications().catch(()=>{});
       }catch(err){ /* 忽略 */ }
-      ffe1Char=null;
     }
+    ffe1FeedActive=false;
     ffe1Busy=false;
   }
 
@@ -650,6 +718,8 @@ const Utils = {
     cmdLog.innerHTML='';
     // FFE2 响应缓存
     ffe2ResponseBuffer.length=0;
+    // FFE1 订阅状态（默认暂停，需点击“开始更新”才订阅）
+    stopFFE1Feed();
     // 解析数据面板
     jnaFields.style.display='none';
     jnaFieldsEmpty.style.display='block';
@@ -659,29 +729,31 @@ const Utils = {
     [resultSingleTest,resultCal,resultDetectTime,resultLight,resultDevice].forEach(el=>{
       if(el) el.innerHTML='<div class="cmd-result-empty">等待操作...</div>';
     });
-    // 连接状态
-    setStatus('connecting','');
+    // 注意：连接状态由调用方（连接成功设为 connected / 断线事件设为 disconnected）管理，此处不修改
   }
 
-  // ---- JNA 自动订阅 FFE1 ----
-  async function autoSubscribeFFE1(srv){
-    let target=null;
+  // ---- JNA 发现 FFE1（仅探测特征，不订阅） ----
+  async function discoverFFE1(srv){
     try{
       const services=await srv.getPrimaryServices();
       for(const svc of services){
         const chars=await svc.getCharacteristics();
         const ch=chars.find(c=>c.uuid.toLowerCase()===FFE1_SERVICE);
-        if(ch){target=ch;break;}
+        if(ch){ffe1Char=ch;return;}
       }
     }catch(err){
-      console.warn('发现服务失败:',err);
+      console.warn('发现 FFE1 服务失败:',err);
     }
-    if(!target){
-      logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
-      return;
-    }
+    if(!ffe1Char) logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
+  }
+
+  // ---- 启动 FFE1 订阅/轮询（点击“开始更新”时调用） ----
+  async function startFFE1Feed(){
+    if(ffe1FeedActive) return; // 已在订阅，避免重复
+    if(!ffe1Char && server) await discoverFFE1(server); // 若尚未发现则尝试发现
+    if(!ffe1Char) return;
     const shortU=Utils.shortUuid(FFE1_SERVICE);
-    ffe1Char=target;
+    const target=ffe1Char;
 
     // 优先使用通知/指示（事件驱动，内容变化即触发，最优雅）
     if(target.properties.notify||target.properties.indicate){
@@ -689,6 +761,7 @@ const Utils = {
         await target.startNotifications();
         target.addEventListener('characteristicvaluechanged',onCharChanged);
         logToPanel('Sub', shortU, '已开启通知订阅（内容变化自动触发）');
+        ffe1FeedActive=true;
         return; // 已有设备推送，无需轮询
       }catch(err){
         console.warn('notify 订阅失败，回退到轮询:',err);
@@ -718,6 +791,7 @@ const Utils = {
       doPoll();
       activePolls.set(target, setInterval(doPoll, POLL_INTERVAL));
       logToPanel('Sub', shortU, '已回退到 '+POLL_INTERVAL+'ms 轮询订阅');
+      ffe1FeedActive=true;
     }
   }
 
@@ -1133,14 +1207,21 @@ const Utils = {
     btnExportLog.disabled=true;
   });
 
+  // ---- Data log card collapse ----
+  const logCard=document.getElementById('logCard');
+  const logCardToggle=document.getElementById('logCardToggle');
+  logCardToggle.addEventListener('click',()=>{ logCard.classList.toggle('collapsed'); });
+
   // ---- Pause/Resume JNA parsing ----
-  btnPauseJna.addEventListener('click',()=>{
+  btnPauseJna.addEventListener('click', async ()=>{
     jnaPaused=!jnaPaused;
-    btnPauseJna.textContent=jnaPaused?'继续更新':'暂停更新';
+    btnPauseJna.textContent=jnaPaused?'开始更新':'暂停更新';
     if(jnaPaused){
       btnPauseJna.classList.add('btn-warn');
+      stopFFE1Feed(); // 暂停：停止 FFE1 订阅/轮询
     }else{
       btnPauseJna.classList.remove('btn-warn');
+      await startFFE1Feed(); // 开始更新：启动 FFE1 订阅/轮询
     }
   });
 
