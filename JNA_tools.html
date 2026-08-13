@@ -210,18 +210,17 @@
   }
   .cmd-log:not(:has(.log-line))::before{content:'命令收发日志...';color:#a89f6a;}
 
-  /* 可拖拽调节高度的日志区 */
+  /* 可拖拽调节高度的日志区（--resizer 颜色按日志类型区分） */
   .log-resizer{
+    --resizer:rgba(148,163,184,.7);
     position:absolute;right:0;bottom:0;width:18px;height:18px;
     cursor:ns-resize;display:flex;align-items:flex-end;justify-content:flex-end;
     padding:2px;pointer-events:auto;z-index:2;
   }
+  .cmd-log .log-resizer{--resizer:rgba(168,159,106,.7);}
   .log-resizer::after{
     content:'';width:10px;height:10px;
-    background:linear-gradient(135deg, transparent 35%, rgba(148,163,184,.7) 35%, rgba(148,163,184,.7) 45%, transparent 45%, transparent 55%, rgba(148,163,184,.7) 55%, rgba(148,163,184,.7) 65%, transparent 65%);
-  }
-  .cmd-log .log-resizer::after{
-    background:linear-gradient(135deg, transparent 35%, rgba(168,159,106,.7) 35%, rgba(168,159,106,.7) 45%, transparent 45%, transparent 55%, rgba(168,159,106,.7) 55%, rgba(168,159,106,.7) 65%, transparent 65%);
+    background:linear-gradient(135deg, transparent 35%, var(--resizer) 35%, var(--resizer) 45%, transparent 45%, transparent 55%, var(--resizer) 55%, var(--resizer) 65%, transparent 65%);
   }
   .log-resizer:hover::after{filter:brightness(1.3);}
 
@@ -766,18 +765,24 @@ const Utils = {
     }
   }
 
-  // ---- JNA 发现 FFE1（仅探测特征，不订阅） ----
-  async function discoverFFE1(srv){
+  // 在设备全部服务/特征中查找指定 UUID 的特征（FFE1 / FFE2 共用）
+  async function discoverChar(srv, uuid){
     try{
       const services=await srv.getPrimaryServices();
       for(const svc of services){
         const chars=await svc.getCharacteristics();
-        const ch=chars.find(c=>c.uuid.toLowerCase()===FFE1_SERVICE);
-        if(ch){ffe1Char=ch;return;}
+        const ch=chars.find(c=>c.uuid.toLowerCase()===uuid);
+        if(ch) return ch;
       }
     }catch(err){
-      console.warn('发现 FFE1 服务失败:',err);
+      console.warn('发现服务失败:',err);
     }
+    return null;
+  }
+
+  // ---- JNA 发现 FFE1（仅探测特征，不订阅） ----
+  async function discoverFFE1(srv){
+    ffe1Char=await discoverChar(srv, FFE1_SERVICE);
     if(!ffe1Char) logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
     refreshFeatureState(); // FFE1 发现结果更新面板可用性
   }
@@ -844,16 +849,7 @@ const Utils = {
   // Log read/poll results to the panel with timestamp
   // ---- FFE2 命令交互 ----
   async function discoverFFE2(srv){
-    try{
-      const services=await srv.getPrimaryServices();
-      for(const svc of services){
-        const chars=await svc.getCharacteristics();
-        const ch=chars.find(c=>c.uuid.toLowerCase()===FFE2_SERVICE);
-        if(ch){ffe2Char=ch;break;}
-      }
-    }catch(err){
-      console.warn('发现 FFE2 失败:',err);
-    }
+    ffe2Char=await discoverChar(srv, FFE2_SERVICE);
     if(ffe2Char){
       console.log('[JNA] FFE2 已就绪');
       if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
@@ -892,11 +888,10 @@ const Utils = {
 
   function setBusy(busy){
     cmdBusy=busy;
-    const btns=[btnSetDetectTime,btnReboot,btnShutdown,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,detectTimeSelect];
-    btns.forEach(b=>b.disabled=busy);
+    ffe2Controls.forEach(b=>{ if(b) b.disabled=busy; }); // 与命令交互控件列表共用
   }
 
-  // 仅发送，不自动读取（用于需要自定义查询时序的命令）
+  // 仅发送，不自动读取；所有 FFE2 写操作统一走这里，保证日志与 console 一致
   async function writeCmdRaw(frame){
     if(!ffe2Char){throw new Error('FFE2 未就绪');}
     const hex=frameToHex(frame);
@@ -907,12 +902,8 @@ const Utils = {
 
   // 通用发送 + 500ms 后自动读取；返回读取到的 DataView（如无需读取则返回 null）
   async function writeCmd(frame){
-    if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return null;}
-    const hex=frameToHex(frame);
-    console.log('[JNA] 发送:', hex);
-    logCmd('发送', hex);
     try{
-      await ffe2Char.writeValue(frame.buffer);
+      await writeCmdRaw(frame); // 发送（含日志）统一由 writeCmdRaw 处理
     }catch(err){
       logCmd('发送失败', err.message);
       return null;
@@ -1050,51 +1041,19 @@ const Utils = {
     }
   }
 
-  // 单次测试：主 0x06 / 从 0x01 / data: 0x01 积分球，0x02 普通；响应从指令为 0x11
-  async function runSingleTest(mode, resultEl, name){
+  // 单次测试 / 查询校准值共用：发送主指令 mainCmd + 从指令 0x01 + data[mode]，等待 delayMs 后回读，
+  // 校验响应（主指令匹配、从指令 0x11、6 字节数据），不符则自动重试，最多两次。
+  async function runCmdQuery(mainCmd, mode, delayMs, pendingVerb, resultEl, name){
     if(cmdBusy) return;
     setBusy(true);
     try{
-      setCardResult(resultEl, {type:'info', message:'['+name+'] 命令发送中...'});
+      setCardResult(resultEl, {type:'info', message:'['+name+'] '+pendingVerb});
       const {dv, raw}=await queryResponseAfter(
-        buildFrame(0x06,0x01,[mode]),
-        3000,
+        buildFrame(mainCmd,0x01,[mode]),
+        delayMs,
         dv=>{
           const p=parseCmdResponse(dv);
-          return !!(p && p.main===0x06 && p.sub===0x11 && p.data.length===6);
-        },
-        2
-      );
-      if(!dv){
-        setCardResult(resultEl, {type:'err', message:'['+name+'] 两次查询均未收到有效返回', raw: raw?('Raw: '+raw):''});
-        return;
-      }
-      const parsed=parseCmdResponse(dv);
-      const values=parseCbtValues(parsed.data);
-      if(values){
-        setCardResult(resultEl, {type:'values', values, raw:'Raw: '+parsed.hex});
-      }else{
-        setCardResult(resultEl, {type:'err', message:'['+name+'] 返回数据长度异常', raw:parsed.hex});
-      }
-    }catch(err){
-      setCardResult(resultEl, {type:'err', message:'['+name+'] 异常: '+err.message});
-    }finally{
-      setBusy(false);
-    }
-  }
-
-  // 查询校准值：主 0x05 / 从 0x01 / data: 0x01 本次开机，0x02 烧录 MAC；响应从指令为 0x11
-  async function runQueryCal(mode, resultEl, name){
-    if(cmdBusy) return;
-    setBusy(true);
-    try{
-      setCardResult(resultEl, {type:'info', message:'['+name+'] 查询中...'});
-      const {dv, raw}=await queryResponseAfter(
-        buildFrame(0x05,0x01,[mode]),
-        500,
-        dv=>{
-          const p=parseCmdResponse(dv);
-          return !!(p && p.main===0x05 && p.sub===0x11 && p.data.length===6);
+          return !!(p && p.main===mainCmd && p.sub===0x11 && p.data.length===6);
         },
         2
       );
@@ -1124,10 +1083,13 @@ const Utils = {
     setCardResult(resultEl, {type:'ok', message:'['+name+'] 已发送', raw:parsed?parsed.hex:formatDataView(dv)});
   }
 
-  function logCmd(direction, value){
+  function tsNow(){
     const now=new Date();
-    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
-    const line=`[${direction} @ ${ts}] ${value}`;
+    return now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+  }
+
+  function logCmd(direction, value){
+    const line=`[${direction} @ ${tsNow()}] ${value}`;
     const p=document.createElement('div');
     p.className='log-line log-'+
       (direction.includes('失败')?'err':(direction.includes('发送')?'out':'in'));
@@ -1144,9 +1106,7 @@ const Utils = {
   }
 
   function logToPanel(prefix,uuid,value){
-    const now=new Date();
-    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
-    const line=`[${prefix} ${uuid} @ ${ts}] ${value}`;
+    const line=`[${prefix} ${uuid} @ ${tsNow()}] ${value}`;
     bleRawLines.push(line);
     if(bleRawLines.length>MAX_RAW){
       bleRawLines.shift();
@@ -1269,10 +1229,10 @@ const Utils = {
   });
   btnReboot.addEventListener('click', ()=>sendControlCommand(0x02,'重启设备'));
   btnShutdown.addEventListener('click', ()=>sendControlCommand(0x03,'关闭设备'));
-  btnTestIntegral.addEventListener('click', ()=>runSingleTest(0x01, resultSingleTest, '积分球测试'));
-  btnTestNormal.addEventListener('click', ()=>runSingleTest(0x02, resultSingleTest, '普通测试'));
-  btnCalBoot.addEventListener('click', ()=>runQueryCal(0x01, resultCal, '本次开机校准值'));
-  btnCalMac.addEventListener('click', ()=>runQueryCal(0x02, resultCal, '烧录 MAC 校准值'));
+  btnTestIntegral.addEventListener('click', ()=>runCmdQuery(0x06, 0x01, 3000, '命令发送中...', resultSingleTest, '积分球测试'));
+  btnTestNormal.addEventListener('click', ()=>runCmdQuery(0x06, 0x02, 3000, '命令发送中...', resultSingleTest, '普通测试'));
+  btnCalBoot.addEventListener('click', ()=>runCmdQuery(0x05, 0x01, 500, '查询中...', resultCal, '本次开机校准值'));
+  btnCalMac.addEventListener('click', ()=>runCmdQuery(0x05, 0x02, 500, '查询中...', resultCal, '烧录 MAC 校准值'));
   btnLightC.addEventListener('click', ()=>sendLight(0x01, resultLight, '点亮 C 灯'));
   btnLightB.addEventListener('click', ()=>sendLight(0x02, resultLight, '点亮 B 灯'));
   btnLightT.addEventListener('click', ()=>sendLight(0x03, resultLight, '点亮 T 灯'));
