@@ -86,6 +86,12 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  /* 特征发现状态徽标 */
+  #btnPauseJna{margin-left:auto;}
+  .feature-badge{font-size:.72rem;font-weight:600;padding:2px 9px;border-radius:999px;margin-left:6px;vertical-align:middle;line-height:1.6;transition:background .3s,color .3s;}
+  .feature-badge.ready{background:rgba(22,163,74,.18);color:#4ade80;}
+  .feature-badge.locked{background:rgba(148,163,184,.18);color:#94a3b8;}
+  select:disabled{opacity:.45;cursor:not-allowed;}
 
   /* ---- Collapsible card ---- */
   .card-title-toggle{cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;}
@@ -343,7 +349,8 @@
       <div class="card">
         <div class="card-title">
           <span>解析数据 (FFE1)</span>
-          <button class="btn btn-sm btn-warn" id="btnPauseJna">开始更新</button>
+          <button class="btn btn-sm btn-warn" id="btnPauseJna" disabled>开始更新</button>
+          <span class="feature-badge locked" id="ffe1Badge">未就绪</span>
         </div>
         <div id="jnaFields" class="jna-fields" style="display:none;">
           <div class="field-box" data-key="status"><div class="field-label">检测状态</div><div class="field-raw">--</div><div class="field-value">--</div></div>
@@ -382,7 +389,7 @@
       <!-- 命令交互 (FFE2) -->
       <div class="card">
         <div class="card-title">
-          <span>命令交互 (FFE2)</span>
+          <span>命令交互 (FFE2)</span><span class="feature-badge locked" id="ffe2Badge">未就绪</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <div class="log-legend" title="颜色说明">
               <span><i class="lg-out"></i>发送</span>
@@ -520,6 +527,8 @@ const Utils = {
   const btnLightB=document.getElementById('btnLightB');
   const btnLightT=document.getElementById('btnLightT');
   const btnPauseJna=document.getElementById('btnPauseJna');
+  const ffe1Badge=document.getElementById('ffe1Badge');
+  const ffe2Badge=document.getElementById('ffe2Badge');
   // 新命令卡片
   const btnTestIntegral=document.getElementById('btnTestIntegral');
   const btnTestNormal=document.getElementById('btnTestNormal');
@@ -530,6 +539,8 @@ const Utils = {
   const resultDetectTime=document.getElementById('resultDetectTime');
   const resultLight=document.getElementById('resultLight');
   const resultDevice=document.getElementById('resultDevice');
+  // FFE2 命令交互所有可操作控件（FFE2 发现前全部禁用）
+  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnReboot,btnShutdown];
 
   // State
   let device=null, server=null;
@@ -642,6 +653,9 @@ const Utils = {
   window.addEventListener('scroll', syncTopbar, {passive:true});
   syncTopbar();
 
+  // 初始化：未连接时 FFE1/FFE2 均未发现，先锁定两个面板
+  refreshFeatureState();
+
   function onDisconnected(){
     resetConnectionUI();
   }
@@ -664,6 +678,8 @@ const Utils = {
     jnaPaused=true;
     btnPauseJna.textContent='开始更新';
     btnPauseJna.classList.add('btn-warn');
+    // 断开后 FFE1/FFE2 均需重新发现，重新锁定两个面板
+    refreshFeatureState();
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
@@ -732,6 +748,24 @@ const Utils = {
     // 注意：连接状态由调用方（连接成功设为 connected / 断线事件设为 disconnected）管理，此处不修改
   }
 
+  // ---- 根据 FFE1/FFE2 是否已发现，刷新两个面板的可用状态 ----
+  function refreshFeatureState(){
+    // 解析数据 (FFE1)：FFE1 发现前禁用“开始更新”
+    const ffe1Ready=!!ffe1Char;
+    if(btnPauseJna) btnPauseJna.disabled=!ffe1Ready;
+    if(ffe1Badge){
+      ffe1Badge.className='feature-badge '+(ffe1Ready?'ready':'locked');
+      ffe1Badge.textContent=ffe1Ready?'已就绪':'未就绪';
+    }
+    // 命令交互 (FFE2)：FFE2 发现前禁用所有命令按钮与下拉框
+    const ffe2Ready=!!ffe2Char;
+    ffe2Controls.forEach(el=>{ if(el) el.disabled=!ffe2Ready; });
+    if(ffe2Badge){
+      ffe2Badge.className='feature-badge '+(ffe2Ready?'ready':'locked');
+      ffe2Badge.textContent=ffe2Ready?'已就绪':'未就绪';
+    }
+  }
+
   // ---- JNA 发现 FFE1（仅探测特征，不订阅） ----
   async function discoverFFE1(srv){
     try{
@@ -745,6 +779,7 @@ const Utils = {
       console.warn('发现 FFE1 服务失败:',err);
     }
     if(!ffe1Char) logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
+    refreshFeatureState(); // FFE1 发现结果更新面板可用性
   }
 
   // ---- 启动 FFE1 订阅/轮询（点击“开始更新”时调用） ----
@@ -832,6 +867,7 @@ const Utils = {
     }else{
       console.warn('[JNA] 未找到 FFE2');
     }
+    refreshFeatureState(); // FFE2 发现结果更新命令交互可用性
   }
 
   function onFFE2Changed(event){
