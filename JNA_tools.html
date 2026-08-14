@@ -243,6 +243,10 @@
   .cmd-card.collapsed .cmd-result{display:none;}
   .cmd-card-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;}
   .cmd-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  .cmd-field{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text-muted);white-space:nowrap;}
+  .cmd-input{width:68px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:.78rem;color:var(--text);text-align:center;outline:none;background:var(--surface);}
+  .cmd-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
+  .cmd-input:disabled{opacity:.45;cursor:not-allowed;}
   .cmd-result{
     background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-height:70px;
   }
@@ -404,7 +408,11 @@
           <!-- 单次测试 -->
           <div class="cmd-card collapsed">
             <div class="cmd-card-title"><span>单次测试</span><span class="toggle-arrow">▾</span></div>
-            <div class="cmd-card-desc">主指令 0x06 / 从指令 0x01。发送后等待 3 秒读取返回值；若返回格式不符则自动重试一次。</div>
+            <div class="cmd-card-desc">主指令 0x06 / 从指令 0x01。发送命令后等待“延时”读取返回值；若格式不符则自动重试——重试仅读取、不再重发命令。</div>
+            <div class="cmd-card-actions">
+              <label class="cmd-field">延时(ms)<input type="number" id="testDelayMs" class="cmd-input" value="1000" min="100" step="100"></label>
+              <label class="cmd-field">尝试次数<input type="number" id="testRetries" class="cmd-input" value="4" min="1" max="20"></label>
+            </div>
             <div class="cmd-card-actions">
               <button class="btn btn-primary btn-sm" id="btnTestIntegral">积分球测试</button>
               <button class="btn btn-primary btn-sm" id="btnTestNormal">普通测试</button>
@@ -539,8 +547,11 @@ const Utils = {
   const resultDetectTime=document.getElementById('resultDetectTime');
   const resultLight=document.getElementById('resultLight');
   const resultDevice=document.getElementById('resultDevice');
+  // 单次测试：可编辑的延时与重复次数
+  const testDelayMs=document.getElementById('testDelayMs');
+  const testRetries=document.getElementById('testRetries');
   // FFE2 命令交互所有可操作控件（FFE2 发现前全部禁用）
-  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnReboot,btnShutdown];
+  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnReboot,btnShutdown,testDelayMs,testRetries];
 
   // State
   let device=null, server=null;
@@ -956,16 +967,23 @@ const Utils = {
   }
 
   // 发送命令后等待 delayMs，然后读取/捕获通知，用 predicate 校验；最多尝试 attempts 次
+  // resendOnRetry=false 时，仅第 1 次发送命令，后续重试只读取（不重发）
   // 返回 {dv, raw}；raw 为最后一次回读/通知的十六进制字符串（即使格式不符也会带回，便于排查）
-  async function queryResponseAfter(frame, delayMs, predicate, attempts=2){
+  async function queryResponseAfter(frame, delayMs, predicate, attempts=2, resendOnRetry=true){
     let lastRaw='';
     for(let attempt=1; attempt<=attempts; attempt++){
-      ffe2ResponseBuffer.length=0; // 清空旧通知，避免误匹配
-      try{
-        await writeCmdRaw(frame);
-      }catch(err){
-        logCmd('发送失败', err.message);
-        return {dv:null, raw:''};
+      const doSend=(attempt===1 || resendOnRetry);
+      if(doSend){
+        ffe2ResponseBuffer.length=0; // 清空旧通知，避免误匹配
+        try{
+          await writeCmdRaw(frame);
+        }catch(err){
+          logCmd('发送失败', err.message);
+          return {dv:null, raw:''};
+        }
+      }else{
+        // 重试：仅读取，不重复发送命令（避免重新触发测试/操作）
+        console.log('[JNA] 第 '+attempt+' 次仅读取，不重复发送命令');
       }
       console.log('[JNA] 等待 '+delayMs+'ms 后回读（第 '+attempt+' 次）...');
       await sleep(delayMs);
@@ -1043,8 +1061,11 @@ const Utils = {
   }
 
   // 单次测试 / 查询校准值共用：发送主指令 mainCmd + 从指令 0x01 + data[mode]，等待 delayMs 后回读，
-  // 校验响应（主指令匹配、从指令 0x11、6 字节数据），不符则自动重试，最多两次。
-  async function runCmdQuery(mainCmd, mode, delayMs, pendingVerb, resultEl, name){
+  // 校验响应（主指令匹配、从指令 0x11、6 字节数据），不符则自动重试。
+  // opts.attempts：总查询次数（默认 2）；opts.resendOnRetry：重试时是否重发命令（默认 true）。
+  async function runCmdQuery(mainCmd, mode, delayMs, pendingVerb, resultEl, name, opts){
+    const attempts=(opts&&opts.attempts)||2;
+    const resendOnRetry=!(opts&&opts.resendOnRetry===false);
     if(cmdBusy) return;
     setBusy(true);
     try{
@@ -1056,10 +1077,11 @@ const Utils = {
           const p=parseCmdResponse(dv);
           return !!(p && p.main===mainCmd && p.sub===0x11 && p.data.length===6);
         },
-        2
+        attempts,
+        resendOnRetry
       );
       if(!dv){
-        setCardResult(resultEl, {type:'err', message:'['+name+'] 两次查询均未收到有效返回', raw: raw?('Raw: '+raw):''});
+        setCardResult(resultEl, {type:'err', message:'['+name+'] '+attempts+' 次查询均未收到有效返回', raw: raw?('Raw: '+raw):''});
         return;
       }
       const parsed=parseCmdResponse(dv);
@@ -1230,8 +1252,22 @@ const Utils = {
   });
   btnReboot.addEventListener('click', ()=>sendControlCommand(0x02,'重启设备'));
   btnShutdown.addEventListener('click', ()=>sendControlCommand(0x03,'关闭设备'));
-  btnTestIntegral.addEventListener('click', ()=>runCmdQuery(0x06, 0x01, 3000, '命令发送中...', resultSingleTest, '积分球测试'));
-  btnTestNormal.addEventListener('click', ()=>runCmdQuery(0x06, 0x02, 3000, '命令发送中...', resultSingleTest, '普通测试'));
+  // 单次测试：从卡片内的输入框读取延时与重复次数（仅首次发送命令，重试仅读取）
+  function clampInt(v, min, max, fallback){
+    let n=parseInt(v,10);
+    if(isNaN(n)) n=fallback;
+    return Math.min(max, Math.max(min, n));
+  }
+  btnTestIntegral.addEventListener('click', ()=>{
+    const delay=clampInt(testDelayMs.value, 100, 60000, 3000);
+    const retries=clampInt(testRetries.value, 1, 20, 2);
+    runCmdQuery(0x06, 0x01, delay, '命令发送中...', resultSingleTest, '积分球测试', {attempts:retries, resendOnRetry:false});
+  });
+  btnTestNormal.addEventListener('click', ()=>{
+    const delay=clampInt(testDelayMs.value, 100, 60000, 3000);
+    const retries=clampInt(testRetries.value, 1, 20, 2);
+    runCmdQuery(0x06, 0x02, delay, '命令发送中...', resultSingleTest, '普通测试', {attempts:retries, resendOnRetry:false});
+  });
   btnCalBoot.addEventListener('click', ()=>runCmdQuery(0x05, 0x01, 500, '查询中...', resultCal, '本次开机校准值'));
   btnCalMac.addEventListener('click', ()=>runCmdQuery(0x05, 0x02, 500, '查询中...', resultCal, '烧录 MAC 校准值'));
   btnLightC.addEventListener('click', ()=>sendLight(0x01, resultLight, '点亮 C 灯'));
