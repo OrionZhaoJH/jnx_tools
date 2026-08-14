@@ -227,14 +227,19 @@
   /* 命令卡片 */
   .cmd-grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:4px;
+    align-items:start; /* 卡片按自身内容高度排布，展开一个不会把同行其他卡片拉长 */
   }
   .cmd-card{
     background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;
     transition:border-color .2s,box-shadow .2s;
+    display:flex;flex-direction:column; /* 让 .cmd-result 能贴底对齐 */
   }
   .cmd-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.08);}
-  .cmd-card-title{font-size:1rem;font-weight:600;margin-bottom:6px;color:var(--text);
-    display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;}
+  .cmd-card-title{font-size:1rem;font-weight:600;margin:0 -10px 6px;color:var(--text);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    cursor:pointer;user-select:none;
+    padding:9px 10px;border-radius:8px;transition:background .15s;}
+  .cmd-card-title:hover{background:var(--accent-soft);}
   .cmd-card-title .toggle-arrow{font-size:.85rem;color:var(--text-muted);transition:transform .2s;flex:none;}
   .cmd-card.collapsed .cmd-card-title{margin-bottom:0;}
   .cmd-card.collapsed .toggle-arrow{transform:rotate(-90deg);}
@@ -249,6 +254,7 @@
   .cmd-input:disabled{opacity:.45;cursor:not-allowed;}
   .cmd-result{
     background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-height:70px;
+    margin-top:auto; /* 结果区贴卡片底部对齐，配合等高后同行卡片结果框底边平齐 */
   }
   .cmd-result-empty{color:var(--text-light);font-size:.8rem;text-align:center;padding:12px 0;}
   .cmd-result-values{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;}
@@ -1044,6 +1050,28 @@ const Utils = {
       if(raw) html+='<div class="cmd-result-raw">'+Utils.escapeHtml(raw)+'</div>';
       el.innerHTML=html;
     }
+    equalizeCmdRows(); // 结果区高度变化后，保持同一行已展开卡片高度一致
+  }
+
+  // 同一行内“已展开”的命令卡片等高：按视口顶边分组，把该行展开卡片统一到最高者；
+  // 折叠卡片保持自身小高度，不被拉伸（配合 .cmd-grid 的 align-items:start）。
+  function equalizeCmdRows(){
+    const cards=Array.from(document.querySelectorAll('.cmd-card'));
+    if(!cards.length) return;
+    cards.forEach(c=>{ c.style.minHeight=''; }); // 先还原自然高度再测量
+    const rows=new Map();
+    cards.forEach(c=>{
+      const top=Math.round(c.getBoundingClientRect().top);
+      if(!rows.has(top)) rows.set(top,[]);
+      rows.get(top).push(c);
+    });
+    rows.forEach(group=>{
+      const expanded=group.filter(c=>!c.classList.contains('collapsed'));
+      if(expanded.length>1){
+        const maxH=Math.max(...expanded.map(c=>c.offsetHeight));
+        expanded.forEach(c=>{ c.style.minHeight=maxH+'px'; });
+      }
+    });
   }
 
   async function sendSetDetectTime(minutes){
@@ -1310,8 +1338,13 @@ const Utils = {
   document.querySelectorAll('.cmd-card').forEach(card=>{
     const title=card.querySelector('.cmd-card-title');
     if(!title) return;
-    title.addEventListener('click',()=>card.classList.toggle('collapsed'));
+    title.addEventListener('click',()=>{
+      card.classList.toggle('collapsed');
+      equalizeCmdRows(); // 展开/折叠后重排同一行卡片高度
+    });
   });
+  // 窗口尺寸变化会改变每行卡片数量，重排等高
+  window.addEventListener('resize', equalizeCmdRows);
 
   // ---- Export log ----
   btnExportLog.addEventListener('click',()=>{
