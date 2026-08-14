@@ -458,6 +458,17 @@
             <div class="cmd-result" id="resultLight"><div class="cmd-result-empty">等待操作...</div></div>
           </div>
 
+          <!-- 亮度计模式 -->
+          <div class="cmd-card collapsed">
+            <div class="cmd-card-title"><span>亮度计模式</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">主指令 0x08 / 从指令 0x02。0x01 进入亮度计模式，0x02 退出；响应从指令 0x12，01 成功 / 02 失败。</div>
+            <div class="cmd-card-actions">
+              <button class="btn btn-primary btn-sm" id="btnBrightnessEnter">进入亮度计模式</button>
+              <button class="btn btn-primary btn-sm" id="btnBrightnessExit">退出亮度计模式</button>
+            </div>
+            <div class="cmd-result" id="resultBrightness"><div class="cmd-result-empty">等待操作...</div></div>
+          </div>
+
           <!-- 设备控制 -->
           <div class="cmd-card collapsed">
             <div class="cmd-card-title"><span>设备控制</span><span class="toggle-arrow">▾</span></div>
@@ -547,11 +558,15 @@ const Utils = {
   const resultDetectTime=document.getElementById('resultDetectTime');
   const resultLight=document.getElementById('resultLight');
   const resultDevice=document.getElementById('resultDevice');
+  // 亮度计模式
+  const resultBrightness=document.getElementById('resultBrightness');
+  const btnBrightnessEnter=document.getElementById('btnBrightnessEnter');
+  const btnBrightnessExit=document.getElementById('btnBrightnessExit');
   // 单次测试：可编辑的延时与重复次数
   const testDelayMs=document.getElementById('testDelayMs');
   const testRetries=document.getElementById('testRetries');
   // FFE2 命令交互所有可操作控件（FFE2 发现前全部禁用）
-  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnReboot,btnShutdown,testDelayMs,testRetries];
+  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnBrightnessEnter,btnBrightnessExit,btnReboot,btnShutdown,testDelayMs,testRetries];
 
   // State
   let device=null, server=null;
@@ -927,7 +942,7 @@ const Utils = {
     try{
       const dv=await ffe2Char.readValue();
       const txt=formatDataView(dv);
-      console.log('[JNA] readValue 回读:', txt);
+      console.log('[JNA] 回读:', txt);
       logCmd('接收', txt);
       setBusy(false);
       return dv;
@@ -1037,6 +1052,21 @@ const Utils = {
     if(!dv){setCardResult(resultDetectTime, {type:'ok', message:'设置命令已发送'});return;}
     const parsed=parseCmdResponse(dv);
     setCardResult(resultDetectTime, {type:'ok', message:parsed?'设置成功':'设置已发送，收到原始数据', raw:parsed?parsed.hex:formatDataView(dv)});
+  }
+
+  // 亮度计模式：主指令 0x08 / 从指令 0x02；data[0]=0x01 进入 / 0x02 退出
+  // 响应从指令 0x12，data[0]=0x01 成功 / 0x02 失败
+  async function sendBrightnessMode(mode, label){
+    setCardResult(resultBrightness, {type:'info', message:'正在'+label+'...'});
+    const dv=await writeCmd(buildFrame(0x08,0x02,[mode]));
+    if(!dv){setCardResult(resultBrightness, {type:'ok', message:label+'命令已发送'});return;}
+    const parsed=parseCmdResponse(dv);
+    if(parsed && parsed.main===0x08 && parsed.sub===0x12 && parsed.data.length===1){
+      const ok=parsed.data[0]===0x01;
+      setCardResult(resultBrightness, {type:ok?'ok':'err', message:label+(ok?'成功':'失败'), raw:parsed.hex});
+    }else{
+      setCardResult(resultBrightness, {type:'ok', message:label+'命令已发送，收到原始数据', raw:parsed?parsed.hex:formatDataView(dv)});
+    }
   }
 
   // 设备控制命令（重启/关机）：发出命令后设备会立即断开链路，写操作常因链路中断而
@@ -1252,6 +1282,8 @@ const Utils = {
   });
   btnReboot.addEventListener('click', ()=>sendControlCommand(0x02,'重启设备'));
   btnShutdown.addEventListener('click', ()=>sendControlCommand(0x03,'关闭设备'));
+  btnBrightnessEnter.addEventListener('click', ()=>sendBrightnessMode(0x01,'进入亮度计模式'));
+  btnBrightnessExit.addEventListener('click', ()=>sendBrightnessMode(0x02,'退出亮度计模式'));
   // 单次测试：从卡片内的输入框读取延时与重复次数（仅首次发送命令，重试仅读取）
   function clampInt(v, min, max, fallback){
     let n=parseInt(v,10);
