@@ -352,6 +352,9 @@ const Utils = {
   const btnLightB=document.getElementById('btnLightB');
   const btnLightT=document.getElementById('btnLightT');
 
+  // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,detectTimeSelect,btnSetDetectTime,btnReboot,btnShutdown,btnLightC,btnLightB,btnLightT];
+
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
   const LINES=['C','B','T'];
@@ -450,6 +453,7 @@ const Utils = {
     });
     // 复位 FFE2
     ffe2Char=null;
+    refreshFeatureState();
     setStatus('disconnected','');
     btnConnect.disabled=false;
     btnDisconnect.disabled=true;
@@ -461,6 +465,18 @@ const Utils = {
     bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
     if(name) bleDeviceName.innerHTML='设备: <strong>'+Utils.escapeHtml(name)+'</strong>';
     else bleDeviceName.innerHTML='';
+  }
+
+  // 根据 FFE2 就绪状态启用/禁用所有 FFE2 相关控件（FFE2 未发现前不可点击）
+  function refreshFeatureState(){
+    const ready=!!(ffe2Char && device && device.gatt.connected);
+    ffe2Controls.forEach(el=>{
+      if(el===btnQueryData||el===btnIntegralSphereTest){
+        el.disabled=!ready || querying;
+      }else{
+        el.disabled=!ready;
+      }
+    });
   }
 
   // ---- FFE2 发现 ----
@@ -489,6 +505,7 @@ const Utils = {
     }else{
       logToPanel('CMD-Err', Utils.shortUuid(FFE2_SERVICE), '未找到 FFE2');
     }
+    refreshFeatureState();
   }
 
   function onFFE2Changed(event){
@@ -638,10 +655,9 @@ const Utils = {
     querying=false;
     if(queryReadTimer) clearTimeout(queryReadTimer);
     queryReadTimer=null;
-    btnQueryData.disabled=false;
-    btnIntegralSphereTest.disabled=false;
     btnQueryData.textContent='普通测试';
     btnIntegralSphereTest.textContent='积分球测试';
+    refreshFeatureState();
   }
 
   // ---- FFE2 命令 ----
@@ -762,6 +778,9 @@ const Utils = {
     URL.revokeObjectURL(url);
   });
   function pad(n){return String(n).padStart(2,'0');}
+
+  // 初始化：FFE2 未发现前禁用所有相关控件
+  refreshFeatureState();
 })();
 </script>
 </body>
