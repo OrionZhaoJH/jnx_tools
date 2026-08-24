@@ -202,7 +202,7 @@
 
   <header>
     <h1><span class="icon">🛰️</span> JNC 工具</h1>
-    <p>连接 JNC 开头的 BLE 设备，点击「解析数据」中的「查询数据」按钮，通过 FFE2 发送查询命令，等待一段时间后读取响应并解析 12 通道数据。</p>
+    <p>连接 JNC 开头的 BLE 设备，点击「解析数据」中的「普通测试」或「积分球测试」按钮，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
   </header>
 
   <div class="ble-warning" id="bleWarning">
@@ -232,7 +232,8 @@
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <label class="timeout-label" for="queryTimeout">等待(ms)</label>
             <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" />
-            <button class="btn btn-primary btn-sm" id="btnQueryData">查询数据</button>
+            <button class="btn btn-primary btn-sm" id="btnQueryData">普通测试</button>
+            <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest">积分球测试</button>
           </div>
         </div>
         <div id="jncTableWrap" style="display:none;">
@@ -244,7 +245,7 @@
           </table>
         </div>
         <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">
-          点击「查询数据」后将显示 12 通道解析结果
+          点击「普通测试」或「积分球测试」后将显示 12 通道解析结果
         </div>
       </div>
 
@@ -282,7 +283,6 @@
           <button class="btn btn-sm" id="btnSetDetectTime">设置检测时间</button>
           <button class="btn btn-sm" id="btnReboot">设备重启</button>
           <button class="btn btn-sm" id="btnShutdown">设备关机</button>
-          <button class="btn btn-sm" id="btnIntegralSphereTest">积分球测试</button>
           <button class="btn btn-sm" id="btnLightC">点亮C灯</button>
           <button class="btn btn-sm" id="btnLightB">点亮B灯</button>
           <button class="btn btn-sm" id="btnLightT">点亮T灯</button>
@@ -540,11 +540,12 @@ const Utils = {
       }
     }
 
-    // Strategy B: 搜索请求回显 5B 0D 0A 07 04 01 5D，取后续 24 字节
-    for(let i=0; i<=bytes.length-7; i++){
+    // Strategy B: 搜索请求回显 5B 0D 0A 08 04 01 [01/02] 5D，取后续 24 字节
+    for(let i=0; i<=bytes.length-8; i++){
       if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
-         bytes[i+3]===0x07 && bytes[i+4]===0x04 && bytes[i+5]===0x01 && bytes[i+6]===0x5D){
-        const dataStart=i+7;
+         bytes[i+3]===0x08 && bytes[i+4]===0x04 && bytes[i+5]===0x01 &&
+         (bytes[i+6]===0x01 || bytes[i+6]===0x02) && bytes[i+7]===0x5D){
+        const dataStart=i+8;
         if(dataStart+24<=bytes.length){
           const vals=[];
           for(let k=0; k<12; k++){
@@ -593,18 +594,24 @@ const Utils = {
   }
 
   // ---- 单次查询控制 ----
-  // 点击「查询数据」→ 发送查询帧 → 等待 N ms（输入框可设）→ 读取响应 → 解析
-  async function queryData(){
+  // 点击「普通测试」(mode=0x01) 或「积分球测试」(mode=0x02)→ 发送测试帧 → 等待 N ms → 读取响应 → 解析
+  async function queryData(mode){
     if(querying) return;
     if(!ffe2Char||!device||!device.gatt.connected){
       logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), 'FFE2 未就绪，请先连接设备');
       return;
     }
+    if(mode!==0x01 && mode!==0x02){
+      logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), '测试模式参数错误');
+      return;
+    }
     querying=true;
     btnQueryData.disabled=true;
-    btnQueryData.textContent='查询中...';
+    btnIntegralSphereTest.disabled=true;
+    btnQueryData.textContent='普通测试中...';
+    btnIntegralSphereTest.textContent='积分球测试中...';
     const waitMs=getQueryTimeout();
-    const frame=buildFrame(0x04, 0x01, []);
+    const frame=buildFrame(0x04, 0x01, [mode]);
     logToPanel('Req', Utils.shortUuid(FFE2_SERVICE), frameToHex(frame));
     try{
       await ffe2Char.writeValue(frame.buffer);
@@ -632,7 +639,9 @@ const Utils = {
     if(queryReadTimer) clearTimeout(queryReadTimer);
     queryReadTimer=null;
     btnQueryData.disabled=false;
-    btnQueryData.textContent='查询数据';
+    btnIntegralSphereTest.disabled=false;
+    btnQueryData.textContent='普通测试';
+    btnIntegralSphereTest.textContent='积分球测试';
   }
 
   // ---- FFE2 命令 ----
@@ -659,7 +668,7 @@ const Utils = {
   }
 
   function lockCmdBar(ms){
-    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnIntegralSphereTest,btnLightC,btnLightB,btnLightT,detectTimeSelect];
+    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnLightC,btnLightB,btnLightT,detectTimeSelect];
     barEls.forEach(el=>{el._prevDisabled=el.disabled; el.disabled=true;});
     setTimeout(()=>{barEls.forEach(el=>{el.disabled=el._prevDisabled;});},ms);
   }
@@ -677,10 +686,6 @@ const Utils = {
   async function sendShutdown(){
     if(!confirm('确定要关闭设备吗？')) return;
     await writeCmd(buildFrame(0x03,0x02,[]));
-  }
-
-  async function sendIntegralSphereTest(){
-    await writeCmd(buildFrame(0x06,0x01,[]));
   }
 
   async function sendLight(lightId){
@@ -729,7 +734,7 @@ const Utils = {
     btnExportLog.disabled=true;
   });
 
-  btnQueryData.addEventListener('click', queryData);
+  btnQueryData.addEventListener('click', ()=>queryData(0x01));
 
   btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
   btnSetDetectTime.addEventListener('click', ()=>{
@@ -738,7 +743,7 @@ const Utils = {
   });
   btnReboot.addEventListener('click', sendReboot);
   btnShutdown.addEventListener('click', sendShutdown);
-  btnIntegralSphereTest.addEventListener('click', sendIntegralSphereTest);
+  btnIntegralSphereTest.addEventListener('click', ()=>queryData(0x02));
   btnLightC.addEventListener('click', ()=>sendLight(0x01));
   btnLightB.addEventListener('click', ()=>sendLight(0x02));
   btnLightT.addEventListener('click', ()=>sendLight(0x03));
