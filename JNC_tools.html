@@ -234,6 +234,12 @@
             <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" />
             <button class="btn btn-primary btn-sm" id="btnQueryData">普通测试</button>
             <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest">积分球测试</button>
+            <label class="timeout-label" for="copyMode">复制</label>
+            <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;">
+              <option value="table">表格(4×3)</option>
+              <option value="column">数值(12×1)</option>
+            </select>
+            <button class="btn btn-sm" id="btnCopyData" disabled>复制数据</button>
           </div>
         </div>
         <div id="jncTableWrap" style="display:none;">
@@ -351,6 +357,8 @@ const Utils = {
   const btnLightC=document.getElementById('btnLightC');
   const btnLightB=document.getElementById('btnLightB');
   const btnLightT=document.getElementById('btnLightT');
+  const btnCopyData=document.getElementById('btnCopyData');
+  const copyMode=document.getElementById('copyMode');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
   const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,detectTimeSelect,btnSetDetectTime,btnReboot,btnShutdown,btnLightC,btnLightB,btnLightT];
@@ -445,6 +453,7 @@ const Utils = {
     // 复位解析数据面板
     jncTableWrap.style.display='none';
     jncFieldsEmpty.style.display='block';
+    btnCopyData.disabled=true;
     channelRows.forEach(r=>{
       for(const line of LINES){
         r.cells[line].classList.remove('flash');
@@ -591,6 +600,7 @@ const Utils = {
     if(jncTableWrap.style.display==='none'){
       jncTableWrap.style.display='block';
       jncFieldsEmpty.style.display='none';
+      btnCopyData.disabled=false; // 有数据后可复制
     }
     for(let i=0;i<CHANNELS;i++){
       const row=channelRows[i];
@@ -752,6 +762,46 @@ const Utils = {
 
   btnQueryData.addEventListener('click', ()=>queryData(0x01));
 
+  // ---- 复制解析数据为 Excel 兼容的 TSV ----
+  async function copyJncTable(){
+    if(jncTableWrap.style.display==='none') return; // 无数据
+    let text;
+    if(copyMode.value==='column'){
+      // 数值模式：单数列 12 个数据，顺序 C1 B1 T1 ... C4 B4 T4
+      const col=[];
+      for(const r of channelRows){
+        col.push(r.cells.C.textContent, r.cells.B.textContent, r.cells.T.textContent);
+      }
+      text=col.join('\n');
+    }else{
+      // 表格模式：4 行 × 3 列（C/B/T）
+      const rows=[];
+      for(const r of channelRows){
+        rows.push([r.cells.C.textContent, r.cells.B.textContent, r.cells.T.textContent].join('\t'));
+      }
+      text=rows.join('\n');
+    }
+    let ok=false;
+    try{
+      await navigator.clipboard.writeText(text);
+      ok=true;
+    }catch(err){
+      // 非安全上下文兜底：临时 textarea + execCommand
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=text;
+        ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok=document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e){ ok=false; }
+    }
+    const old=btnCopyData.textContent;
+    btnCopyData.textContent=ok?'已复制 ✓':'复制失败';
+    setTimeout(()=>{btnCopyData.textContent=old;},1200);
+  }
+
   btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
   btnSetDetectTime.addEventListener('click', ()=>{
     const minutes=detectTimeSelect.value;
@@ -763,6 +813,7 @@ const Utils = {
   btnLightC.addEventListener('click', ()=>sendLight(0x01));
   btnLightB.addEventListener('click', ()=>sendLight(0x02));
   btnLightT.addEventListener('click', ()=>sendLight(0x03));
+  btnCopyData.addEventListener('click', copyJncTable);
 
   btnExportLog.addEventListener('click',()=>{
     if(bleRawLines.length===0) return;
