@@ -137,6 +137,23 @@
   }
   .cmd-log:empty::before{content:'命令收发日志...';color:#a89f6a;}
 
+  /* 数据曲线图（12×460） */
+  .chart-section{margin-top:16px;}
+  .chart-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:4px;align-items:start;}
+  @media(min-width:780px){ .chart-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .chart-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;transition:border-color .2s,box-shadow .2s;}
+  .chart-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.08);}
+  .chart-card-title{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;
+    padding:6px 8px;margin:0 -8px 8px;border-radius:8px;font-weight:600;color:var(--text);}
+  .chart-card-title:hover{background:rgba(59,130,246,.06);}
+  .chart-card-title .toggle-arrow{transition:transform .2s;font-size:.9rem;color:var(--text-muted);}
+  .chart-card.collapsed .toggle-arrow{transform:rotate(-90deg);}
+  .chart-card.collapsed .chart-card-body{display:none;}
+  .chart-card canvas{width:100%;height:240px;display:block;border:1px solid var(--border);border-radius:8px;background:#fbfdff;cursor:crosshair;}
+  .chart-tooltip{position:fixed;pointer-events:none;z-index:9999;background:rgba(17,24,39,.92);color:#fff;
+    padding:6px 9px;border-radius:6px;font-size:12px;line-height:1.5;white-space:nowrap;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);display:none;}
+
   /* JNC 解析数据面板 */
   .jnc-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:4px;}
   .field-box{
@@ -207,6 +224,10 @@
 
   <div class="ble-warning" id="bleWarning">
     ⚠️ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome、Edge 或 Opera（需 HTTPS 或 localhost 访问）。
+  </div>
+
+  <div class="ble-warning" id="serialWarning">
+    ⚠️ 当前浏览器不支持 Web Serial API。请使用 Chrome 或 Edge（需 HTTPS 或 localhost 访问）。
   </div>
 
   <div class="ble-toolbar">
@@ -298,6 +319,69 @@
     </div>
   </div>
 
+  <!-- 串口连接 (Web Serial) -->
+  <div class="card">
+    <div class="card-title">
+      <span>串口连接 (Web Serial)</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label class="timeout-label" for="serialBaud">波特率</label>
+        <input type="number" id="serialBaud" class="timeout-input" value="115200" min="300" step="300" />
+        <span class="status-badge disconnected" id="serialStatus"><span class="status-dot"></span><span id="serialStatusText">未连接</span></span>
+        <button class="btn btn-primary btn-sm" id="btnSerialConnect">连接串口</button>
+        <button class="btn btn-danger btn-sm" id="btnSerialDisconnect" disabled>断开</button>
+      </div>
+    </div>
+    <div class="cmd-toolbar" style="align-items:stretch;">
+      <input type="text" id="serialSend" placeholder="发送内容（文本，回车发送）" style="flex:1;min-width:160px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:.875rem;color:var(--text);outline:none;" />
+      <button class="btn btn-sm" id="btnSerialSend" disabled>发送</button>
+    </div>
+    <div class="cmd-toolbar" style="align-items:stretch;gap:10px;flex-wrap:wrap;">
+      <label class="timeout-label" for="serialChannelSelect">通道</label>
+      <select id="serialChannelSelect" class="timeout-input" style="min-width:110px;" disabled>
+        <option value="all">全部</option>
+        <option value="0x11">C1</option>
+        <option value="0x12">B1</option>
+        <option value="0x13">T1</option>
+        <option value="0x21">C2</option>
+        <option value="0x22">B2</option>
+        <option value="0x23">T2</option>
+        <option value="0x31">C3</option>
+        <option value="0x32">B3</option>
+        <option value="0x33">T3</option>
+        <option value="0x41">C4</option>
+        <option value="0x42">B4</option>
+        <option value="0x43">T4</option>
+      </select>
+      <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled>获取通道数据</button>
+      <button class="btn btn-sm" id="btnSerialCopyData" disabled>复制 12×460 数据</button>
+      <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;"></span>
+    </div>
+    <div class="cmd-log" id="serialLog"></div>
+  </div>
+
+  <!-- 数据曲线图（每 3 通道一组，共 4 张） -->
+  <div class="card chart-section">
+    <div class="card-title"><span>数据曲线图 (12×460)</span></div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-title"><span>通道1（C1 / B1 / T1）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-body"><canvas id="chartCanvas0" data-group="0"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title"><span>通道2（C2 / B2 / T2）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-body"><canvas id="chartCanvas1" data-group="1"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title"><span>通道3（C3 / B3 / T3）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-body"><canvas id="chartCanvas2" data-group="2"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title"><span>通道4（C4 / B4 / T4）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-body"><canvas id="chartCanvas3" data-group="3"></canvas></div>
+      </div>
+    </div>
+  </div>
+
   <footer>JNC 工具 · FFE2 命令查询 · 数据均在本地处理</footer>
 </div>
 
@@ -359,6 +443,20 @@ const Utils = {
   const btnLightT=document.getElementById('btnLightT');
   const btnCopyData=document.getElementById('btnCopyData');
   const copyMode=document.getElementById('copyMode');
+  // 串口 (Web Serial)
+  const serialWarning=document.getElementById('serialWarning');
+  const serialBaud=document.getElementById('serialBaud');
+  const serialStatus=document.getElementById('serialStatus');
+  const serialStatusText=document.getElementById('serialStatusText');
+  const btnSerialConnect=document.getElementById('btnSerialConnect');
+  const btnSerialDisconnect=document.getElementById('btnSerialDisconnect');
+  const serialSend=document.getElementById('serialSend');
+  const btnSerialSend=document.getElementById('btnSerialSend');
+  const serialLog=document.getElementById('serialLog');
+  const serialChannelSelect=document.getElementById('serialChannelSelect');
+  const btnSerialQueryChannel=document.getElementById('btnSerialQueryChannel');
+  const btnSerialCopyData=document.getElementById('btnSerialCopyData');
+  const serialChannelResult=document.getElementById('serialChannelResult');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
   const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,detectTimeSelect,btnSetDetectTime,btnReboot,btnShutdown,btnLightC,btnLightB,btnLightT];
@@ -397,6 +495,15 @@ const Utils = {
   // Query state
   let querying=false;
   let queryReadTimer=null;
+
+  // 串口状态
+  let serialPort=null, serialReader=null, serialKeepReading=false, serialBuf=[];
+  const SERIAL_SAMPLE_COUNT=460;
+  // 串口单通道查询：12 个通道 × C/B/T = 36 个数组；索引 = ch*3 + lineIndex(C=0,B=1,T=2)
+  const serialChannelData=new Array(12).fill(null).map(()=>[]);
+  let serialPendingQuery=null; // {code, label, chIndex, lineIndex, timer, resolve}
+  let serialQueryBusy=false; // 批量全部查询进行中，防止重复触发
+  const SERIAL_QUERY_TIMEOUT_MS=2000;
   // 读取「等待(ms)」输入框，校验范围 [50, 60000]，默认 500
   function getQueryTimeout(){
     let v=parseInt(queryTimeout.value, 10);
@@ -409,6 +516,10 @@ const Utils = {
   if(!navigator.bluetooth){
     bleWarning.classList.add('show');
     btnConnect.disabled=true;
+  }
+  if(!navigator.serial){
+    serialWarning.classList.add('show');
+    btnSerialConnect.disabled=true;
   }
 
   // ---- Connect ----
@@ -594,6 +705,87 @@ const Utils = {
     }
 
     return false;
+  }
+
+  // 串口单通道查询响应解析：
+  // 5B 0D 0A FF 04 11 [01~03 CBT] 01 [920 字节数据，460 个 uint16] 5D
+  // 数据域长度固定显示 FF，不依赖它计算实际长度。
+  // 第 4/5/6 字节（主指令 04 / 从指令 11 / CBT 标记）暂不校验。
+  // 需要结合 serialPendingQuery 才能知道当前是哪个通道。
+  function parseSerialChannelResponse(dv){
+    const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+    const FRAME_LEN=929; // 5B 0D 0A FF 04 11 xx 01 + 920 字节数据 + 5D
+    for(let i=0; i<=bytes.length-FRAME_LEN; i++){
+      if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
+         bytes[i+3]===0xFF && bytes[i+FRAME_LEN-1]===0x5D){
+        // 提取 CBT 标记（即使不校验，也用于复核）
+        const cbtCode=bytes[i+6];
+        const lineMap={'1':'C','2':'B','3':'T'};
+        const lineName=lineMap[String(cbtCode)]||'?';
+        // 解析 460 个 uint16（高位在前）
+        const vals=new Array(SERIAL_SAMPLE_COUNT);
+        const dataStart=i+8;
+        for(let k=0; k<SERIAL_SAMPLE_COUNT; k++){
+          vals[k]=(bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1];
+        }
+        // 存储到对应通道数组
+        let label='';
+        if(serialPendingQuery){
+          const idx=serialPendingQuery.chIndex*3+serialPendingQuery.lineIndex;
+          serialChannelData[idx]=vals;
+          label=serialPendingQuery.label;
+        }else{
+          // 无 pending 时尝试用 CBT 反推 line，但不知道通道号，只能显示 line
+          label='line '+lineName;
+        }
+        // 控制台输出摘要（460 个数全打印会卡，只打前/后 5 个 + 统计）
+        console.log('[Serial] 收到 '+label+' 单通道数据：'+
+          'count='+vals.length+', '+
+          'first5=['+vals.slice(0,5).join(',')+'], '+
+          'last5=['+vals.slice(-5).join(',')+'], '+
+          'min='+Math.min(...vals)+', max='+Math.max(...vals)+', '+
+          'avg='+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1)
+        );
+        serialChannelResult.textContent='收到 '+label+'：'+vals.length+' 笔数据';
+        btnSerialCopyData.disabled=false; // 有数据后可复制
+        renderAllCharts(); // 刷新曲线图
+        clearSerialPending();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function clearSerialPending(result){
+    if(serialPendingQuery){
+      if(serialPendingQuery.timer) clearTimeout(serialPendingQuery.timer);
+      if(serialPendingQuery.resolve) serialPendingQuery.resolve(result!==false);
+      serialPendingQuery=null;
+    }
+  }
+
+  // 通道码 -> 表格索引
+  // 0x11,0x12,0x13 => 通道1 C/B/T；0x21..0x23 => 通道2；依此类推
+  function channelCodeToIndex(code){
+    const ch=((code>>4)&0x0F)-1;
+    const lineCode=code&0x0F;
+    const lineMap={1:'C',2:'B',3:'T'};
+    const line=lineMap[lineCode];
+    if(ch<0||ch>=CHANNELS||!line) return null;
+    const labels={'C':'C','B':'B','T':'T'};
+    return {row:ch, line, label:'通道'+(ch+1)+labels[line]};
+  }
+
+  function updateJncCell(rowIndex, line, value){
+    if(jncTableWrap.style.display==='none'){
+      jncTableWrap.style.display='block';
+      jncFieldsEmpty.style.display='none';
+      btnCopyData.disabled=false;
+    }
+    const row=channelRows[rowIndex];
+    if(row && row.cells[line]){
+      row.cells[line].textContent=value;
+    }
   }
 
   function updateJncTable(values){
@@ -830,8 +1022,406 @@ const Utils = {
   });
   function pad(n){return String(n).padStart(2,'0');}
 
+  // ---- 串口 (Web Serial) ----
+  function logSerial(direction, value){
+    const now=new Date();
+    const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+    // 串口大数据帧日志过长时截断显示
+    let display=value;
+    if(typeof value==='string' && value.length>200){
+      display=value.slice(0,180)+' ... [共 '+value.length+' 字符]';
+    }
+    const line=`[${direction} @ ${ts}] ${display}`;
+    const p=document.createElement('div');p.textContent=line;
+    serialLog.appendChild(p);
+    serialLog.scrollTop=serialLog.scrollHeight;
+  }
+
+  function setSerialStatus(state){
+    serialStatus.className='status-badge '+state;
+    serialStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
+  }
+
+  async function connectSerial(){
+    if(!navigator.serial) return;
+    try{
+      setSerialStatus('connecting');
+      serialPort=await navigator.serial.requestPort();
+      let baud=parseInt(serialBaud.value,10);
+      if(isNaN(baud)||baud<300) baud=115200;
+      await serialPort.open({baudRate:baud});
+      setSerialStatus('connected');
+      btnSerialConnect.disabled=true;
+      btnSerialDisconnect.disabled=false;
+      btnSerialSend.disabled=false;
+      serialChannelSelect.disabled=false;
+      btnSerialQueryChannel.disabled=false;
+      serialKeepReading=true;
+      serialBuf=[];
+      readLoop();
+    }catch(err){
+      console.error('Serial connect error:',err);
+      setSerialStatus('disconnected');
+      if(err.name!=='NotFoundError') alert('串口连接失败: '+err.message);
+    }
+  }
+
+  async function readLoop(){
+    while(serialPort && serialPort.readable && serialKeepReading){
+      serialReader=serialPort.readable.getReader();
+      try{
+        while(true){
+          const {value, done}=await serialReader.read();
+          if(done) break;
+          if(value && value.byteLength){
+            logSerial('Rx', Array.from(value,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' '));
+            // 累积字节，兼容被拆分的不完整帧
+            serialBuf.push(...Array.from(value));
+            if(serialBuf.length>2048) serialBuf=serialBuf.slice(-2048);
+            const dv=new DataView(new Uint8Array(serialBuf).buffer);
+            if(parseJncResponse(dv) || parseSerialChannelResponse(dv)) serialBuf=[]; // 解析到完整帧则清空缓冲
+          }
+        }
+      }catch(err){
+        logSerial('Err', err.message);
+      }finally{
+        try{ serialReader.releaseLock(); }catch(e){}
+        serialReader=null;
+      }
+    }
+  }
+
+  async function disconnectSerial(){
+    serialKeepReading=false;
+    if(serialReader){ try{ await serialReader.cancel(); }catch(e){} }
+    if(serialPort){ try{ await serialPort.close(); }catch(e){} }
+    serialPort=null;
+    setSerialStatus('disconnected');
+    btnSerialConnect.disabled=false;
+    btnSerialDisconnect.disabled=true;
+    btnSerialSend.disabled=true;
+    serialChannelSelect.disabled=true;
+    btnSerialQueryChannel.disabled=true;
+    btnSerialCopyData.disabled=true;
+    serialChannelResult.textContent='';
+    clearSerialPending();
+    serialBuf=[];
+  }
+
+  async function sendSerial(){
+    if(!serialPort||!serialPort.writable) return;
+    const text=serialSend.value;
+    if(!text) return;
+    try{
+      const writer=serialPort.writable.getWriter();
+      await writer.write(new TextEncoder().encode(text));
+      writer.releaseLock();
+      logSerial('Tx', text);
+      serialSend.value='';
+    }catch(err){
+      logSerial('Tx-Err', err.message);
+    }
+  }
+
+  // 查询单个通道：发送命令，等待应答（最多 2s），返回 Promise<boolean>
+  // 成功解析后由 parseSerialChannelResponse 调用 clearSerialPending(true) 解决
+  function queryChannel(code){
+    return new Promise((resolve)=>{
+      if(!serialPort||!serialPort.writable){ resolve(false); return; }
+      const idx=channelCodeToIndex(code);
+      if(!idx){ resolve(false); return; }
+      const lineIndex=['C','B','T'].indexOf(idx.line);
+      serialPendingQuery={
+        code,
+        label:idx.label,
+        chIndex:idx.row,
+        lineIndex,
+        timer:setTimeout(()=>{
+          serialChannelResult.textContent=idx.label+' 查询超时（2s 未收到应答）';
+          console.warn('[Serial] '+idx.label+' 查询超时');
+          clearSerialPending(false);
+        }, SERIAL_QUERY_TIMEOUT_MS),
+        resolve
+      };
+      const frame=buildFrame(0x04,0x02,[code]); // 实际主命令为0x04
+      const writer=serialPort.writable.getWriter();
+      writer.write(frame).then(()=>{
+        writer.releaseLock();
+        logSerial('Tx', frameToHex(frame));
+        serialChannelResult.textContent='已发送 '+idx.label+' 查询，等待 2s 应答...';
+      }).catch(err=>{
+        logSerial('Tx-Err', err.message);
+        serialChannelResult.textContent='发送失败';
+        clearSerialPending(false);
+      });
+    });
+  }
+
+  // 全部通道：依次查询 12 个通道，每个最多尝试 3 次
+  async function queryAllChannels(){
+    if(serialQueryBusy) return;
+    serialQueryBusy=true;
+    btnSerialQueryChannel.disabled=true;
+    const codes=[0x11,0x12,0x13,0x21,0x22,0x23,0x31,0x32,0x33,0x41,0x42,0x43];
+    const names=['C1','B1','T1','C2','B2','T2','C3','B3','T3','C4','B4','T4'];
+    serialChannelResult.textContent='开始批量查询 12 通道（每通道最多 3 次）...';
+    console.log('[Serial] 开始批量查询 12 通道');
+    for(let i=0;i<codes.length;i++){
+      const code=codes[i];
+      let ok=false;
+      for(let attempt=1; attempt<=3 && !ok; attempt++){
+        serialChannelResult.textContent='正在查询 '+names[i]+'（第 '+attempt+'/3 次）';
+        ok=await queryChannel(code);
+        if(!ok) console.warn('[Serial] '+names[i]+' 第 '+attempt+' 次未收到应答');
+      }
+      if(ok) console.log('[Serial] '+names[i]+' 完成');
+    }
+    serialChannelResult.textContent='全部通道查询完成';
+    serialQueryBusy=false;
+    btnSerialQueryChannel.disabled=false;
+    btnSerialCopyData.disabled=false;
+  }
+
+  async function sendSerialChannelQuery(){
+    if(!serialPort||!serialPort.writable) return;
+    if(serialQueryBusy){
+      serialChannelResult.textContent='批量查询进行中，请等待完成';
+      return;
+    }
+    const val=serialChannelSelect.value;
+    if(val==='all'){
+      await queryAllChannels();
+      return;
+    }
+    const code=parseInt(val,16);
+    if(isNaN(code)) return;
+    btnSerialQueryChannel.disabled=true;
+    await queryChannel(code);
+    btnSerialQueryChannel.disabled=false;
+    btnSerialCopyData.disabled=false;
+  }
+
+  // 复制 12 行 × 460 列数据；未读取过的通道用 0 填充
+  async function copySerialAllData(){
+    const rows=[];
+    for(let i=0;i<12;i++){
+      const arr=serialChannelData[i];
+      if(arr && arr.length===SERIAL_SAMPLE_COUNT){
+        rows.push(arr.join('\t'));
+      }else{
+        rows.push(new Array(SERIAL_SAMPLE_COUNT).fill(0).join('\t'));
+      }
+    }
+    const text=rows.join('\n');
+    try{
+      await navigator.clipboard.writeText(text);
+      serialChannelResult.textContent='已复制 12×460 数据到剪贴板';
+    }catch(err){
+      const ta=document.createElement('textarea');
+      ta.value=text; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); serialChannelResult.textContent='已复制 12×460 数据'; }
+      catch(e2){ serialChannelResult.textContent='复制失败：'+e2.message; }
+      document.body.removeChild(ta);
+    }
+  }
+
+  // ---- 数据曲线图（4 组，每组 C/B/T 三条线，支持悬停提示）----
+  const chartCanvases=[...document.querySelectorAll('.chart-card canvas')].map(c=>({
+    canvas:c, group:parseInt(c.dataset.group,10), hoverIndex:null
+  }));
+  const CHART_COLORS={'C':'#ef4444','B':'#3b82f6','T':'#22c55e'};
+  const CHART_PAD={L:46,R:12,T:14,B:26,H:240};
+
+  function chartGeom(cssW){
+    return {plotW:cssW-CHART_PAD.L-CHART_PAD.R, plotH:CHART_PAD.H-CHART_PAD.T-CHART_PAD.B};
+  }
+  function chartX(i, geom){
+    const N=SERIAL_SAMPLE_COUNT;
+    return CHART_PAD.L+(N>1? i/(N-1):0)*geom.plotW;
+  }
+  function chartY(v, ymin, ymax, geom){
+    return CHART_PAD.T+geom.plotH*(1-(v-ymin)/(ymax-ymin));
+  }
+
+  function drawChart(item){
+    const card=item.canvas.closest('.chart-card');
+    if(card.classList.contains('collapsed')) return; // 折叠时不绘制
+    const canvas=item.canvas;
+    const dpr=window.devicePixelRatio||1;
+    const cssW=canvas.clientWidth||canvas.parentElement.clientWidth||300;
+    const cssH=CHART_PAD.H;
+    canvas.width=Math.round(cssW*dpr);
+    canvas.height=Math.round(cssH*dpr);
+    const ctx=canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cssW,cssH);
+    ctx.fillStyle='#fbfdff'; ctx.fillRect(0,0,cssW,cssH);
+
+    const g=item.group;
+    const series=[
+      {name:'C', arr:serialChannelData[g*3]||[],     color:CHART_COLORS.C},
+      {name:'B', arr:serialChannelData[g*3+1]||[],   color:CHART_COLORS.B},
+      {name:'T', arr:serialChannelData[g*3+2]||[],   color:CHART_COLORS.T}
+    ];
+    const geom=chartGeom(cssW);
+
+    // y 轴范围
+    let ymin=Infinity, ymax=-Infinity, anyData=false;
+    for(const s of series){
+      if(s.arr.length){ anyData=true; for(const v of s.arr){ if(v<ymin)ymin=v; if(v>ymax)ymax=v; } }
+    }
+    if(!anyData){ ymin=0; ymax=1; }
+    if(ymin===ymax){ ymin-=1; ymax+=1; }
+    const range=ymax-ymin;
+    ymin-=range*0.05; ymax+=range*0.05;
+
+    // 网格 + y 轴刻度
+    ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif'; ctx.lineWidth=1;
+    const yTicks=4;
+    for(let t=0;t<=yTicks;t++){
+      const yy=CHART_PAD.T+geom.plotH*t/yTicks;
+      ctx.beginPath(); ctx.moveTo(CHART_PAD.L,yy); ctx.lineTo(CHART_PAD.L+geom.plotW,yy); ctx.stroke();
+      const val=ymax-(ymax-ymin)*t/yTicks;
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(Math.round(val).toString(), CHART_PAD.L-6, yy);
+    }
+    // x 轴刻度
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('0', CHART_PAD.L, CHART_PAD.T+geom.plotH+6);
+    ctx.fillText(String(SERIAL_SAMPLE_COUNT), CHART_PAD.L+geom.plotW, CHART_PAD.T+geom.plotH+6);
+
+    if(!anyData){
+      ctx.fillStyle='#94a3b8'; ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('无数据（请先获取通道数据）', CHART_PAD.L+geom.plotW/2, CHART_PAD.T+geom.plotH/2);
+      drawLegend(ctx, series, CHART_PAD.L, CHART_PAD.T);
+      return;
+    }
+
+    const N=SERIAL_SAMPLE_COUNT;
+    for(const s of series){
+      if(!s.arr.length) continue;
+      ctx.strokeStyle=s.color; ctx.lineWidth=1.4; ctx.beginPath();
+      const n=Math.min(s.arr.length, N);
+      for(let i=0;i<n;i++){
+        const x=chartX(i, geom);
+        const y=chartY(s.arr[i], ymin, ymax, geom);
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+
+    // 悬停指示器：竖虚线 + 每个数据点圆点
+    if(item.hoverIndex!=null){
+      const i=item.hoverIndex;
+      const hx=chartX(i, geom);
+      ctx.strokeStyle='rgba(71,85,105,.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(hx,CHART_PAD.T); ctx.lineTo(hx,CHART_PAD.T+geom.plotH); ctx.stroke();
+      ctx.setLineDash([]);
+      for(const s of series){
+        if(!s.arr.length || i>=s.arr.length) continue;
+        const y=chartY(s.arr[i], ymin, ymax, geom);
+        ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(hx,y,3.5,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      }
+    }
+
+    drawLegend(ctx, series, CHART_PAD.L, CHART_PAD.T);
+  }
+
+  function drawLegend(ctx, series, x, y){
+    let lx=x+8, ly=y+2;
+    ctx.textAlign='left'; ctx.textBaseline='top'; ctx.font='11px sans-serif';
+    for(const s of series){
+      ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(lx,ly+5); ctx.lineTo(lx+14,ly+5); ctx.stroke();
+      ctx.fillStyle='#475569'; ctx.fillText(s.name, lx+18, ly);
+      lx+=40;
+    }
+  }
+
+  function renderAllCharts(){
+    for(const item of chartCanvases) drawChart(item);
+  }
+
+  function renderChartsInCard(cardEl){
+    for(const item of chartCanvases){
+      if(item.canvas.closest('.chart-card')===cardEl) drawChart(item);
+    }
+  }
+
+  // 悬停提示（固定定位浮层）
+  const chartTooltip=document.createElement('div');
+  chartTooltip.className='chart-tooltip';
+  document.body.appendChild(chartTooltip);
+
+  function showChartTooltip(item, cssX, clientX, clientY){
+    const N=SERIAL_SAMPLE_COUNT;
+    const cssW=item.canvas.clientWidth||item.canvas.parentElement.clientWidth||300;
+    const geom=chartGeom(cssW);
+    let i=Math.round((cssX-CHART_PAD.L)/geom.plotW*(N-1));
+    i=Math.max(0, Math.min(N-1, i));
+    item.hoverIndex=i;
+    drawChart(item);
+    const g=item.group;
+    const get=idx=>{ const a=serialChannelData[idx]; return (a&&a.length===N)?a[i]:null; };
+    const cVal=get(g*3), bVal=get(g*3+1), tVal=get(g*3+2);
+    let html='<div style="margin-bottom:3px;opacity:.85;">采样 #'+i+'</div>';
+    for(const [nm,v] of [['C',cVal],['B',bVal],['T',tVal]]){
+      html+='<div><span style="color:'+CHART_COLORS[nm]+';font-weight:700;">●</span> '+nm+': '+(v==null?'—':v)+'</div>';
+    }
+    chartTooltip.innerHTML=html;
+    chartTooltip.style.display='block';
+    const tw=chartTooltip.offsetWidth, th=chartTooltip.offsetHeight;
+    let tx=clientX+14, ty=clientY+14;
+    if(tx+tw>window.innerWidth-8) tx=clientX-tw-14;
+    if(ty+th>window.innerHeight-8) ty=clientY-th-14;
+    chartTooltip.style.left=tx+'px';
+    chartTooltip.style.top=ty+'px';
+  }
+
+  function hideChartTooltip(item){
+    item.hoverIndex=null;
+    drawChart(item);
+    chartTooltip.style.display='none';
+  }
+
+  // 折叠 / 展开（标题点击切换，箭头旋转）+ 曲线悬停
+  document.querySelectorAll('.chart-card').forEach(card=>{
+    const title=card.querySelector('.chart-card-title');
+    const canvas=card.querySelector('canvas');
+    const item=chartCanvases.find(it=>it.canvas===canvas);
+    if(title && item){
+      title.addEventListener('click',()=>{
+        card.classList.toggle('collapsed');
+        if(!card.classList.contains('collapsed')) renderChartsInCard(card); // 展开后再绘制
+      });
+    }
+    if(canvas && item){
+      canvas.addEventListener('mousemove', e=>showChartTooltip(item, e.offsetX, e.clientX, e.clientY));
+      canvas.addEventListener('mouseleave', ()=>hideChartTooltip(item));
+    }
+  });
+
+  // 窗口缩放时按列宽重绘
+  let chartResizeTimer=null;
+  window.addEventListener('resize',()=>{
+    if(chartResizeTimer) clearTimeout(chartResizeTimer);
+    chartResizeTimer=setTimeout(()=>{
+      chartCanvases.forEach(it=>it.hoverIndex=null);
+      chartTooltip.style.display='none';
+      renderAllCharts();
+    },150);
+  });
+
+  btnSerialConnect.addEventListener('click', connectSerial);
+  btnSerialDisconnect.addEventListener('click', disconnectSerial);
+  btnSerialSend.addEventListener('click', sendSerial);
+  btnSerialQueryChannel.addEventListener('click', sendSerialChannelQuery);
+  btnSerialCopyData.addEventListener('click', copySerialAllData);
+  serialSend.addEventListener('keydown', e=>{ if(e.key==='Enter') sendSerial(); });
+
   // 初始化：FFE2 未发现前禁用所有相关控件
   refreshFeatureState();
+  renderAllCharts(); // 初始绘制 4 张曲线图（无数据状态）
 })();
 </script>
 </body>
