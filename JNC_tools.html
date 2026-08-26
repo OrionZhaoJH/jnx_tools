@@ -572,6 +572,10 @@ const Utils = {
       }
     });
     // 复位 FFE2
+    if(ffe2Char){
+      try{ ffe2Char.removeEventListener('characteristicvaluechanged', onFFE2Changed); }catch(e){}
+      if(ffe2Char.stopNotifications) ffe2Char.stopNotifications().catch(()=>{});
+    }
     ffe2Char=null;
     refreshFeatureState();
     setStatus('disconnected','');
@@ -599,21 +603,34 @@ const Utils = {
     });
   }
 
-  // ---- FFE2 发现 ----
-  async function discoverFFE2(srv){
-    try{
-      const services=await srv.getPrimaryServices();
-      for(const svc of services){
-        const chars=await svc.getCharacteristics();
-        const ch=chars.find(c=>c.uuid.toLowerCase()===FFE2_SERVICE);
-        if(ch){ffe2Char=ch;break;}
+  // ---- 特征发现（FFE2 复用，参照 JNA 的 discoverChar）----
+  // 在设备全部服务/特征中查找指定 UUID 的特征。
+  // 部分设备连接后首次 getPrimaryServices() 枚举不全，这里未命中时重试一次，
+  // 等效于 JNA 先发现 FFE1 再发现 FFE2 的“二次枚举”效果。
+  async function discoverChar(srv, uuid){
+    for(let attempt=0; attempt<2; attempt++){
+      try{
+        const services=await srv.getPrimaryServices();
+        for(const svc of services){
+          const chars=await svc.getCharacteristics();
+          const ch=chars.find(c=>c.uuid.toLowerCase()===uuid);
+          if(ch) return ch;
+        }
+      }catch(err){
+        console.warn('发现特征失败:',err);
       }
-    }catch(err){
-      console.warn('发现 FFE2 失败:',err);
+      if(attempt===0) await new Promise(r=>setTimeout(r,150));
     }
+    return null;
+  }
+
+  // ---- FFE2 发现（与 JNA 的 FFE2 处理保持一致）----
+  // 注意：FFE2_SERVICE 是【特征】UUID，必须用 getPrimaryServices 遍历各服务的特征来匹配。
+  async function discoverFFE2(srv){
+    ffe2Char=await discoverChar(srv, FFE2_SERVICE);
     if(ffe2Char){
       logToPanel('CMD', Utils.shortUuid(FFE2_SERVICE), 'FFE2 已就绪');
-      // 同时订阅通知作为响应接收的备用通道
+      // 订阅通知作为响应接收通道（设备经 notify 回传测试/查询数据），与 JNA 一致
       if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
         try{
           await ffe2Char.startNotifications();
@@ -841,11 +858,12 @@ const Utils = {
     // 等待 N ms 让设备处理并写入响应
     await new Promise(resolve=>{queryReadTimer=setTimeout(resolve, waitMs);});
     if(!ffe2Char||!device||!device.gatt.connected) return resetQueryBtn();
-    if(!ffe2Char.properties.read) return resetQueryBtn();
     try{
-      const dv=await ffe2Char.readValue();
-      const ok=parseJncResponse(dv);
-      logToPanel(ok?'Data':'Raw', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv));
+      if(ffe2Char.properties.read){
+        const dv=await ffe2Char.readValue();
+        const ok=parseJncResponse(dv);
+        logToPanel(ok?'Data':'Raw', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv));
+      }
     }catch(err){
       logToPanel('Timeout', Utils.shortUuid(FFE2_SERVICE), '读取响应失败 ('+err.message+')');
     }finally{
