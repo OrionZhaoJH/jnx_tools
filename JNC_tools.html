@@ -1273,7 +1273,7 @@ const Utils = {
     if(!anyData){ ymin=0; ymax=1; }
     if(ymin===ymax){ ymin-=1; ymax+=1; }
     const range=ymax-ymin;
-    ymin-=range*0.05; ymax+=range*0.05;
+    ymin=0; ymax+=range*0.05;
 
     // 网格 + y 轴刻度
     ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif'; ctx.lineWidth=1;
