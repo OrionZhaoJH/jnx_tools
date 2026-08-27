@@ -490,7 +490,10 @@ const Utils = {
   const MAX_RAW=500;
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
-  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE2_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+  // 注意：optionalServices 只能放【服务】UUID。FFE2_SERVICE 是特征 UUID，绝不能放进去
+  // （放进去是未定义行为，会导致偶发性 GATT 首轮枚举漏掉 FFE0 服务、FFE2 刷不出）。
+  // FFE2 特征的父服务 0000ffe0 已在本列表，discoverChar 会遍历其下的特征匹配到 FFE2。
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
 
   // Query state
   let querying=false;
