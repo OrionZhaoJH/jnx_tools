@@ -1321,12 +1321,22 @@ const Utils = {
     const N=SERIAL_SAMPLE_COUNT;
     for(const s of series){
       if(!s.arr.length) continue;
-      ctx.strokeStyle=s.color; ctx.lineWidth=1.4; ctx.beginPath();
       const n=Math.min(s.arr.length, N);
+      // 尾部连续 0 处理：末尾连续的 0 点不绘制，仅保留最后一个 0 点（末尾采样点）
+      let lastNonZero=-1;
+      for(let i=0;i<n;i++){ if(s.arr[i]!==0) lastNonZero=i; }
+      s.endIdx=lastNonZero; // 记录有效终点，供悬停圆点判断
+      ctx.strokeStyle=s.color; ctx.lineWidth=1.4; ctx.beginPath();
+      let started=false;
       for(let i=0;i<n;i++){
+        if(i>lastNonZero && i<n-1) continue; // 跳过尾部连续 0（最后一个 0 点除外）
         const x=chartX(i, geom);
         const y=chartY(s.arr[i], ymin, ymax, geom);
-        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+      }
+      if(lastNonZero<0){ // 整条数据全为 0：仅在末点画一个小圆点
+        ctx.fillStyle=s.color; ctx.beginPath();
+        ctx.arc(chartX(n-1, geom), chartY(0, ymin, ymax, geom), 2.5, 0, Math.PI*2); ctx.fill();
       }
       ctx.stroke();
     }
@@ -1340,6 +1350,7 @@ const Utils = {
       ctx.setLineDash([]);
       for(const s of series){
         if(!s.arr.length || i>=s.arr.length) continue;
+        if(s.endIdx!=null && i>s.endIdx && i<N-1) continue; // 尾部裁剪区不画悬停圆点（末点除外）
         const y=chartY(s.arr[i], ymin, ymax, geom);
         ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(hx,y,3.5,0,Math.PI*2); ctx.fill();
         ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
