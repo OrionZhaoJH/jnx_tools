@@ -150,6 +150,15 @@
   .chart-card.collapsed .toggle-arrow{transform:rotate(-90deg);}
   .chart-card.collapsed .chart-card-body{display:none;}
   .chart-card canvas{width:100%;height:240px;display:block;border:1px solid var(--border);border-radius:8px;background:#fbfdff;cursor:crosshair;}
+  /* 单张曲线图 全屏 / 全网页显示 */
+  .chart-card-title .title-right{display:flex;align-items:center;gap:6px;}
+  .chart-expand-btn{border:1px solid var(--border);background:var(--surface);color:var(--text-muted);border-radius:6px;
+    padding:2px 10px;font-size:.75rem;cursor:pointer;line-height:1.5;transition:border-color .15s,color .15s,background .15s;}
+  .chart-expand-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(59,130,246,.06);}
+  .chart-card.expanded{position:fixed;inset:0;z-index:1000;margin:0;border-radius:0;padding:14px 18px;
+    display:flex;flex-direction:column;background:var(--surface);box-shadow:none;}
+  .chart-card.expanded .chart-card-body{flex:1;display:flex;min-height:0;}
+  .chart-card.expanded canvas{height:100%;flex:1;}
   .chart-tooltip{position:fixed;pointer-events:none;z-index:9999;background:rgba(17,24,39,.92);color:#fff;
     padding:6px 9px;border-radius:6px;font-size:12px;line-height:1.5;white-space:nowrap;
     box-shadow:0 2px 8px rgba(0,0,0,.25);display:none;}
@@ -364,19 +373,19 @@
     <div class="card-title"><span>数据曲线图 (12×460)</span></div>
     <div class="chart-grid">
       <div class="chart-card">
-        <div class="chart-card-title"><span>通道1（C1 / B1 / T1）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-title"><span>通道1（C1 / B1 / T1）</span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
         <div class="chart-card-body"><canvas id="chartCanvas0" data-group="0"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-card-title"><span>通道2（C2 / B2 / T2）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-title"><span>通道2（C2 / B2 / T2）</span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
         <div class="chart-card-body"><canvas id="chartCanvas1" data-group="1"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-card-title"><span>通道3（C3 / B3 / T3）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-title"><span>通道3（C3 / B3 / T3）</span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
         <div class="chart-card-body"><canvas id="chartCanvas2" data-group="2"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-card-title"><span>通道4（C4 / B4 / T4）</span><span class="toggle-arrow">▾</span></div>
+        <div class="chart-card-title"><span>通道4（C4 / B4 / T4）</span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
         <div class="chart-card-body"><canvas id="chartCanvas3" data-group="3"></canvas></div>
       </div>
     </div>
@@ -1253,8 +1262,9 @@ const Utils = {
   const CHART_COLORS={'C':'#ef4444','B':'#3b82f6','T':'#22c55e'};
   const CHART_PAD={L:46,R:12,T:14,B:26,H:240};
 
-  function chartGeom(cssW){
-    return {plotW:cssW-CHART_PAD.L-CHART_PAD.R, plotH:CHART_PAD.H-CHART_PAD.T-CHART_PAD.B};
+  function chartGeom(cssW, cssH){
+    const h=cssH||CHART_PAD.H;
+    return {plotW:cssW-CHART_PAD.L-CHART_PAD.R, plotH:h-CHART_PAD.T-CHART_PAD.B};
   }
   function chartX(i, geom){
     const N=SERIAL_SAMPLE_COUNT;
@@ -1270,7 +1280,7 @@ const Utils = {
     const canvas=item.canvas;
     const dpr=window.devicePixelRatio||1;
     const cssW=canvas.clientWidth||canvas.parentElement.clientWidth||300;
-    const cssH=CHART_PAD.H;
+    const cssH=canvas.clientHeight||CHART_PAD.H; // 全屏/展开模式下取实际高度
     canvas.width=Math.round(cssW*dpr);
     canvas.height=Math.round(cssH*dpr);
     const ctx=canvas.getContext('2d');
@@ -1284,7 +1294,7 @@ const Utils = {
       {name:'B', arr:serialChannelData[g*3+1]||[],   color:CHART_COLORS.B},
       {name:'T', arr:serialChannelData[g*3+2]||[],   color:CHART_COLORS.T}
     ];
-    const geom=chartGeom(cssW);
+    const geom=chartGeom(cssW, cssH);
 
     // y 轴范围
     let ymin=Infinity, ymax=-Infinity, anyData=false;
@@ -1388,7 +1398,7 @@ const Utils = {
   function showChartTooltip(item, cssX, clientX, clientY){
     const N=SERIAL_SAMPLE_COUNT;
     const cssW=item.canvas.clientWidth||item.canvas.parentElement.clientWidth||300;
-    const geom=chartGeom(cssW);
+    const geom=chartGeom(cssW, item.canvas.clientHeight);
     let i=Math.round((cssX-CHART_PAD.L)/geom.plotW*(N-1));
     i=Math.max(0, Math.min(N-1, i));
     item.hoverIndex=i;
@@ -1423,6 +1433,7 @@ const Utils = {
     const item=chartCanvases.find(it=>it.canvas===canvas);
     if(title && item){
       title.addEventListener('click',()=>{
+        if(card.classList.contains('expanded')) return; // 全屏状态下点击标题不折叠
         card.classList.toggle('collapsed');
         if(!card.classList.contains('collapsed')) renderChartsInCard(card); // 展开后再绘制
       });
@@ -1430,6 +1441,48 @@ const Utils = {
     if(canvas && item){
       canvas.addEventListener('mousemove', e=>showChartTooltip(item, e.offsetX, e.clientX, e.clientY));
       canvas.addEventListener('mouseleave', ()=>hideChartTooltip(item));
+    }
+  });
+
+  // 单张曲线图 全屏 / 全网页显示
+  function exitChartExpand(card){
+    card.classList.remove('expanded');
+    const b=card.querySelector('.chart-expand-btn');
+    if(b) b.textContent='⛶ 全屏';
+    renderChartsInCard(card);
+  }
+  document.querySelectorAll('.chart-card').forEach(card=>{
+    const btn=card.querySelector('.chart-expand-btn');
+    if(!btn) return;
+    btn.addEventListener('click',e=>{
+      e.stopPropagation(); // 避免触发标题栏折叠
+      const expanding=!card.classList.contains('expanded');
+      if(expanding){
+        card.classList.remove('collapsed');
+        card.classList.add('expanded');
+        btn.textContent='⤡ 还原';
+        if(card.requestFullscreen){ // 浏览器支持时进入原生全屏，否则仅全网页覆盖
+          card.requestFullscreen().catch(()=>{});
+        }
+      }else{
+        if(document.fullscreenElement && document.exitFullscreen){
+          document.exitFullscreen().catch(()=>{}); // 会触发 fullscreenchange 统一还原
+        }
+        exitChartExpand(card);
+      }
+      requestAnimationFrame(()=>renderChartsInCard(card)); // 布局变化后按新尺寸重绘
+    });
+  });
+  // 退出原生全屏（按 Esc）时同步还原覆盖状态
+  document.addEventListener('fullscreenchange',()=>{
+    if(!document.fullscreenElement){
+      document.querySelectorAll('.chart-card.expanded').forEach(exitChartExpand);
+    }
+  });
+  // 无原生全屏支持时，Esc 退出全网页覆盖
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      document.querySelectorAll('.chart-card.expanded').forEach(exitChartExpand);
     }
   });
 
