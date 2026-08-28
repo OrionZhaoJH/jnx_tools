@@ -2,7 +2,7 @@
   "name": "JNC 工具箱",
   "short_name": "JNC",
   "description": "JNC 助听器干燥盒 PCBA 调试工具：BLE 控制面板与 12×460 通道数据曲线分析。",
-  "start_url": "./JNC_tools.html",
+  "start_url": "./index.html",
   "scope": "./",
   "id": "./",
   "display": "standalone",
