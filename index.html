@@ -3,8 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JNx 工具箱</title>
-<style>
+  <title>JNx 工具箱</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JNx 工具箱">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
     --bg:#f5f7fa; --surface:#ffffff; --border:#e2e8f0;
@@ -97,9 +104,17 @@
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+  .pwa-install-bar{max-width:900px;margin:0 auto;width:100%;padding:16px 24px 0;display:flex;justify-content:flex-end;}
+  .pwa-install-btn{display:none;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;
+    border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;transition:opacity .15s;}
+  .pwa-install-btn:hover{opacity:.9;}
 </style>
 </head>
 <body>
+<div class="pwa-install-bar">
+  <button class="pwa-install-btn" id="pwaInstallBtn" type="button">＋ 安装到桌面</button>
+</div>
 <div class="container">
   <header>
     <h1><span class="icon">🛠️</span> JNx 工具箱</h1>
@@ -206,6 +221,35 @@ const TOOLS = [
     `;
     grid.appendChild(card);
   }
+
+  // 注册 Service Worker，启用 PWA 离线/安装能力
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .catch((err) => console.error('SW registration failed', err));
+    });
+  }
+
+  // PWA 手动安装按钮（浏览器未自动弹出安装提示时，点此触发）
+  const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (pwaInstallBtn) pwaInstallBtn.style.display = 'inline-flex';
+  });
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try { await deferredInstallPrompt.userChoice; } catch (_) {}
+      deferredInstallPrompt = null;
+      pwaInstallBtn.style.display = 'none';
+    });
+  }
+  window.addEventListener('appinstalled', () => {
+    if (pwaInstallBtn) pwaInstallBtn.style.display = 'none';
+  });
 })();
 </script>
 </body>

@@ -67,3 +67,19 @@ python -m http.server 8000
 ```text
 http://localhost:8000/
 ```
+
+## PWA 安装
+
+本项目已 PWA 化，支持像小程序/桌面应用一样安装：
+
+- 部署到 GitHub Pages 后，浏览器地址栏会出现「安装」图标（Chrome/Edge 桌面端和移动端均支持）。
+- 安装后应用以 `standalone` 模式运行，**不再显示浏览器地址栏**，像独立 App 一样留在桌面/手机主屏。
+- 首次联网访问后，Service Worker 会缓存页面，后续可离线使用。
+
+**注意**：Service Worker 必须通过 `http://localhost`、`https://` 等安全上下文访问，直接 `file://` 打开或双击 HTML 无法触发安装。本地测试请用上面的 `python -m http.server`。
+
+主要 PWA 文件：
+
+- `manifest.webmanifest`：应用名称、图标、主题色、启动页。
+- `sw.js`：缓存应用外壳与页面，离线可用。
+- `icon-*.png`：PWA 桌面/手机图标。
