@@ -41,38 +41,41 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 抓取策略：
-// - 页面导航（navigate）：网络优先 —— 在线时始终拿到最新版页面（手机端无需 Ctrl+F5），
-//   离线时回退到缓存（含安装时缓存的应用外壳）。
-// - 其他静态资源：缓存优先，未命中再请求网络并缓存。
+// 抓取策略：仅当「服务器与本地不一致」时才下载新内容并刷新页面。
+// - 有本地缓存：立即返回缓存（秒开、离线可用），后台用 `cache:'no-cache'` 条件请求向服务器校验：
+//     · 服务器回 304（ETag/Last-Modified 确认一致）→ 什么都不做，继续用本地；
+//     · 服务器回 200 → 与本地缓存做内容比对：一致则忽略；不一致则更新缓存并通知页面自动刷新一次。
+// - 无本地缓存（首次访问）：直接走网络并写入缓存。
+// 静态托管无需任何服务端代码：绝大多数主机（nginx/Apache/GitHub Pages/CF 等）都支持条件请求；
+// 不支持时内容比对兜底，同样能正确判断。
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200) return response;
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() =>
-          caches.match(event.request).then((r) => r || caches.match('./index.html'))
-        )
-    );
-    return;
-  }
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200) return response;
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
-  );
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(event.request);
+
+    const revalidate = (async () => {
+      const resp = await fetch(event.request, { cache: 'no-cache' }).catch(() => null);
+      if (!resp) return null;            // 离线：保持缓存兜底
+      if (cached && resp.status === 304) return resp; // 服务器确认一致，不下载内容
+      if (resp.status !== 200) return resp;
+      // 200：可能已更新。与本地缓存做内容比对（兼容不支持条件请求的服务器）
+      const newBody = await resp.clone().text();
+      if (cached) {
+        const oldBody = await cached.clone().text();
+        if (oldBody === newBody) return resp; // 内容一致，不更新缓存、不刷新
+      }
+      // 内容不一致：写入缓存，并通知页面自动刷新一次以展示新版
+      await cache.put(event.request, resp.clone());
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      clients.forEach((c) => c.postMessage({ type: 'VERSION_UPDATE' }));
+      return resp;
+    })();
+
+    if (cached) {
+      event.waitUntil(revalidate.then(() => { })); // 立即用缓存，后台校验
+      return cached;
+    }
+    return (await revalidate) || cached; // 首次访问：等网络结果（或离线兜底）
+  })());
 });

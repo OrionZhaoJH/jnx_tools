@@ -282,12 +282,24 @@ const TOOLS = [
     });
   }
 
-  // 新 Service Worker 接管后自动刷新一次（缓存版本更新时，手机端无需手动刷新）
+  // 版本检测自动刷新：SW 接管新版本，或服务器内容与本地不一致（VERSION_UPDATE 消息）时，
+  // 只自动刷新一次即可拿到最新版（手机端无需 Ctrl+F5）
+  let swRefreshed = false;
+  const swForceReload = () => {
+    if (swRefreshed) return;
+    swRefreshed = true;
+    window.location.reload();
+  };
   const swHadController = !!navigator.serviceWorker && !!navigator.serviceWorker.controller;
   if (navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!swHadController) return; // 首次安装接管时不重载
-      window.location.reload();
+      swForceReload();
+    });
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'VERSION_UPDATE' && !location.search.includes('_v=')) {
+        swForceReload();
+      }
     });
   }
 })();
