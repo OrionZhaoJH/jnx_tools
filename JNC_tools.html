@@ -1280,9 +1280,19 @@ const Utils = {
     const h=cssH||CHART_PAD.H;
     return {plotW:cssW-CHART_PAD.L-CHART_PAD.R, plotH:h-CHART_PAD.T-CHART_PAD.B};
   }
-  function chartX(i, geom){
-    const N=SERIAL_SAMPLE_COUNT;
+  function chartX(i, N, geom){
     return CHART_PAD.L+(N>1? i/(N-1):0)*geom.plotW;
+  }
+  // 该通道图横坐标的有效采样点数：C/B/T 三条线最后一个非零点下标的最大值 +1（无有效数据时返回 1）
+  function chartEffCount(g){
+    let eff=0;
+    for(let k=0;k<3;k++){
+      const arr=serialChannelData[g*3+k]||[];
+      for(let i=arr.length-1;i>=0;i--){
+        if(arr[i]!==0){ if(i+1>eff) eff=i+1; break; }
+      }
+    }
+    return Math.max(1, eff);
   }
   function chartY(v, ymin, ymax, geom){
     return CHART_PAD.T+geom.plotH*(1-(v-ymin)/(ymax-ymin));
@@ -1309,6 +1319,7 @@ const Utils = {
       {name:'T', arr:serialChannelData[g*3+2]||[],   color:CHART_COLORS.T}
     ];
     const geom=chartGeom(cssW, cssH);
+    const N=chartEffCount(g); // 横坐标点数 = 实际有效数据长度（不再保留 460）
 
     // y 轴范围
     let ymin=Infinity, ymax=-Infinity, anyData=false;
@@ -1333,7 +1344,7 @@ const Utils = {
     // x 轴刻度
     ctx.textAlign='center'; ctx.textBaseline='top';
     ctx.fillText('0', CHART_PAD.L, CHART_PAD.T+geom.plotH+6);
-    ctx.fillText(String(SERIAL_SAMPLE_COUNT), CHART_PAD.L+geom.plotW, CHART_PAD.T+geom.plotH+6);
+    ctx.fillText(String(N), CHART_PAD.L+geom.plotW, CHART_PAD.T+geom.plotH+6);
 
     if(!anyData){
       ctx.fillStyle='#94a3b8'; ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -1342,25 +1353,25 @@ const Utils = {
       return;
     }
 
-    const N=SERIAL_SAMPLE_COUNT;
     for(const s of series){
       if(!s.arr.length) continue;
       const n=Math.min(s.arr.length, N);
-      // 尾部连续 0 处理：末尾连续的 0 点不绘制，仅保留最后一个 0 点（末尾采样点）
+      // 尾部连续 0 处理：末尾连续的 0 点不绘制，曲线止于计数上的最后一个非零点
+      // （不再强制把最后一个点画到样本末尾 460 处，避免从 70 直接跳到 460）
       let lastNonZero=-1;
       for(let i=0;i<n;i++){ if(s.arr[i]!==0) lastNonZero=i; }
       s.endIdx=lastNonZero; // 记录有效终点，供悬停圆点判断
       ctx.strokeStyle=s.color; ctx.lineWidth=1.4; ctx.beginPath();
       let started=false;
       for(let i=0;i<n;i++){
-        if(i>lastNonZero && i<n-1) continue; // 跳过尾部连续 0（最后一个 0 点除外）
-        const x=chartX(i, geom);
+        if(i>lastNonZero) continue; // 跳过尾部连续 0
+        const x=chartX(i, N, geom);
         const y=chartY(s.arr[i], ymin, ymax, geom);
         if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
       }
       if(lastNonZero<0){ // 整条数据全为 0：仅在末点画一个小圆点
         ctx.fillStyle=s.color; ctx.beginPath();
-        ctx.arc(chartX(n-1, geom), chartY(0, ymin, ymax, geom), 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.arc(chartX(n-1, N, geom), chartY(0, ymin, ymax, geom), 2.5, 0, Math.PI*2); ctx.fill();
       }
       ctx.stroke();
     }
@@ -1368,13 +1379,13 @@ const Utils = {
     // 悬停指示器：竖虚线 + 每个数据点圆点
     if(item.hoverIndex!=null){
       const i=item.hoverIndex;
-      const hx=chartX(i, geom);
+      const hx=chartX(i, N, geom);
       ctx.strokeStyle='rgba(71,85,105,.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
       ctx.beginPath(); ctx.moveTo(hx,CHART_PAD.T); ctx.lineTo(hx,CHART_PAD.T+geom.plotH); ctx.stroke();
       ctx.setLineDash([]);
       for(const s of series){
         if(!s.arr.length || i>=s.arr.length) continue;
-        if(s.endIdx!=null && i>s.endIdx && i<N-1) continue; // 尾部裁剪区不画悬停圆点（末点除外）
+        if(s.endIdx!=null && i>s.endIdx) continue; // 尾部裁剪区不画悬停圆点
         const y=chartY(s.arr[i], ymin, ymax, geom);
         ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(hx,y,3.5,0,Math.PI*2); ctx.fill();
         ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
@@ -1410,7 +1421,7 @@ const Utils = {
   document.body.appendChild(chartTooltip);
 
   function showChartTooltip(item, cssX, clientX, clientY){
-    const N=SERIAL_SAMPLE_COUNT;
+    const N=chartEffCount(item.group);
     const cssW=item.canvas.clientWidth||item.canvas.parentElement.clientWidth||300;
     const geom=chartGeom(cssW, item.canvas.clientHeight);
     let i=Math.round((cssX-CHART_PAD.L)/geom.plotW*(N-1));
@@ -1418,7 +1429,7 @@ const Utils = {
     item.hoverIndex=i;
     drawChart(item);
     const g=item.group;
-    const get=idx=>{ const a=serialChannelData[idx]; return (a&&a.length===N)?a[i]:null; };
+    const get=idx=>{ const a=serialChannelData[idx]; return (a&&i<a.length)?a[i]:null; };
     const cVal=get(g*3), bVal=get(g*3+1), tVal=get(g*3+2);
     let html='<div style="margin-bottom:3px;opacity:.85;">采样 #'+i+'</div>';
     for(const [nm,v] of [['C',cVal],['B',bVal],['T',tVal]]){
