@@ -65,6 +65,11 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  /* 串口卡片：与上方卡片统一 16px 间距 */
+  .serial-card{margin-top:16px;}
+  /* 串口日志窗口：默认隐藏，由「显示日志/隐藏日志」按钮开关 */
+  #serialLog{display:none;}
+  #serialLog.show{display:block;}
   /* 串口连接条：滚动到页面顶部时挤开 BLE 连接条并固定在顶部（z-index 高于 BLE 条，覆盖其上） */
   .serial-card .card-title{
     position:sticky;top:0;z-index:60;
@@ -366,6 +371,7 @@
         <span class="status-badge disconnected" id="serialStatus"><span class="status-dot"></span><span id="serialStatusText">未连接</span></span>
         <button class="btn btn-primary btn-sm" id="btnSerialConnect">连接串口</button>
         <button class="btn btn-danger btn-sm" id="btnSerialDisconnect" disabled>断开</button>
+        <button class="btn btn-sm" id="btnSerialLogToggle" type="button">显示日志</button>
       </div>
     </div>
     <div class="cmd-toolbar" style="align-items:stretch;">
@@ -490,6 +496,7 @@ const Utils = {
   const serialSend=document.getElementById('serialSend');
   const btnSerialSend=document.getElementById('btnSerialSend');
   const serialLog=document.getElementById('serialLog');
+  const btnSerialLogToggle=document.getElementById('btnSerialLogToggle');
   const serialChannelSelect=document.getElementById('serialChannelSelect');
   const btnSerialQueryChannel=document.getElementById('btnSerialQueryChannel');
   const btnSerialCopyData=document.getElementById('btnSerialCopyData');
@@ -1545,6 +1552,14 @@ const Utils = {
   btnSerialQueryChannel.addEventListener('click', sendSerialChannelQuery);
   btnSerialCopyData.addEventListener('click', copySerialAllData);
   serialSend.addEventListener('keydown', e=>{ if(e.key==='Enter') sendSerial(); });
+
+  // 串口日志窗口开关（默认隐藏）
+  btnSerialLogToggle.addEventListener('click',()=>{
+    const willShow=!serialLog.classList.contains('show');
+    serialLog.classList.toggle('show',willShow);
+    btnSerialLogToggle.textContent=willShow?'隐藏日志':'显示日志';
+    if(willShow) serialLog.scrollTop=serialLog.scrollHeight; // 展开时直接滚到最新一条
+  });
 
   // 初始化：FFE2 未发现前禁用所有相关控件
   refreshFeatureState();
