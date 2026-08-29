@@ -60,15 +60,18 @@ self.addEventListener('fetch', (event) => {
       if (cached && resp.status === 304) return resp; // 服务器确认一致，不下载内容
       if (resp.status !== 200) return resp;
       // 200：可能已更新。与本地缓存做内容比对（兼容不支持条件请求的服务器）
-      const newBody = await resp.clone().text();
       if (cached) {
+        const newBody = await resp.clone().text();
         const oldBody = await cached.clone().text();
-        if (oldBody === newBody) return resp; // 内容一致，不更新缓存、不刷新
+        if (oldBody === newBody) return resp; // 内容一致，不更新缓存、不提示
+        // 内容与本地不一致：写入新内容，并通知页面显示「刷新缓存」按钮（何时刷新由用户决定）
+        await cache.put(event.request, resp.clone());
+        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        clients.forEach((c) => c.postMessage({ type: 'VERSION_UPDATE' }));
+      } else {
+        // 首次访问无本地缓存：仅写入缓存供离线使用，不提示
+        await cache.put(event.request, resp.clone());
       }
-      // 内容不一致：写入缓存，并通知页面自动刷新一次以展示新版
-      await cache.put(event.request, resp.clone());
-      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      clients.forEach((c) => c.postMessage({ type: 'VERSION_UPDATE' }));
       return resp;
     })();
 

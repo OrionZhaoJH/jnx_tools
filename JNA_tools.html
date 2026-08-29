@@ -83,6 +83,7 @@
   .btn-sm{padding:4px 12px;font-size:.8rem;}
   .btn-warn{background:var(--warn);border-color:var(--warn);color:#fff;}
   .btn-warn:hover{background:#d97706;border-color:#d97706;color:#fff;}
+  .btn.update-available{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
@@ -318,7 +319,7 @@
     <div class="topbar-right">
       <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
       <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
-      <button class="btn btn-sm" id="btnRefreshCache" type="button">🔄 刷新缓存</button>
+      <button class="btn btn-sm" id="btnRefreshCache" type="button" style="display:none;">🔄 刷新缓存</button>
     </div>
   </div>
 
@@ -1388,23 +1389,24 @@ const Utils = {
     });
   }
 
-  // 版本检测自动刷新：SW 接管新版本，或服务器内容与本地不一致（VERSION_UPDATE 消息）时，
-  // 只自动刷新一次即可拿到最新版（手机端无需 Ctrl+F5）
-  let swRefreshed = false;
-  const swForceReload = () => {
-    if (swRefreshed) return;
-    swRefreshed = true;
-    window.location.reload();
+  // 版本检测：仅当检测到服务器内容与本地不一致（需要刷新缓存）时，才显示「刷新缓存」按钮；
+  // 平时按钮隐藏，不打扰使用
+  let swUpdateShown = false;
+  const showRefreshBtn = () => {
+    if (swUpdateShown || !btnRefreshCache) return;
+    swUpdateShown = true;
+    btnRefreshCache.style.display = 'inline-flex';
+    btnRefreshCache.classList.add('update-available');
   };
   const swHadController = !!navigator.serviceWorker && !!navigator.serviceWorker.controller;
   if (navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!swHadController) return; // 首次安装接管时不重载
-      swForceReload();
+      if (!swHadController) return; // 首次安装接管时不提示
+      showRefreshBtn();
     });
     navigator.serviceWorker.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'VERSION_UPDATE' && !location.search.includes('_v=')) {
-        swForceReload();
+        showRefreshBtn();
       }
     });
   }

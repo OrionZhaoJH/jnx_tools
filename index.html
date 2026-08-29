@@ -114,12 +114,13 @@
     border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;transition:all .15s;}
   .btn-refresh:hover{border-color:var(--accent);color:var(--accent);}
   .btn-refresh:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-refresh.update-available{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
 </style>
 </head>
 <body>
 <div class="pwa-install-bar">
   <button class="pwa-install-btn" id="pwaInstallBtn" type="button">＋ 安装到桌面</button>
-  <button class="btn-refresh" id="btnRefreshCache" type="button">🔄 刷新缓存</button>
+  <button class="btn-refresh" id="btnRefreshCache" type="button" style="display:none;">🔄 刷新缓存</button>
 </div>
 <div class="container">
   <header>
@@ -282,23 +283,24 @@ const TOOLS = [
     });
   }
 
-  // 版本检测自动刷新：SW 接管新版本，或服务器内容与本地不一致（VERSION_UPDATE 消息）时，
-  // 只自动刷新一次即可拿到最新版（手机端无需 Ctrl+F5）
-  let swRefreshed = false;
-  const swForceReload = () => {
-    if (swRefreshed) return;
-    swRefreshed = true;
-    window.location.reload();
+  // 版本检测：仅当检测到服务器内容与本地不一致（需要刷新缓存）时，才显示「刷新缓存」按钮；
+  // 平时按钮隐藏，不打扰使用
+  let swUpdateShown = false;
+  const showRefreshBtn = () => {
+    if (swUpdateShown || !btnRefreshCache) return;
+    swUpdateShown = true;
+    btnRefreshCache.style.display = 'inline-flex';
+    btnRefreshCache.classList.add('update-available');
   };
   const swHadController = !!navigator.serviceWorker && !!navigator.serviceWorker.controller;
   if (navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!swHadController) return; // 首次安装接管时不重载
-      swForceReload();
+      if (!swHadController) return; // 首次安装接管时不提示
+      showRefreshBtn();
     });
     navigator.serviceWorker.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'VERSION_UPDATE' && !location.search.includes('_v=')) {
-        swForceReload();
+        showRefreshBtn();
       }
     });
   }
