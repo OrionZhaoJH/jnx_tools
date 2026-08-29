@@ -62,6 +62,15 @@
   .btn-sm{padding:4px 12px;font-size:.8rem;}
   .btn-warn{background:var(--warn);border-color:var(--warn);color:#fff;}
   .btn-warn:hover{background:#d97706;border-color:#d97706;color:#fff;}
+  .btn-secondary{background:var(--bg);border-color:var(--border);color:var(--text);}
+  .btn-secondary:hover{background:var(--surface);border-color:var(--accent);color:var(--accent);}
+  .feature-badge{
+    display:inline-block;padding:2px 10px;border-radius:999px;
+    font-size:.72rem;font-weight:600;letter-spacing:.3px;
+    border:1px solid var(--border);background:var(--bg);
+  }
+  .feature-badge.ready{background:var(--success);border-color:var(--success);color:#fff;}
+  .feature-badge.locked{background:var(--bg);border-color:var(--border);color:var(--text-muted);}
   .btn.update-available{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
@@ -265,6 +274,48 @@
     .field-raw{font-size:.65rem;}
     .channel-table th,.channel-table td{padding:6px 8px;font-size:.8rem;}
   }
+
+  /* 通道1 (FFE1) 跟踪：4 槽位卡片 + 附加字段 */
+  .fte1-slots{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+    margin-bottom:14px;
+  }
+  .slot-card{
+    border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;
+    background:var(--surface);transition:border-color .2s;
+  }
+  .slot-card .slot-title{
+    font-size:.7rem;font-weight:600;color:var(--text-muted);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .slot-card .slot-title .slot-no{color:var(--text);font-size:.95rem;font-weight:700;}
+  .slot-card .slot-row{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-top:5px;
+  }
+  .slot-card .slot-row .lbl{font-size:.72rem;color:var(--text-muted);}
+  .slot-card .slot-row .val{font-family:'Consolas','Monaco',monospace;font-weight:700;color:var(--text);font-size:.95rem;}
+  .slot-card .slot-status{font-family:'Consolas','Monaco',monospace;font-weight:700;font-size:.9rem;}
+  .slot-card.status-0 .slot-status{color:#94a3b8;}   /* 未启动 */
+  .slot-card.status-1 .slot-status{color:#0891b2;}   /* 正在检测 */
+  .slot-card.status-2 .slot-status{color:#16a34a;}   /* 检测完成 */
+  .slot-card.status-3 .slot-status{color:#ea580c;}   /* 待机超时 */
+  .slot-card.status-4 .slot-status{color:#dc2626;}   /* 设备故障 */
+  .slot-card.flash{animation:flashBg .7s ease;}
+  .slot-row.flash{animation:flashRow .7s ease;border-radius:6px;}
+  @keyframes flashRow{
+    0%{background:var(--ble-soft);box-shadow:inset 0 0 0 2px var(--ble-color);}
+    100%{background:transparent;box-shadow:inset 0 0 0 2px transparent;}
+  }
+  .fte1-extras{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:10px;
+    border-top:1px dashed var(--border);padding-top:12px;
+  }
+  @media(max-width:760px){
+    .fte1-slots{grid-template-columns:repeat(2,1fr);}
+    .fte1-extras{grid-template-columns:repeat(2,1fr);}
+  }
 </style>
 </head>
 <body>
@@ -307,6 +358,68 @@
   <div class="ble-grid">
     <!-- Parsed Data + Data Log + Commands -->
     <div class="ble-right">
+      <!-- 通道1 (FFE1 跟踪) -->
+      <div class="card">
+        <div class="card-title">
+          <span>通道1 (FFE1 跟踪)</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled>开始更新</button>
+            <span class="feature-badge locked" id="ffe1Badge">未就绪</span>
+          </div>
+        </div>
+        <div class="fte1-slots" id="fte1Slots" style="display:none;">
+          <div class="slot-card" id="fte1Slot0" data-slot="1">
+            <div class="slot-title"><span>槽位</span><span class="slot-no">1</span></div>
+            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
+            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
+            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
+            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
+            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
+            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
+            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
+            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          </div>
+          <div class="slot-card" id="fte1Slot1" data-slot="2">
+            <div class="slot-title"><span>槽位</span><span class="slot-no">2</span></div>
+            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
+            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
+            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
+            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
+            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
+            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
+            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
+            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          </div>
+          <div class="slot-card" id="fte1Slot2" data-slot="3">
+            <div class="slot-title"><span>槽位</span><span class="slot-no">3</span></div>
+            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
+            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
+            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
+            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
+            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
+            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
+            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
+            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          </div>
+          <div class="slot-card" id="fte1Slot3" data-slot="4">
+            <div class="slot-title"><span>槽位</span><span class="slot-no">4</span></div>
+            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
+            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
+            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
+            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
+            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
+            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
+            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
+            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          </div>
+        </div>
+        <div class="fte1-extras" id="fte1Extras" style="display:none;">
+          <div class="field-box" data-key="timer"><div class="field-label">计时(s)</div><div class="field-raw">--</div><div class="field-value">--</div></div>
+          <div class="field-box" data-key="version"><div class="field-label">版本号</div><div class="field-raw">--</div><div class="field-value">--</div></div>
+        </div>
+        <div id="fte1Empty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">连接设备后点击「开始更新」跟踪通道1状态</div>
+      </div>
+
       <!-- 解析数据面板 -->
       <div class="card">
         <div class="card-title">
@@ -559,6 +672,17 @@ const Utils = {
   // FFE2 特征的父服务 0000ffe0 已在本列表，discoverChar 会遍历其下的特征匹配到 FFE2。
   const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
 
+  // FFE1 通道1 跟踪状态
+  let ffe1Char=null;
+  let ffe1Busy=false;
+  let ffe1FeedActive=false;
+  let ffe1PollTimer=null;
+  let fte1LastSlots=[null,null,null,null]; // 缓存上次渲染值，用于判断内容是否变化
+  let fte1LastExtras={}; // 缓存附加字段上次值，用于判断变化
+  const FFE1_POLL_INTERVAL=1000;
+  // 0x00未启动 0x01正在检测 0x02检测完成 0x03待机超时 0x04设备故障
+  const SLOT_STATUS_NAMES=['未启动','正在检测','检测完成','待机超时','设备故障'];
+
   // Query state
   let querying=false;
   let queryReadTimer=null;
@@ -609,7 +733,8 @@ const Utils = {
       setStatus('connected', device.name||'未知设备');
       btnConnect.disabled=true;
       btnDisconnect.disabled=false;
-      // 发现 FFE2 用于命令和查询
+      // 发现 FFE1（通道1 跟踪）+ FFE2（命令和查询）
+      await discoverFFE1(server);
       await discoverFFE2(server);
     }catch(err){
       console.error('BLE connect error:',err);
@@ -624,6 +749,14 @@ const Utils = {
   btnDisconnect.addEventListener('click', ()=>{
     if(device&&device.gatt.connected) device.gatt.disconnect();
   });
+
+  // 通道1 (FFE1) 跟踪：开始更新/暂停 切换
+  if(btnFfe1Track){
+    btnFfe1Track.addEventListener('click', ()=>{
+      if(ffe1FeedActive) stopFfe1Feed();
+      else startFFE1Feed();
+    });
+  }
 
   function onDisconnected(){
     // 复位查询状态
@@ -646,6 +779,9 @@ const Utils = {
       if(ffe2Char.stopNotifications) ffe2Char.stopNotifications().catch(()=>{});
     }
     ffe2Char=null;
+    // 复位 FFE1
+    stopFfe1Feed();
+    ffe1Char=null;
     refreshFeatureState();
     setStatus('disconnected','');
     btnConnect.disabled=false;
@@ -660,7 +796,7 @@ const Utils = {
     else bleDeviceName.innerHTML='';
   }
 
-  // 根据 FFE2 就绪状态启用/禁用所有 FFE2 相关控件（FFE2 未发现前不可点击）
+  // 根据 FFE1/FFE2 就绪状态启用/禁用所有相关控件
   function refreshFeatureState(){
     const ready=!!(ffe2Char && device && device.gatt.connected);
     ffe2Controls.forEach(el=>{
@@ -670,6 +806,13 @@ const Utils = {
         el.disabled=!ready;
       }
     });
+    // FFE1 跟踪按钮：FFE1 发现即可点（不强制 connected，因为可能短暂抖动后仍在订阅）
+    const ffe1Ready=!!ffe1Char;
+    if(btnFfe1Track) btnFfe1Track.disabled=!ffe1Ready;
+    if(ffe1Badge){
+      ffe1Badge.className='feature-badge '+(ffe1Ready?'ready':'locked');
+      ffe1Badge.textContent=ffe1Ready?'已就绪':'未就绪';
+    }
   }
 
   // ---- 特征发现（FFE2 复用，参照 JNA 的 discoverChar）----
@@ -718,6 +861,184 @@ const Utils = {
     const dv=event.target.value;
     const ok=parseJncResponse(dv);
     logToPanel(ok?'Data':'Notify', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv));
+  }
+
+  // ---- FFE1 (通道1) 跟踪：发现 / 订阅 / 轮询 / 解析 / 渲染 ----
+  async function discoverFFE1(srv){
+    ffe1Char=await discoverChar(srv, FFE1_SERVICE);
+    if(!ffe1Char) logToPanel('CMD-Err', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1');
+    refreshFeatureState();
+  }
+
+  async function startFFE1Feed(){
+    if(ffe1FeedActive) return;
+    if(!ffe1Char && server) await discoverFFE1(server);
+    if(!ffe1Char) return;
+    const shortU=Utils.shortUuid(FFE1_SERVICE);
+    const target=ffe1Char;
+    // 优先 notify（事件驱动），不支持则回退到 1000ms 轮询
+    if(target.properties.notify || target.properties.indicate){
+      try{
+        await target.startNotifications();
+        target.addEventListener('characteristicvaluechanged', onFFE1Changed);
+        ffe1FeedActive=true;
+        updateFfe1TrackBtn();
+        logToPanel('Sub', shortU, '已开启通知订阅');
+        return;
+      }catch(err){
+        console.warn('FFE1 notify 订阅失败，回退到轮询:', err);
+      }
+    }
+    if(target.properties.read){
+      const doPoll=async ()=>{
+        if(ffe1Busy) return;
+        if(!device || !device.gatt || !device.gatt.connected){ stopFfe1Feed(); return; }
+        ffe1Busy=true;
+        try{
+          const dv=await target.readValue();
+          parseFfe1Packet(dv);
+        }catch(err){
+          if(!device || !device.gatt || !device.gatt.connected){ stopFfe1Feed(); return; }
+          logToPanel('Poll-Err', shortU, err.message);
+        }finally{
+          ffe1Busy=false;
+        }
+      };
+      doPoll();
+      ffe1PollTimer=setInterval(doPoll, FFE1_POLL_INTERVAL);
+      ffe1FeedActive=true;
+      updateFfe1TrackBtn();
+      logToPanel('Sub', shortU, '已回退到 '+FFE1_POLL_INTERVAL+'ms 轮询');
+    }else{
+      logToPanel('CMD-Err', shortU, 'FFE1 不支持 notify/read，无法跟踪');
+    }
+  }
+
+  function stopFfe1Feed(){
+    if(ffe1PollTimer){ clearInterval(ffe1PollTimer); ffe1PollTimer=null; }
+    if(ffe1Char){
+      try{ ffe1Char.removeEventListener('characteristicvaluechanged', onFFE1Changed); }catch(e){}
+      if(ffe1Char.stopNotifications) ffe1Char.stopNotifications().catch(()=>{});
+    }
+    ffe1FeedActive=false;
+    ffe1Busy=false;
+    updateFfe1TrackBtn();
+  }
+
+  function onFFE1Changed(event){
+    parseFfe1Packet(event.target.value);
+  }
+
+  function updateFfe1TrackBtn(){
+    if(!btnFfe1Track) return;
+    if(ffe1FeedActive){
+      btnFfe1Track.textContent='暂停';
+      btnFfe1Track.classList.remove('btn-warn');
+      btnFfe1Track.classList.add('btn-secondary');
+    }else{
+      btnFfe1Track.textContent='开始更新';
+      btnFfe1Track.classList.remove('btn-secondary');
+      btnFfe1Track.classList.add('btn-warn');
+    }
+  }
+
+  // FFE1 71 字节协议（参照协议图，均大端）：
+  //  4 × (状态 1B + 剩余时间 2B + 检测结果 4B)        0..27
+  //  计时 2B                                        28..29
+  //  加样1/2/3/4 + 检测完成1/2/3/4   各 2B           30..45
+  //  版本号 1B                                       46
+  //  4 × (C 2B + B 2B + T 2B)  4 通道 CBT 值         47..70
+  function parseFfe1Packet(dv){
+    if(!dv || dv.byteLength < 47){
+      logToPanel('Warn', Utils.shortUuid(FFE1_SERVICE), 'FFE1 包长不足 47 字节 ('+(dv?dv.byteLength:0)+')');
+      return;
+    }
+    const be16=(o)=>(dv.getUint8(o)<<8) | dv.getUint8(o+1);
+    const be32=(o)=>((dv.getUint8(o)<<24)>>>0) + (dv.getUint8(o+1)<<16) + (dv.getUint8(o+2)<<8) + dv.getUint8(o+3);
+    const slots=[];
+    for(let i=0;i<4;i++){
+      const b=i*7;
+      slots.push({status:dv.getUint8(b), remainingTime:be16(b+1), result:be32(b+3)});
+    }
+    const cbt=[[0,0,0],[0,0,0],[0,0,0],[0,0,0]];
+    if(dv.byteLength >= 71){
+      for(let i=0;i<4;i++){
+        const o = 47 + i*6;
+        cbt[i] = [be16(o), be16(o+2), be16(o+4)]; // [C, B, T]
+      }
+    }
+    const data={
+      slots,
+      timer:be16(28),
+      add: [be16(30), be16(34), be16(38), be16(42)],
+      done:[be16(32), be16(36), be16(40), be16(44)],
+      version:dv.getUint8(46),
+      cbt
+    };
+    renderFfe1Track(data);
+  }
+
+  function renderFfe1Track(p){
+    fte1Slots.style.display='';
+    fte1Extras.style.display='';
+    fte1Empty.style.display='none';
+
+    for(let i=0;i<4;i++){
+      const s=p.slots[i];
+      const card=document.getElementById('fte1Slot'+i);
+      if(!card) continue;
+      const newCls='slot-card status-'+s.status;
+      if(card.className!==newCls) card.className=newCls;
+      const c=p.cbt[i]||[0,0,0];
+      // 逐字段比对：仅对应词条（行）在数据变化时才闪烁，不闪整张卡片
+      const prev=fte1LastSlots[i]||{};
+      const fields=[
+        {k:'status',  sel:'.slot-status', val:SLOT_STATUS_NAMES[s.status] || ('0x'+s.status.toString(16).padStart(2,'0').toUpperCase())},
+        {k:'time',    sel:'.slot-time',   val:s.remainingTime},
+        {k:'result',  sel:'.slot-result', val:s.result},
+        {k:'add',     sel:'.slot-add',    val:p.add[i]},
+        {k:'done',    sel:'.slot-done',   val:p.done[i]},
+        {k:'c',       sel:'.slot-c',      val:c[0]},
+        {k:'b',       sel:'.slot-b',      val:c[1]},
+        {k:'t',       sel:'.slot-t',      val:c[2]}
+      ];
+      for(const f of fields){
+        const el=card.querySelector(f.sel);
+        if(!el) continue;
+        el.textContent = f.val;
+        if(prev[f.k] !== f.val){
+          const row=el.closest('.slot-row');
+          if(row){
+            row.classList.remove('flash');
+            void row.offsetWidth; // 触发重排以重启动画
+            row.classList.add('flash');
+          }
+        }
+      }
+      // 缓存用与比对完全一致的值（含状态显示字符串），避免类型不一致导致未变字段误闪
+      fte1LastSlots[i]={};
+      for(const f of fields) fte1LastSlots[i][f.k]=f.val;
+    }
+
+    const setField=(key, val)=>{
+      const el=document.querySelector('#fte1Extras .field-box[data-key="'+key+'"]');
+      if(!el) return;
+      el.querySelector('.field-value').textContent = val;
+      if(typeof val==='number'){
+        const bytes = key==='version' ? 1 : 2;
+        el.querySelector('.field-raw').textContent = '0x'+val.toString(16).padStart(bytes*2,'0').toUpperCase();
+      }
+      // 仅当值有变化时才闪烁
+      const prev=fte1LastExtras[key];
+      if(prev!==val){
+        el.classList.remove('flash');
+        void el.offsetWidth; // 触发重排以重启动画
+        el.classList.add('flash');
+        fte1LastExtras[key]=val;
+      }
+    };
+    setField('timer', p.timer);
+    setField('version', p.version);
   }
 
   function formatDataView(dv){
