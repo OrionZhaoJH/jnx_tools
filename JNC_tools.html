@@ -65,11 +65,25 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  /* 串口连接条：滚动到页面顶部时挤开 BLE 连接条并固定在顶部（z-index 高于 BLE 条，覆盖其上） */
+  .serial-card .card-title{
+    position:sticky;top:0;z-index:60;
+    background:var(--surface);
+    margin:-20px -20px 0;
+    padding:20px 20px 13px;
+    border-bottom:1px solid var(--border);
+    border-radius:12px 12px 0 0;
+  }
 
   /* ---- BLE page ---- */
   .ble-grid{display:flex;flex-direction:column;gap:20px;margin-top:16px;}
 
-  .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .ble-toolbar{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    /* 吸顶：页面下滚时「连接 BLE 设备」条始终固定在最上面（参考 JNA 顶栏） */
+    position:sticky;top:0;z-index:50;background:var(--bg);
+    margin-top:-8px;padding:8px 0 16px;
+  }
   .name-filter{display:flex;align-items:center;gap:6px;}
   .name-filter label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
   .name-filter input{
@@ -343,7 +357,7 @@
   </div>
 
   <!-- 串口连接 (Web Serial) -->
-  <div class="card">
+  <div class="card serial-card">
     <div class="card-title">
       <span>串口连接 (Web Serial)</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
