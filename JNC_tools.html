@@ -1474,6 +1474,7 @@ const Utils = {
     card.classList.remove('expanded');
     const b=card.querySelector('.chart-expand-btn');
     if(b) b.textContent='⛶ 全屏';
+    if(chartTooltip.parentNode===card) document.body.appendChild(chartTooltip); // 还原后提示浮层移回主文档
     renderChartsInCard(card);
   }
   document.querySelectorAll('.chart-card').forEach(card=>{
@@ -1486,6 +1487,8 @@ const Utils = {
         card.classList.remove('collapsed');
         card.classList.add('expanded');
         btn.textContent='⤡ 还原';
+        chartTooltip.style.display='none';
+        card.appendChild(chartTooltip); // 全屏/覆盖模式下提示浮层需作为卡片子节点才会显示
         if(card.requestFullscreen){ // 浏览器支持时进入原生全屏，否则仅全网页覆盖
           card.requestFullscreen().catch(()=>{});
         }
