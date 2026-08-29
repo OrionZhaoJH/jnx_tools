@@ -256,7 +256,10 @@
 <div class="container">
   <div class="topbar">
     <a href="./index.html" class="nav-back">← 返回首页</a>
-    <button class="pwa-install-btn" id="pwaInstallBtn" type="button">＋ 安装到桌面</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <button class="pwa-install-btn" id="pwaInstallBtn" type="button">＋ 安装到桌面</button>
+      <button class="btn btn-sm" id="btnRefreshCache" type="button">🔄 刷新缓存</button>
+    </div>
   </div>
 
   <header>
@@ -1596,6 +1599,40 @@ const Utils = {
   window.addEventListener('appinstalled', () => {
     if (pwaInstallBtn) pwaInstallBtn.style.display = 'none';
   });
+
+  // 刷新缓存：清除 SW 缓存 + 更新 SW 后带参数重载（手机端替代 Ctrl+F5）
+  const btnRefreshCache = document.getElementById('btnRefreshCache');
+  if (btnRefreshCache) {
+    btnRefreshCache.addEventListener('click', async () => {
+      const label = btnRefreshCache.textContent;
+      btnRefreshCache.textContent = '刷新中...';
+      btnRefreshCache.disabled = true;
+      try {
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if (navigator.serviceWorker) {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg) await reg.update();
+        }
+      } catch (err) {
+        console.error('刷新缓存失败', err);
+      }
+      const u = new URL(location.href);
+      u.searchParams.set('_v', Date.now()); // 破坏缓存参数，强制重新拉取
+      location.replace(u.href);
+    });
+  }
+
+  // 新 Service Worker 接管后自动刷新一次（缓存版本更新时，手机端无需手动刷新）
+  const swHadController = !!navigator.serviceWorker && !!navigator.serviceWorker.controller;
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!swHadController) return; // 首次安装接管时不重载
+      window.location.reload();
+    });
+  }
 })();
 </script>
 </body>

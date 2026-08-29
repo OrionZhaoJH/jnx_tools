@@ -105,15 +105,21 @@
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 
-  .pwa-install-bar{max-width:900px;margin:0 auto;width:100%;padding:16px 24px 0;display:flex;justify-content:flex-end;}
+  .pwa-install-bar{max-width:900px;margin:0 auto;width:100%;padding:16px 24px 0;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
   .pwa-install-btn{display:none;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;
     border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;transition:opacity .15s;}
   .pwa-install-btn:hover{opacity:.9;}
+  /* 刷新缓存：手机端无法 Ctrl+F5，点此清空 SW 缓存后重载 */
+  .btn-refresh{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);
+    border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;transition:all .15s;}
+  .btn-refresh:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-refresh:disabled{opacity:.5;cursor:not-allowed;}
 </style>
 </head>
 <body>
 <div class="pwa-install-bar">
   <button class="pwa-install-btn" id="pwaInstallBtn" type="button">＋ 安装到桌面</button>
+  <button class="btn-refresh" id="btnRefreshCache" type="button">🔄 刷新缓存</button>
 </div>
 <div class="container">
   <header>
@@ -250,6 +256,40 @@ const TOOLS = [
   window.addEventListener('appinstalled', () => {
     if (pwaInstallBtn) pwaInstallBtn.style.display = 'none';
   });
+
+  // 刷新缓存：清除 SW 缓存 + 更新 SW 后带参数重载（手机端替代 Ctrl+F5）
+  const btnRefreshCache = document.getElementById('btnRefreshCache');
+  if (btnRefreshCache) {
+    btnRefreshCache.addEventListener('click', async () => {
+      const label = btnRefreshCache.textContent;
+      btnRefreshCache.textContent = '刷新中...';
+      btnRefreshCache.disabled = true;
+      try {
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if (navigator.serviceWorker) {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg) await reg.update();
+        }
+      } catch (err) {
+        console.error('刷新缓存失败', err);
+      }
+      const u = new URL(location.href);
+      u.searchParams.set('_v', Date.now()); // 破坏缓存参数，强制重新拉取
+      location.replace(u.href);
+    });
+  }
+
+  // 新 Service Worker 接管后自动刷新一次（缓存版本更新时，手机端无需手动刷新）
+  const swHadController = !!navigator.serviceWorker && !!navigator.serviceWorker.controller;
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!swHadController) return; // 首次安装接管时不重载
+      window.location.reload();
+    });
+  }
 })();
 </script>
 </body>
