@@ -1572,10 +1572,12 @@ const Utils = {
   refreshFeatureState();
   renderAllCharts(); // 初始绘制 4 张曲线图（无数据状态）
 
-  // 注册 Service Worker，启用 PWA 离线/安装能力
+  // 注册 Service Worker，启用 PWA 离线/安装能力。
+  // 注册后立即显式 update()：保证已安装的 PWA 每次启动都能马上检查并接管新版 SW（尤其 iOS）
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
+        .then((reg) => { if (reg) reg.update().catch(() => {}); })
         .catch((err) => console.error('SW registration failed', err));
     });
   }
