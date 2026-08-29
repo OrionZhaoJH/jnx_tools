@@ -1377,16 +1377,19 @@ const Utils = {
     for(const s of series){
       if(!s.arr.length) continue;
       const n=Math.min(s.arr.length, N);
-      // 尾部连续 0 处理：末尾连续的 0 点不绘制，曲线止于计数上的最后一个非零点
-      // （不再强制把最后一个点画到样本末尾 460 处，避免从 70 直接跳到 460）
+      // 尾部连续 0 处理：末尾连续的 0 点不全绘制，但至少保留一个 0，
+      // 让曲线落回基线收尾而不是空中截断；数据结尾不是 0 时不做任何补点。
       let lastNonZero=-1;
       for(let i=0;i<n;i++){ if(s.arr[i]!==0) lastNonZero=i; }
-      s.endIdx=lastNonZero; // 记录有效终点，供悬停圆点判断
+      // 存在尾随 0 时，终点延伸到第一个尾随 0（该点必为 0，曲线在零基线上收尾）
+      let endIdx=lastNonZero;
+      if(lastNonZero>=0 && lastNonZero+1<s.arr.length) endIdx=lastNonZero+1;
+      s.endIdx=endIdx; // 记录实际绘制终点，供悬停圆点判断
       ctx.strokeStyle=s.color; ctx.lineWidth=1.4; ctx.beginPath();
       let started=false;
-      for(let i=0;i<n;i++){
-        if(i>lastNonZero) continue; // 跳过尾部连续 0
-        const x=chartX(i, N, geom);
+      for(let i=0;i<=endIdx;i++){
+        // 最长系列的尾随 0（第 N 点）x 坐标在绘图区外，钳到右边缘，形成落回基线的收尾
+        const x=Math.min(CHART_PAD.L+geom.plotW, chartX(i, N, geom));
         const y=chartY(s.arr[i], ymin, ymax, geom);
         if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
       }
