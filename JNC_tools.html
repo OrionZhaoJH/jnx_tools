@@ -86,7 +86,8 @@
 
   .ble-toolbar{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-    /* 吸顶：页面下滚时「连接 BLE 设备」条始终固定在最上面（参考 JNA 顶栏） */
+    /* 吸顶：仅限前半页 BLE 区块（.ble-section）内固定在最上面；
+       进入串口部分后随区块滚出，后半页（串口/曲线）不再出现 BLE 连接条 */
     position:sticky;top:0;z-index:50;background:var(--bg);
     margin-top:-8px;padding:8px 0 16px;
   }
@@ -276,6 +277,7 @@
     ⚠️ 当前浏览器不支持 Web Serial API。请使用 Chrome 或 Edge（需 HTTPS 或 localhost 访问）。
   </div>
 
+  <div class="ble-section">
   <div class="ble-toolbar">
     <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
     <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
@@ -363,6 +365,7 @@
         <div class="cmd-log" id="cmdLog"></div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- 串口连接 (Web Serial) -->
