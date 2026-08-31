@@ -1209,7 +1209,8 @@ const Utils = {
   }
 
   // ---- JNA 二进制协议解析 ----
-  // 格式：20 字节，大端（高位在前）。
+  // 格式：20 字节；整数字段大端（高位在前）；「检测结果」为例外：
+  //   float32 小端 —— 固件按 Result=(Bend-Tend)/(Bend-Cend) 计算后以字节写入（MCU 小端）。
   // 00 状态 / 01-02 检测进行时间 / 03-06 检测结果(float) /
   // 07-08 时间戳 / 09-10 开始时间 / 11-12 结束时间 / 13 软件版本号 /
   // 14-15 C值 / 16-17 B值 / 18-19 T值
@@ -1221,7 +1222,7 @@ const Utils = {
     return {
       status, statusText,
       detectTime: dv.getUint16(1,false),
-      result: dv.getFloat32(3,false),
+      result: dv.getFloat32(3,true),
       timestamp: dv.getUint16(7,false),
       startTime: dv.getUint16(9,false),
       endTime: dv.getUint16(11,false),
@@ -1254,7 +1255,7 @@ const Utils = {
     }
     setField('status', obj.statusText, bytesHex(dv,0,0));
     setField('detectTime', String(obj.detectTime), bytesHex(dv,1,2));
-    setField('result', isFinite(obj.result)?obj.result.toFixed(2):String(obj.result), bytesHex(dv,3,6));
+    setField('result', isFinite(obj.result)?obj.result.toFixed(6):String(obj.result), bytesHex(dv,3,6));
     setField('timestamp', String(obj.timestamp), bytesHex(dv,7,8));
     setField('startTime', String(obj.startTime), bytesHex(dv,9,10));
     setField('endTime', String(obj.endTime), bytesHex(dv,11,12));
