@@ -528,7 +528,7 @@
         <option value="0x43">T4</option>
       </select>
       <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled>获取通道数据</button>
-      <button class="btn btn-sm" id="btnSerialCopyData" disabled>复制 12×70 数据</button>
+      <button class="btn btn-sm" id="btnSerialCopyData" disabled>复制 12×460 数据</button>
       <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;"></span>
     </div>
     <div class="cmd-log" id="serialLog"></div>
@@ -690,8 +690,6 @@ const Utils = {
   // 串口状态
   let serialPort=null, serialReader=null, serialKeepReading=false, serialBuf=[];
   const SERIAL_SAMPLE_COUNT=460;
-  // 复制数据时每条线只取前 SERIAL_COPY_COUNT 个采样点（12 行 × 70 列，与模板数据区一致）
-  const SERIAL_COPY_COUNT=70;
   // 串口单通道查询：12 个通道 × C/B/T = 36 个数组；索引 = ch*3 + lineIndex(C=0,B=1,T=2)
   const serialChannelData=new Array(12).fill(null).map(()=>[]);
   let serialPendingQuery=null; // {code, label, chIndex, lineIndex, timer, resolve}
@@ -1609,13 +1607,13 @@ const Utils = {
     btnSerialCopyData.disabled=false;
   }
 
-  // 复制 12 行 × 70 列数据（只取每条线前 70 个采样点，下标 0..69）；未读取到的位置用 0 填充
+  // 复制 12 行 × 460 列数据（每条线完整 460 个采样点）；未读取到的位置用 0 填充
   async function copySerialAllData(){
     const rows=[];
     for(let i=0;i<12;i++){
       const arr=serialChannelData[i];
       const row=[];
-      for(let k=0;k<SERIAL_COPY_COUNT;k++){
+      for(let k=0;k<SERIAL_SAMPLE_COUNT;k++){
         row.push(arr && arr[k]!=null ? arr[k] : 0);
       }
       rows.push(row.join('\t'));
@@ -1623,11 +1621,11 @@ const Utils = {
     const text=rows.join('\n');
     try{
       await navigator.clipboard.writeText(text);
-      serialChannelResult.textContent='已复制 12×70 数据到剪贴板';
+      serialChannelResult.textContent='已复制 12×460 数据到剪贴板';
     }catch(err){
       const ta=document.createElement('textarea');
       ta.value=text; document.body.appendChild(ta); ta.select();
-      try{ document.execCommand('copy'); serialChannelResult.textContent='已复制 12×70 数据'; }
+      try{ document.execCommand('copy'); serialChannelResult.textContent='已复制 12×460 数据'; }
       catch(e2){ serialChannelResult.textContent='复制失败：'+e2.message; }
       document.body.removeChild(ta);
     }
