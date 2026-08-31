@@ -946,7 +946,9 @@ const Utils = {
     }
   }
 
-  // FFE1 71 字节协议（参照协议图，均大端）：
+  // FFE1 71 字节协议（参照协议图，均大端；仅槽位「检测结果」为例外：
+  //   float32 小端 —— 固件按 Result=(Bend-Tend)/(Bend-Cend) 计算后，
+  //   以 unsigned char* 逐字节写入内存，字节序即 MCU 小端）：
   //  4 × (状态 1B + 剩余时间 2B + 检测结果 4B)        0..27
   //  计时 2B                                        28..29
   //  加样1/2/3/4 + 检测完成1/2/3/4   各 2B           30..45
@@ -958,11 +960,11 @@ const Utils = {
       return;
     }
     const be16=(o)=>(dv.getUint8(o)<<8) | dv.getUint8(o+1);
-    const be32=(o)=>((dv.getUint8(o)<<24)>>>0) + (dv.getUint8(o+1)<<16) + (dv.getUint8(o+2)<<8) + dv.getUint8(o+3);
     const slots=[];
     for(let i=0;i<4;i++){
       const b=i*7;
-      slots.push({status:dv.getUint8(b), remainingTime:be16(b+1), result:be32(b+3)});
+      // 检测结果：设备固件以 float 写入（小端，低位在前）
+      slots.push({status:dv.getUint8(b), remainingTime:be16(b+1), result:dv.getFloat32(b+3, true)});
     }
     const cbt=[[0,0,0],[0,0,0],[0,0,0],[0,0,0]];
     if(dv.byteLength >= 71){
@@ -999,7 +1001,7 @@ const Utils = {
       const fields=[
         {k:'status',  sel:'.slot-status', val:SLOT_STATUS_NAMES[s.status] || ('0x'+s.status.toString(16).padStart(2,'0').toUpperCase())},
         {k:'time',    sel:'.slot-time',   val:s.remainingTime},
-        {k:'result',  sel:'.slot-result', val:s.result},
+        {k:'result',  sel:'.slot-result', val:isFinite(s.result) ? s.result.toFixed(6) : s.result},
         {k:'add',     sel:'.slot-add',    val:p.add[i]},
         {k:'done',    sel:'.slot-done',   val:p.done[i]},
         {k:'c',       sel:'.slot-c',      val:c[0]},
