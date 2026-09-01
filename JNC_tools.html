@@ -529,6 +529,7 @@
       </select>
       <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled>获取通道数据</button>
       <button class="btn btn-sm" id="btnSerialCopyData" disabled>复制 12×460 数据</button>
+      <button class="btn btn-warn btn-sm" id="btnSerialClearData" disabled title="发送主指令 0xA0 从指令 0x02 清空设备历史数据">清除数据</button>
       <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;"></span>
     </div>
     <div class="cmd-log" id="serialLog"></div>
@@ -631,8 +632,9 @@ const Utils = {
   const serialLog=document.getElementById('serialLog');
   const btnSerialLogToggle=document.getElementById('btnSerialLogToggle');
   const serialChannelSelect=document.getElementById('serialChannelSelect');
-  const btnSerialQueryChannel=document.getElementById('btnSerialQueryChannel');
-  const btnSerialCopyData=document.getElementById('btnSerialCopyData');
+const btnSerialQueryChannel=document.getElementById('btnSerialQueryChannel');
+const btnSerialCopyData=document.getElementById('btnSerialCopyData');
+const btnSerialClearData=document.getElementById('btnSerialClearData');
   const serialChannelResult=document.getElementById('serialChannelResult');
   // 通道1 (FFE1 跟踪)
   const btnFfe1Track=document.getElementById('btnFfe1Track');
@@ -1470,6 +1472,7 @@ const Utils = {
       btnSerialSend.disabled=false;
       serialChannelSelect.disabled=false;
       btnSerialQueryChannel.disabled=false;
+      btnSerialClearData.disabled=false;
       serialKeepReading=true;
       serialBuf=[];
       readLoop();
@@ -1517,6 +1520,7 @@ const Utils = {
     serialChannelSelect.disabled=true;
     btnSerialQueryChannel.disabled=true;
     btnSerialCopyData.disabled=true;
+    btnSerialClearData.disabled=true;
     serialChannelResult.textContent='';
     clearSerialPending();
     serialBuf=[];
@@ -1964,6 +1968,20 @@ const Utils = {
   btnSerialSend.addEventListener('click', sendSerial);
   btnSerialQueryChannel.addEventListener('click', sendSerialChannelQuery);
   btnSerialCopyData.addEventListener('click', copySerialAllData);
+  btnSerialClearData.addEventListener('click', async ()=>{
+    if(!serialPort||!serialPort.writable) return;
+    const frame=buildFrame(0xA0, 0x02, [0x00]);
+    try{
+      const writer=serialPort.writable.getWriter();
+      await writer.write(frame);
+      writer.releaseLock();
+      logSerial('Tx', frameToHex(frame));
+      serialChannelResult.textContent='已发送清除数据命令';
+    }catch(err){
+      logSerial('Tx-Err', err.message);
+      serialChannelResult.textContent='发送失败：'+err.message;
+    }
+  });
   serialSend.addEventListener('keydown', e=>{ if(e.key==='Enter') sendSerial(); });
 
   // 串口日志窗口开关（默认隐藏）
