@@ -515,6 +515,8 @@
     <video id="qrVideo" playsinline muted></video>
     <div class="qr-hint" id="qrHint">将二维码对准摄像头</div>
     <div class="qr-err" id="qrErr"></div>
+    <div class="qr-debug" id="qrDebug" style="margin-top:6px;color:#94a3b8;font-size:.72rem;text-align:center;white-space:pre-wrap;"></div>
+    <button class="btn btn-sm" id="qrSnapBtn" type="button" style="margin-top:10px;">📸 对准后拍照识别</button>
   </div>
 
   <!-- 扫码结果弹窗 -->
@@ -1455,11 +1457,16 @@ const Utils = {
   const qrErr=document.getElementById('qrErr');
   const qrResult=document.getElementById('qrResult');
   const qrResultText=document.getElementById('qrResultText');
+  const qrDebug=document.getElementById('qrDebug');
   let qrDetector=null;
   if('BarcodeDetector' in window){
     try{ qrDetector=new BarcodeDetector({formats:['qr_code']}); }catch(e){ qrDetector=null; }
   }
-  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null, qrCanvas2=null, qrCtx2=null, qrOpenAt=0, qrFramesSeen=0;
+  if(qrDebug){
+    qrDebug.textContent='BarcodeDetector: '+(qrDetector?'可用':'不可用')
+      +'\njsQR 已加载: '+(typeof window.jsQR==='function'?'是':'否');
+  }
+  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null, qrCanvas2=null, qrCtx2=null, qrCanvas3=null, qrCtx3=null, qrOpenAt=0, qrFramesSeen=0, qrBdRuns=0, qrJsRuns=0, qrJsErrors=0;
 
   function openQrScanner(){
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
@@ -1473,7 +1480,7 @@ const Utils = {
     qrOpenAt=Date.now(); qrFramesSeen=0;
     // 先尝试后置（environment）摄像头；无后摄/环境模式不支持时，回退到默认摄像头
     const tryStart=(mode)=>{
-      const video= mode? {facingMode:mode} : true;
+      const video= mode? Object.assign({facingMode:mode},{width:{ideal:1280},height:{ideal:720}}) : {width:{ideal:1280},height:{ideal:720}};
       return navigator.mediaDevices.getUserMedia({video,audio:false})
         .then((stream)=>{ startQrStream(stream); return true; })
         .catch(()=>false);
@@ -1515,6 +1522,7 @@ const Utils = {
         let text=null;
         // BarcodeDetector 多尺度尝试（快）
         if(qrDetector&&!text){
+          qrBdRuns++;
           // BarcodeDetector 常因二维码过小/过大漏检：依次在全图、缩小版、放大版上尝试
           const candidates=[{cw:w,ch:h},{cw:640,ch:Math.round(640*h/w)},{cw:1280,ch:Math.round(1280*h/w)}];
           for(const c of candidates){
@@ -1534,13 +1542,41 @@ const Utils = {
             }catch(e){ /* 该缩放尺寸识别失败，尝试下一个 */ }
           }
         }
-        // jsQR 兜底：BarcodeDetector 未命中时用它解码原帧（纯 JS，全浏览器可靠）
-        if(!text && window.jsQR){
-          try{
-            const img=qrCtx.getImageData(0,0,w,h);
-            const r=window.jsQR(img.data,w,h);
-            if(r&&r.data&&String(r.data).trim()) text=r.data;
-          }catch(e){ /* 帧解码失败，忽略 */ }
+        // jsQR 兜底：BarcodeDetector 不可用/未命中时，用纯 JS 解码（全浏览器可靠）。
+        // 在多个像素尺度上尝试（jsQR 对过大帧易受噪声、模糊影响，下采样往往更鲁棒）
+        if(!text && typeof window.jsQR==='function'){
+          qrJsRuns++;
+          const src=qrCtx.getImageData(0,0,w,h);
+          const scales=[
+            {dw:w, dh:h},                       // 原分辨率
+            {dw:Math.min(w,480), dh:Math.round(Math.min(w,480)*h/w)}, // 下采样到≤480宽
+            {dw:Math.min(w,320), dh:Math.round(Math.min(w,320)*h/w)}  // 下采样到≤320宽
+          ];
+          for(const sc of scales){
+            if(text) break;
+            let data=src.data;
+            if(sc.dw!==w||sc.dh!==h){
+              // 下采样：先画到小 canvas 再取像素
+              if(!qrCanvas3||qrCanvas3.width!==sc.dw||qrCanvas3.height!==sc.dh){
+                qrCanvas3=document.createElement('canvas'); qrCanvas3.width=sc.dw; qrCanvas3.height=sc.dh;
+                qrCtx3=qrCanvas3.getContext('2d',{willReadFrequently:true});
+              }
+              qrCtx3.imageSmoothingEnabled=true; qrCtx3.imageSmoothingQuality='high';
+              qrCtx3.clearRect(0,0,sc.dw,sc.dh);
+              qrCtx3.drawImage(qrVideo,0,0,sc.dw,sc.dh);
+              data=qrCtx3.getImageData(0,0,sc.dw,sc.dh).data;
+            }
+            try{
+              const r=window.jsQR(data,sc.dw,sc.dh);
+              if(r&&r.data&&String(r.data).trim()){ text=r.data; break; }
+            }catch(e){ qrJsErrors++; }
+          }
+        }
+        if(qrDebug && (qrFramesSeen%10===0)){
+          qrDebug.textContent='BarcodeDetector: '+(qrDetector?'可用':'不可用')
+            +'  jsQR: '+((typeof window.jsQR==='function')?'已加载':'未加载')
+            +'\n帧:'+qrFramesSeen+'  Barcode次数:'+qrBdRuns+'  jsQR次数:'+qrJsRuns+'  jsQR异常:'+qrJsErrors
+            +'\n画面:'+w+'×'+h;
         }
         if(text){
           closeQrScanner();
@@ -1559,6 +1595,47 @@ const Utils = {
     }
     requestAnimationFrame(qrTick);
   }
+  // 手动拍照识别：自动扫描一直失败时，用户对准后点此按钮，抓取当前清晰帧交给 jsQR 一次性解码
+  function snapDecode(){
+    const b=document.getElementById('qrSnapBtn');
+    b.disabled=true; b.textContent='识别中…';
+    // 短暂等待，让手机完成自动对焦再取帧
+    setTimeout(()=>{
+      let done=false;
+      const attempt=()=>{
+        if(done) return;
+        const w=qrVideo.videoWidth, h=qrVideo.videoHeight;
+        if(!(w>0&&h>0)||qrVideo.readyState<2){ setTimeout(attempt,120); return; }
+        try{
+          const cvs=document.createElement('canvas'); cvs.width=w; cvs.height=h;
+          const cx=cvs.getContext('2d',{willReadFrequently:true});
+          cx.drawImage(qrVideo,0,0,w,h);
+          const img=cx.getImageData(0,0,w,h);
+          if(typeof window.jsQR==='function'){
+            const r=window.jsQR(img.data,w,h);
+            if(r&&r.data&&String(r.data).trim()){ done=true; finalizeQr(r.data); return; }
+          }
+          if(qrDetector){
+            qrDetector.detect(cvs).then((rs)=>{
+              if(rs&&rs.length&&rs[0].rawValue&&String(rs[0].rawValue).trim()){ done=true; finalizeQr(rs[0].rawValue); return; }
+              bdisabledReset(b);
+            }).catch(()=>bdisabledReset(b));
+          }else{
+            bdisabledReset(b);
+          }
+        }catch(e){ bdisabledReset(b); }
+      };
+      attempt();
+    },350);
+  }
+  function bdisabledReset(btn){ btn.disabled=false; btn.textContent='📸 对准后拍照识别'; }
+  function finalizeQr(text){
+    closeQrScanner();
+    qrResultText.textContent=text;
+    qrResult.style.display='block';
+    logToPanel('扫码','-','📷 '+text);
+  }
+  document.getElementById('qrSnapBtn').addEventListener('click',snapDecode);
   btnQrScan.addEventListener('click',openQrScanner);
   document.getElementById('qrClose').addEventListener('click',closeQrScanner);
   qrOverlay.addEventListener('click',(e)=>{ if(e.target===qrOverlay) closeQrScanner(); });
