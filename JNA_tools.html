@@ -1444,7 +1444,7 @@ const Utils = {
 
   // ---- 扫码（QR 二维码）----
   // 优先用浏览器内置 BarcodeDetector（Chrome/Edge/安卓）。iOS Safari/Firefox 无此 API，
-  // 如需支持：把 jsqr@1.4.0 的 dist/jsQR.js 放到本目录并在页面加 <script src="./jsqr.js"></script>，
+  // 如需支持 iOS：下载 jsqr 1.4.0 的 dist/jsQR.js 放入本目录，再在页面里引入该文件，
   // 代码会自动改用 window.jsQR 解码。
   const btnQrScan=document.getElementById('btnQrScan');
   const qrOverlay=document.getElementById('qrOverlay');
