@@ -86,7 +86,8 @@
   .btn.update-available{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
   /* ---- QR 扫码 ---- */
   .qr-overlay{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;}
-  .qr-overlay video{max-width:92vw;max-height:60vh;border-radius:12px;background:#000;}
+  .qr-overlay video{max-width:92vw;max-height:60vh;border-radius:12px;background:#000;width:100%;height:auto;object-fit:contain;}
+  .qr-overlay video.qr-mirror{transform:scaleX(-1);}
   .qr-overlay .qr-hint{color:#e2e8f0;font-size:.9rem;}
   .qr-overlay .qr-close{position:absolute;top:14px;right:20px;color:#fff;font-size:1.8rem;cursor:pointer;line-height:1;user-select:none;}
   .qr-overlay .qr-close:hover{color:#cbd5e1;}
@@ -1457,7 +1458,7 @@ const Utils = {
   if('BarcodeDetector' in window){
     try{ qrDetector=new BarcodeDetector({formats:['qr_code']}); }catch(e){ qrDetector=null; }
   }
-  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null;
+  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null, qrOpenAt=0, qrFramesSeen=0;
 
   function openQrScanner(){
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
@@ -1468,11 +1469,18 @@ const Utils = {
     qrErr.textContent='';
     qrHint.textContent='将二维码对准摄像头';
     qrOverlay.style.display='flex';
+    qrOpenAt=Date.now(); qrFramesSeen=0;
     navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})
       .then((stream)=>{
         qrStream=stream;
         qrVideo.srcObject=stream;
+        // 强制静音 + 自动播放：手机浏览器必须在用户手势后以静音方式播放才有画面
+        qrVideo.muted=true;
+        qrVideo.setAttribute('playsinline','');
+        qrVideo.setAttribute('muted','');
         qrActive=true;
+        const playPromise=qrVideo.play();
+        if(playPromise&&playPromise.catch) playPromise.catch(()=>{});
         requestAnimationFrame(qrTick);
       })
       .catch((err)=>{
@@ -1488,6 +1496,7 @@ const Utils = {
   async function qrTick(){
     if(!qrActive) return;
     if(qrVideo.readyState>=2&&qrVideo.videoWidth>0){
+      qrFramesSeen++;
       try{
         const w=qrVideo.videoWidth, h=qrVideo.videoHeight;
         if(!qrCanvas){ qrCanvas=document.createElement('canvas'); qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true}); }
@@ -1509,6 +1518,12 @@ const Utils = {
           return;
         }
       }catch(e){ /* 单帧识别失败，继续下一帧 */ }
+    }else if(Date.now()-qrOpenAt>4000 && qrFramesSeen===0){
+      // 打开超过 4 秒仍无任何画面帧：提示而非黑屏静默
+      qrHint.textContent='正在唤醒摄像头…';
+      if(qrStream&&qrStream.getVideoTracks().length>0){
+        qrErr.textContent='摄像头已启动但未获得画面帧。若无画面，请关闭重试，或改用另一款浏览器（Chrome/Edge）。';
+      }
     }
     requestAnimationFrame(qrTick);
   }
