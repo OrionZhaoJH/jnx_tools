@@ -84,6 +84,17 @@
   .btn-warn{background:var(--warn);border-color:var(--warn);color:#fff;}
   .btn-warn:hover{background:#d97706;border-color:#d97706;color:#fff;}
   .btn.update-available{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  /* ---- QR 扫码 ---- */
+  .qr-overlay{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;}
+  .qr-overlay video{max-width:92vw;max-height:60vh;border-radius:12px;background:#000;}
+  .qr-overlay .qr-hint{color:#e2e8f0;font-size:.9rem;}
+  .qr-overlay .qr-close{position:absolute;top:14px;right:20px;color:#fff;font-size:1.8rem;cursor:pointer;line-height:1;user-select:none;}
+  .qr-overlay .qr-close:hover{color:#cbd5e1;}
+  .qr-overlay .qr-err{color:#fca5a5;font-size:.85rem;max-width:80vw;text-align:center;}
+  .qr-result{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2100;background:var(--surface);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:16px 20px;width:min(420px,88vw);}
+  .qr-result-title{font-weight:600;color:var(--text-muted);font-size:.85rem;margin-bottom:8px;}
+  .qr-result-text{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Consolas',monospace;font-size:.9rem;color:var(--text);word-break:break-all;white-space:pre-wrap;max-height:38vh;overflow:auto;}
+  .qr-result-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap;}
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
@@ -320,6 +331,7 @@
       <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
       <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
       <button class="btn btn-sm" id="btnRefreshCache" type="button" style="display:none;">🔄 刷新缓存</button>
+      <button class="btn btn-sm" id="btnQrScan" type="button">📷 扫码</button>
     </div>
   </div>
 
@@ -491,6 +503,24 @@
 
         <div class="cmd-log" id="cmdLog"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- 扫码摄像头弹层 -->
+  <div class="qr-overlay" id="qrOverlay" style="display:none;">
+    <span class="qr-close" id="qrClose">✕</span>
+    <video id="qrVideo" playsinline muted></video>
+    <div class="qr-hint" id="qrHint">将二维码对准摄像头</div>
+    <div class="qr-err" id="qrErr"></div>
+  </div>
+
+  <!-- 扫码结果弹窗 -->
+  <div class="qr-result" id="qrResult" style="display:none;">
+    <div class="qr-result-title">📷 扫码结果</div>
+    <div class="qr-result-text" id="qrResultText"></div>
+    <div class="qr-result-actions">
+      <button class="btn btn-sm" id="qrResultCopy" type="button">复制</button>
+      <button class="btn btn-sm" id="qrResultClose" type="button">关闭</button>
     </div>
   </div>
 
@@ -1411,6 +1441,87 @@ const Utils = {
       }
     });
   }
+
+  // ---- 扫码（QR 二维码）----
+  // 优先用浏览器内置 BarcodeDetector（Chrome/Edge/安卓）。iOS Safari/Firefox 无此 API，
+  // 如需支持：把 jsqr@1.4.0 的 dist/jsQR.js 放到本目录并在页面加 <script src="./jsqr.js"></script>，
+  // 代码会自动改用 window.jsQR 解码。
+  const btnQrScan=document.getElementById('btnQrScan');
+  const qrOverlay=document.getElementById('qrOverlay');
+  const qrVideo=document.getElementById('qrVideo');
+  const qrHint=document.getElementById('qrHint');
+  const qrErr=document.getElementById('qrErr');
+  const qrResult=document.getElementById('qrResult');
+  const qrResultText=document.getElementById('qrResultText');
+  let qrDetector=null;
+  if('BarcodeDetector' in window){
+    try{ qrDetector=new BarcodeDetector({formats:['qr_code']}); }catch(e){ qrDetector=null; }
+  }
+  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null;
+
+  function openQrScanner(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      qrErr.textContent='当前浏览器不支持摄像头访问（需 HTTPS 或 localhost）。';
+      qrOverlay.style.display='flex';
+      return;
+    }
+    qrErr.textContent='';
+    qrHint.textContent='将二维码对准摄像头';
+    qrOverlay.style.display='flex';
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})
+      .then((stream)=>{
+        qrStream=stream;
+        qrVideo.srcObject=stream;
+        qrActive=true;
+        requestAnimationFrame(qrTick);
+      })
+      .catch((err)=>{
+        qrErr.textContent='无法打开摄像头：'+(err&&err.message?err.message:err)+' —— 请在浏览器地址栏允许摄像头权限后重试。';
+      });
+  }
+  function closeQrScanner(){
+    qrActive=false;
+    if(qrStream){ qrStream.getTracks().forEach(t=>t.stop()); qrStream=null; }
+    qrVideo.srcObject=null;
+    qrOverlay.style.display='none';
+  }
+  async function qrTick(){
+    if(!qrActive) return;
+    if(qrVideo.readyState>=2&&qrVideo.videoWidth>0){
+      try{
+        const w=qrVideo.videoWidth, h=qrVideo.videoHeight;
+        if(!qrCanvas){ qrCanvas=document.createElement('canvas'); qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true}); }
+        if(qrCanvas.width!==w||qrCanvas.height!==h){ qrCanvas.width=w; qrCanvas.height=h; }
+        qrCtx.drawImage(qrVideo,0,0,w,h);
+        let text=null;
+        if(qrDetector){
+          const rs=await qrDetector.detect(qrCanvas);
+          if(rs&&rs.length&&rs[0].rawValue) text=rs[0].rawValue;
+        }else if(window.jsQR){
+          const r=window.jsQR(qrCtx.getImageData(0,0,w,h).data,w,h);
+          if(r&&r.data) text=r.data;
+        }
+        if(text){
+          closeQrScanner();
+          qrResultText.textContent=text;
+          qrResult.style.display='block';
+          logToPanel('扫码','-','📷 '+text); // 同时记入数据日志
+          return;
+        }
+      }catch(e){ /* 单帧识别失败，继续下一帧 */ }
+    }
+    requestAnimationFrame(qrTick);
+  }
+  btnQrScan.addEventListener('click',openQrScanner);
+  document.getElementById('qrClose').addEventListener('click',closeQrScanner);
+  qrOverlay.addEventListener('click',(e)=>{ if(e.target===qrOverlay) closeQrScanner(); });
+  document.getElementById('qrResultCopy').addEventListener('click',()=>{
+    const b=document.getElementById('qrResultCopy');
+    navigator.clipboard.writeText(qrResultText.textContent).then(()=>{
+      const old=b.textContent; b.textContent='已复制'; setTimeout(()=>{ b.textContent=old; },1200);
+    }).catch(()=>{});
+  });
+  document.getElementById('qrResultClose').addEventListener('click',()=>{ qrResult.style.display='none'; });
 })();
 </script>
 </body>
