@@ -322,6 +322,8 @@
 </style>
 </head>
 <body>
+<!-- jsQR：二维码解码兜底库（纯 JS，全浏览器可用） -->
+<script src="./jsqr.js"></script>
 <div class="container jna">
   <div class="topbar" id="topbar">
     <div class="topbar-left">
@@ -1444,9 +1446,8 @@ const Utils = {
   }
 
   // ---- 扫码（QR 二维码）----
-  // 优先用浏览器内置 BarcodeDetector（Chrome/Edge/安卓）。iOS Safari/Firefox 无此 API，
-  // 如需支持 iOS：下载 jsqr 1.4.0 的 dist/jsQR.js 放入本目录，再在页面里引入该文件，
-  // 代码会自动改用 window.jsQR 解码。
+  // 双解码：先 BarcodeDetector（Chrome/Edge/安卓，页面已引入的 jsQR 在 BarcodeDetector 未命中时兜底，
+  // 全浏览器可靠）。识别代码见下方 qrTick。
   const btnQrScan=document.getElementById('btnQrScan');
   const qrOverlay=document.getElementById('qrOverlay');
   const qrVideo=document.getElementById('qrVideo');
@@ -1458,7 +1459,7 @@ const Utils = {
   if('BarcodeDetector' in window){
     try{ qrDetector=new BarcodeDetector({formats:['qr_code']}); }catch(e){ qrDetector=null; }
   }
-  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null, qrOpenAt=0, qrFramesSeen=0;
+  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null, qrCanvas2=null, qrCtx2=null, qrOpenAt=0, qrFramesSeen=0;
 
   function openQrScanner(){
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
@@ -1470,22 +1471,31 @@ const Utils = {
     qrHint.textContent='将二维码对准摄像头';
     qrOverlay.style.display='flex';
     qrOpenAt=Date.now(); qrFramesSeen=0;
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})
-      .then((stream)=>{
-        qrStream=stream;
-        qrVideo.srcObject=stream;
-        // 强制静音 + 自动播放：手机浏览器必须在用户手势后以静音方式播放才有画面
-        qrVideo.muted=true;
-        qrVideo.setAttribute('playsinline','');
-        qrVideo.setAttribute('muted','');
-        qrActive=true;
-        const playPromise=qrVideo.play();
-        if(playPromise&&playPromise.catch) playPromise.catch(()=>{});
-        requestAnimationFrame(qrTick);
-      })
-      .catch((err)=>{
-        qrErr.textContent='无法打开摄像头：'+(err&&err.message?err.message:err)+' —— 请在浏览器地址栏允许摄像头权限后重试。';
-      });
+    // 先尝试后置（environment）摄像头；无后摄/环境模式不支持时，回退到默认摄像头
+    const tryStart=(mode)=>{
+      const video= mode? {facingMode:mode} : true;
+      return navigator.mediaDevices.getUserMedia({video,audio:false})
+        .then((stream)=>{ startQrStream(stream); return true; })
+        .catch(()=>false);
+    };
+    tryStart('environment').then((ok)=>{
+      if(ok) return true;              // 后摄已打开
+      return tryStart(undefined);      // 回退默认摄像头
+    }).then((ok)=>{
+      if(!ok) qrErr.textContent='无法打开摄像头 —— 请在浏览器地址栏允许摄像头权限后重试。';
+    });
+  }
+  function startQrStream(stream){
+    qrStream=stream;
+    qrVideo.srcObject=stream;
+    // 强制静音 + 自动播放：手机浏览器必须在用户手势后以静音方式播放才有画面
+    qrVideo.muted=true;
+    qrVideo.setAttribute('playsinline','');
+    qrVideo.setAttribute('muted','');
+    qrActive=true;
+    const playPromise=qrVideo.play();
+    if(playPromise&&playPromise.catch) playPromise.catch(()=>{});
+    requestAnimationFrame(qrTick);
   }
   function closeQrScanner(){
     qrActive=false;
@@ -1503,12 +1513,34 @@ const Utils = {
         if(qrCanvas.width!==w||qrCanvas.height!==h){ qrCanvas.width=w; qrCanvas.height=h; }
         qrCtx.drawImage(qrVideo,0,0,w,h);
         let text=null;
-        if(qrDetector){
-          const rs=await qrDetector.detect(qrCanvas);
-          if(rs&&rs.length&&rs[0].rawValue) text=rs[0].rawValue;
-        }else if(window.jsQR){
-          const r=window.jsQR(qrCtx.getImageData(0,0,w,h).data,w,h);
-          if(r&&r.data) text=r.data;
+        // BarcodeDetector 多尺度尝试（快）
+        if(qrDetector&&!text){
+          // BarcodeDetector 常因二维码过小/过大漏检：依次在全图、缩小版、放大版上尝试
+          const candidates=[{cw:w,ch:h},{cw:640,ch:Math.round(640*h/w)},{cw:1280,ch:Math.round(1280*h/w)}];
+          for(const c of candidates){
+            if(text) break;
+            if(!qrCanvas2||qrCanvas2.width!==c.cw||qrCanvas2.height!==c.ch){
+              qrCanvas2=document.createElement('canvas'); qrCanvas2.width=c.cw; qrCanvas2.height=c.ch;
+              qrCtx2=qrCanvas2.getContext('2d',{willReadFrequently:true});
+            }
+            // 用二次平滑缩放绘制，减少抽帧造成的二维码模糊
+            qrCtx2.imageSmoothingEnabled=true; qrCtx2.imageSmoothingQuality='high';
+            qrCtx2.drawImage(qrVideo,0,0,c.cw,c.ch);
+            try{
+              const rs=await qrDetector.detect(qrCanvas2);
+              if(rs&&rs.length&&rs[0].rawValue && String(rs[0].rawValue).trim()){
+                text=rs[0].rawValue; break;
+              }
+            }catch(e){ /* 该缩放尺寸识别失败，尝试下一个 */ }
+          }
+        }
+        // jsQR 兜底：BarcodeDetector 未命中时用它解码原帧（纯 JS，全浏览器可靠）
+        if(!text && window.jsQR){
+          try{
+            const img=qrCtx.getImageData(0,0,w,h);
+            const r=window.jsQR(img.data,w,h);
+            if(r&&r.data&&String(r.data).trim()) text=r.data;
+          }catch(e){ /* 帧解码失败，忽略 */ }
         }
         if(text){
           closeQrScanner();
