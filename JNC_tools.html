@@ -1557,7 +1557,7 @@ const Utils = {
         }, SERIAL_QUERY_TIMEOUT_MS),
         resolve
       };
-      const frame=buildFrame(0x04,0x02,[code]); // 实际主命令为0x04
+      const frame=buildFrame(0x04,0x01,[code]); // 读取通道数据：01=读，02=写
       const writer=serialPort.writable.getWriter();
       writer.write(frame).then(()=>{
         writer.releaseLock();
