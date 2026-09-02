@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jnx-tools-v2-3';
+const CACHE_NAME = 'jnx-tools-v2-8';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   './ble_analysis.html',
   './JNA_tools.html',
   './JNA_Plus_Tool.html',
+  './JNB_Tool.html',
   './jsqr.js',
   './manifest.webmanifest',
   './icon-180.png',

@@ -11,6 +11,7 @@ JNx 系列产品辅助工具集合，数据均在本地处理，不上传任何�
 | JNA 工具 | 自动连接 JNA 开头的 BLE 设备，并以 1000ms 间隔订阅 FFE1 数据 | [JNA_tools.html](JNA_tools.html) |
 | JNA Plus 工具 | JNA-Plus 系列：单通道 26 字节协议（状态/时间/结果/计时/加样/完成/版本号/T1~T6），FFE2 仅保留重启/关机 | [JNA_Plus_Tool.html](JNA_Plus_Tool.html) |
 | JNC 工具 | 连接 JNC 开头的 BLE 设备，通过 FFE2 命令轮询 12 通道数据（C/B/T） | [JNC_tools.html](JNC_tools.html) |
+| JNB 工具 | JNB 系列：单通道 24 字节协议（状态/时间/T1/T2 双结果/计时/加样/完成/版本号/C/T_2/B/T_1 实时/蓝牙确认），FFE2 仅保留重启/关机 | [JNB_Tool.html](JNB_Tool.html) |
 
 ## 目录说明
 
@@ -20,6 +21,7 @@ JNx 系列产品辅助工具集合，数据均在本地处理，不上传任何�
 - [JNA_tools.html](JNA_tools.html) ：JNA 工具（FFE1 自动订阅）
 - [JNA_Plus_Tool.html](JNA_Plus_Tool.html) ：JNA-Plus 工具（26 字节协议，FFE2 仅重启/关机）
 - [JNC_tools.html](JNC_tools.html) ：JNC 工具（FFE2 命令轮询）
+- [JNB_Tool.html](JNB_Tool.html) ：JNB 工具（24 字节协议，FFE2 仅重启/关机）
 
 ### 新增工具
 
