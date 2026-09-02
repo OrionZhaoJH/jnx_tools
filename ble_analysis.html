@@ -259,7 +259,8 @@ const Utils = {
   let lastDevice=null; // 断开后仍保留引用，供"清除缓存"使用
   let bleBuffer='';
   let bleRawLines=[];
-  const activePolls=new Map(); // characteristic -> intervalId
+  const activePolls=new Map(); // characteristic -> intervalId（轮询）
+  const activeSubs=new Map();  // characteristic -> notify handler（真正订阅）
   const MAX_RAW=500;
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
@@ -332,6 +333,8 @@ const Utils = {
     // 停止所有轮询/订阅
     activePolls.forEach(id=>clearInterval(id));
     activePolls.clear();
+    activeSubs.forEach((rec,ch)=>{ try{ ch.removeEventListener('characteristicvaluechanged',rec.handler); }catch(e){} });
+    activeSubs.clear();
     // 复位 GATT Profile 到初始状态（与主动断开保持一致）
     gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
     setStatus('disconnected','');
@@ -381,8 +384,11 @@ const Utils = {
               ${props.map(p=>`<span class="char-prop ${p}">${p}</span>`).join('')}
               ${ch.properties.read?`
                 <button class="btn btn-sm char-read-btn">读取</button>
-                <button class="btn btn-sm char-poll-btn">订阅</button>
+                <button class="btn btn-sm char-poll-btn">轮询</button>
                 <input class="poll-interval" type="number" value="1000" min="500" step="100" title="轮询间隔(ms)">ms
+              `:''}
+              ${(ch.properties.notify||ch.properties.indicate)?`
+                <button class="btn btn-sm char-sub-btn">订阅</button>
               `:''}`;
             if(ch.properties.read){
               const readBtn=charDiv.querySelector('.char-read-btn');
@@ -417,7 +423,7 @@ const Utils = {
                 if(activePolls.has(ch)){
                   clearInterval(activePolls.get(ch));
                   activePolls.delete(ch);
-                  pollBtn.textContent='订阅';
+                  pollBtn.textContent='轮询';
                   pollBtn.classList.remove('btn-danger');
                 }else{
                   let ms=parseInt(intervalInput.value)||1000;
@@ -440,23 +446,13 @@ const Utils = {
                 }
               });
             }
-            // Auto-subscribe to FFE1 notify
-            if(isFFE1&&ch.properties.notify){
-              try{
-                await ch.startNotifications();
-                ch.addEventListener('characteristicvaluechanged',onCharChanged);
-                charDiv.style.background='var(--ble-soft)';
-                charDiv.insertAdjacentHTML('afterbegin','<span style="font-size:.7rem;color:var(--ble-color);font-weight:600;">● 监听中</span>');
-              }catch(err){console.warn('Subscribe failed:',err);}
-            }
-            // Also try FFE1 characteristic on FFE0 service
-            if(svc.uuid==='0000ffe0-0000-1000-8000-00805f9b34fb'&&ch.uuid===FFE1_SERVICE&&ch.properties.notify){
-              try{
-                await ch.startNotifications();
-                ch.addEventListener('characteristicvaluechanged',onCharChanged);
-                charDiv.style.background='var(--ble-soft)';
-                charDiv.insertAdjacentHTML('afterbegin','<span style="font-size:.7rem;color:var(--ble-color);font-weight:600;">● 监听中</span>');
-              }catch(err){console.warn('Subscribe failed:',err);}
+            // 真正的 notify/indicate 订阅：按钮手动触发，不再自动订阅
+            if(ch.properties.notify||ch.properties.indicate){
+              const subBtn=charDiv.querySelector('.char-sub-btn');
+              subBtn.addEventListener('click',(e)=>{
+                e.stopPropagation();
+                toggleSubscribe(ch, shortU, subBtn, charDiv);
+              });
             }
             body.appendChild(charDiv);
           }
@@ -500,7 +496,7 @@ const Utils = {
   function logCategory(prefix){
     if(prefix==='Req') return 'out';                          // 发送
     if(prefix==='Data'||prefix==='Raw'||prefix==='Notify') return 'in'; // 接收
-    if(prefix==='Req-Err'||prefix==='Err'||prefix==='Timeout') return 'err'; // 错误
+    if(prefix==='Req-Err'||prefix==='Err'||prefix==='Timeout'||prefix==='Sub-Err') return 'err'; // 错误
     return 'sys';                                            // CMD / Sub / Cache 等系统信息
   }
 
@@ -526,26 +522,46 @@ const Utils = {
     pushLogLine(line, 'log-'+logCategory(prefix));
   }
 
-  function onCharChanged(event){
+  // notify/indicate 事件：每帧独立记录，二进制显示十六进制，文本显示 ASCII（不乱码）
+  function onNotifyChanged(event, uuid){
     const dv=event.target.value;
-    const text=decodeDataView(dv);
-    bleBuffer+=text;
-    const lines=bleBuffer.split(/\r?\n/);
-    bleBuffer=lines.pop(); // keep partial
-    for(const line of lines){
-      processBleLine(line.trim());
+    const formatted=formatDataView(dv);
+    logToPanel('Notify', uuid, formatted);
+  }
+
+  // 订阅/取消订阅 notify（真正订阅，区别于轮询读取）
+  async function toggleSubscribe(ch, shortU, subBtn, charDiv){
+    if(activeSubs.has(ch)){
+      // 停止订阅
+      try{ await ch.stopNotifications(); }catch(err){}
+      const rec=activeSubs.get(ch);
+      if(rec){ try{ ch.removeEventListener('characteristicvaluechanged',rec.handler); }catch(e){} }
+      activeSubs.delete(ch);
+      subBtn.textContent='订阅';
+      subBtn.classList.remove('btn-danger');
+      const mark=charDiv.querySelector('.sub-mark');
+      if(mark) mark.remove();
+      charDiv.style.background='';
+      logToPanel('Sub',shortU,'已停止订阅 notify');
+    }else{
+      // 开始订阅
+      try{
+        await ch.startNotifications();
+        const handler=(e)=>onNotifyChanged(e, shortU);
+        ch.addEventListener('characteristicvaluechanged', handler);
+        activeSubs.set(ch,{handler});
+        subBtn.textContent='停止';
+        subBtn.classList.add('btn-danger');
+        if(!charDiv.querySelector('.sub-mark')){
+          charDiv.insertAdjacentHTML('afterbegin','<span class="sub-mark" style="font-size:.7rem;color:var(--ble-color);font-weight:600;">● 监听中</span>');
+        }
+        charDiv.style.background='var(--ble-soft)';
+        logToPanel('Sub',shortU,'已订阅 notify');
+      }catch(err){
+        logToPanel('Sub-Err',shortU,err.message);
+        alert('订阅失败: '+err.message);
+      }
     }
-  }
-
-  function decodeDataView(dv){
-    let s='';
-    for(let i=0;i<dv.byteLength;i++) s+=String.fromCharCode(dv.getUint8(i));
-    return s;
-  }
-
-  function processBleLine(line){
-    if(!line) return;
-    pushLogLine(line, 'log-in'); // 设备下发的文本行，归为接收(蓝)
   }
 
   // ---- Clear log ----
