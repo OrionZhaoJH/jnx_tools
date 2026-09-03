@@ -576,9 +576,10 @@ const Utils = {
     window.addEventListener('touchend', onEnd);
   }
 
+  const FFE0_SERVICE='0000ffe0-0000-1000-8000-00805f9b34fb';
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
-  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE2_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE0_SERVICE,FFE1_SERVICE,FFE2_SERVICE];
   const POLL_INTERVAL=1000; // JNA 模式固定 1000ms 订阅 FFE1
 
   // 为数据日志和命令日志附加可拖拽高度把手
@@ -601,7 +602,9 @@ const Utils = {
       if(keyword){
         options.filters=[{namePrefix:keyword}];
       }else{
-        options.acceptAllDevices=true;
+        // 名称为空：namePrefix 必须是非空字符串，无法用「空前缀」表达「仅显示有名称」的设备；
+        // 改用 services 过滤只列出广播了 FFE0（Nordic UART 串口）服务的设备，挡掉未知/不支持的杂牌 BLE。
+        options.filters=[{services:[FFE0_SERVICE]}];
       }
       device=await navigator.bluetooth.requestDevice(options);
       device.addEventListener('gattserverdisconnected',onDisconnected);

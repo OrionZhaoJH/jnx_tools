@@ -673,12 +673,13 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   let ffe2Char=null;
   let bleRawLines=[];
   const MAX_RAW=500;
+  const FFE0_SERVICE='0000ffe0-0000-1000-8000-00805f9b34fb';
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
   // 注意：optionalServices 只能放【服务】UUID。FFE2_SERVICE 是特征 UUID，绝不能放进去
   // （放进去是未定义行为，会导致偶发性 GATT 首轮枚举漏掉 FFE0 服务、FFE2 刷不出）。
   // FFE2 特征的父服务 0000ffe0 已在本列表，discoverChar 会遍历其下的特征匹配到 FFE2。
-  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
+  const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE0_SERVICE];
 
   // FFE1 通道1 跟踪状态
   let ffe1Char=null;
@@ -730,7 +731,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       if(keyword){
         options.filters=[{namePrefix:keyword}];
       }else{
-        options.acceptAllDevices=true;
+        // 名称为空：namePrefix 必须是非空字符串，无法用「空前缀」表达「仅显示有名称」的设备；
+        // 改用 services 过滤只列出广播了 FFE0（Nordic UART 串口）服务的设备，挡掉未知/不支持的杂牌 BLE。
+        options.filters=[{services:[FFE0_SERVICE]}];
       }
       device=await navigator.bluetooth.requestDevice(options);
       device.addEventListener('gattserverdisconnected',onDisconnected);

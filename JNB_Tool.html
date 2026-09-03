@@ -576,6 +576,7 @@ const Utils = {
     window.addEventListener('touchend', onEnd);
   }
 
+  const FFE0_SERVICE='0000ffe0-0000-1000-8000-00805f9b34fb';
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const FFE2_SERVICE='0000ffe2-0000-1000-8000-00805f9b34fb';
   const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,FFE2_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
@@ -596,14 +597,20 @@ const Utils = {
     try{
       setStatus('connecting','');
       const keyword=nameFilter.value.trim();
-      // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
       const options={optionalServices:COMMON_SERVICES};
       if(keyword){
+        // 有过滤关键字：浏览器弹窗只显示名称以关键字开头的设备
         options.filters=[{namePrefix:keyword}];
       }else{
-        options.acceptAllDevices=true;
+        // 名称为空：Web Bluetooth 的 namePrefix 必须是非空字符串，无法在弹窗内用「空前缀」表达「仅显示有名称」的设备。
+        // 改用 services 过滤——只列出广播了 FFE0（Nordic UART 串口）服务的设备，
+        // 这正好把「未知/不支持」的手机、杂牌 BLE 等挡在弹窗外（它们不会广播 FFE0）。
+        // 若你的 JNB 设备未在广播中带 FFE0，则弹窗可能为空，此时在「名称过滤」填前缀（如 JNB）即可。
+        options.filters=[{services:[FFE0_SERVICE]}];
       }
       device=await navigator.bluetooth.requestDevice(options);
+      // 弹窗已通过 services 过滤只列出 FFE0 设备，无需再在选中后拦截无名称设备；
+      // 「不支持 JNB 协议」的判定交给下方 discoverFFE1 的 FFE1 特征检查。
       device.addEventListener('gattserverdisconnected',onDisconnected);
       setStatus('connecting', device.name||device.id);
       server=await device.gatt.connect();
@@ -614,6 +621,12 @@ const Utils = {
       resetSessionState();
       // JNB 模式：发现 FFE1（仅探测特征，不立即轮询）与 FFE2（用于命令）
       await discoverFFE1(server);
+      if(!ffe1Char){
+        // 已连接但设备无 FFE1 特征：判定为「不支持 JNB 协议」，主动断开并提示重选
+        alert('所选设备未找到 FFE1 特征，可能不支持 JNB 协议。\n请重新选择设备，或在「名称过滤」中填写前缀（如 JNB）以缩小范围。');
+        if(server && server.connected) await server.disconnect().catch(()=>{});
+        throw new Error('unsupported device (no FFE1)');
+      }
       await discoverFFE2(server);
       // 若用户已提前点击“开始更新”，则立即启动 FFE1 订阅/轮询
       if(!jnbPaused) await startFFE1Feed();
