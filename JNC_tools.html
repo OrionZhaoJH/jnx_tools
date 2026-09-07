@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="zh-CN" data-page-node-id="9scu56W9QFawEFKJZn1F3n">
+<head data-page-node-id="lRzMOBEsBGwdbN2nQUjtyj">
+<meta charset="UTF-8" data-page-node-id="BfMi2qEhlgGR6TogXDhxaI">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="SQBYzjEXfTPpZ7sSoleVVk">
   <title>JNC 工具</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#3b82f6">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="JNx 工具箱">
-  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest" data-page-node-id="dfnHs1WMBpJR90m3kMIrY6">
+  <meta name="theme-color" content="#3b82f6" data-page-node-id="aw0qEqJ5BgPFuj079eUDKy">
+  <meta name="mobile-web-app-capable" content="yes" data-page-node-id="yspPNDXZyupFe4LedcX3i7">
+  <meta name="apple-mobile-web-app-capable" content="yes" data-page-node-id="AU0H130DjYBJo80jxrP8uK">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" data-page-node-id="mVJA3j86o2a5h9r8JNSym2">
+  <meta name="apple-mobile-web-app-title" content="JNx 工具箱" data-page-node-id="954pNsfZ8ZOj9gHpiM4kWA">
+  <link rel="apple-touch-icon" href="icon-180.png" data-page-node-id="FsyIXSki7VGa8QggJx0GhT">
   <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
@@ -318,248 +318,248 @@
   }
 </style>
 </head>
-<body>
-<div class="container">
-  <div class="topbar">
-    <a href="./index.html" class="nav-back">← 返回首页</a>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <button class="pwa-install-btn" id="pwaInstallBtn" type="button">＋ 安装到桌面</button>
-      <button class="btn btn-sm" id="btnRefreshCache" type="button" style="display:none;">🔄 刷新缓存</button>
+<body data-page-node-id="Dn6QaxQgYWkTGFholkvdAj">
+<div class="container" data-page-node-id="Qb1d4NvLw7ql0i0uxwCChN">
+  <div class="topbar" data-page-node-id="ZeOmOCtZnNrf3DkqEPWcvC">
+    <a href="./index.html" class="nav-back" data-page-node-id="B3x3zquqDmBMeuDmYYxOs5">← 返回首页</a>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" data-page-node-id="ItIOPYAAI5KFIYFJmAqMMD">
+      <button class="pwa-install-btn" id="pwaInstallBtn" type="button" data-page-node-id="Kp70Px5Gn9rzLtwE4qg3Xt">＋ 安装到桌面</button>
+      <button class="btn btn-sm" id="btnRefreshCache" type="button" style="display:none;" data-page-node-id="s1UuiFERG2UKdEIvL5oYpX">🔄 刷新缓存</button>
     </div>
   </div>
 
-  <header>
-    <h1><span class="icon">🛰️</span> JNC 工具</h1>
-    <p>连接 JNC 开头的 BLE 设备，点击「解析数据」中的「普通测试」或「积分球测试」按钮，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
+  <header data-page-node-id="pD60nS9z3xrEzYOvMzAVV2">
+    <h1 data-page-node-id="l0Y1WoSjOzRqaKquCRSMoD"><span class="icon" data-page-node-id="R6X6wPbCZAe6z1qjCFqany">🛰️</span> JNC 工具</h1>
+    <p data-page-node-id="GZ5AuqGB0KiErXfgbAa7eV">连接 JNC 开头的 BLE 设备，点击「解析数据」中的「普通测试」或「积分球测试」按钮，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
   </header>
 
-  <div class="ble-warning" id="bleWarning">
+  <div class="ble-warning" id="bleWarning" data-page-node-id="OmKEHqCkojSB0WFF68GpLI">
     ⚠️ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome、Edge 或 Opera（需 HTTPS 或 localhost 访问）。
   </div>
 
-  <div class="ble-warning" id="serialWarning">
+  <div class="ble-warning" id="serialWarning" data-page-node-id="z6pn2Caer6MeYcO7elxg8z">
     ⚠️ 当前浏览器不支持 Web Serial API。请使用 Chrome 或 Edge（需 HTTPS 或 localhost 访问）。
   </div>
 
-  <div class="ble-section">
-  <div class="ble-toolbar">
-    <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
-    <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
-    <div class="name-filter">
-      <label for="nameFilter">名称过滤</label>
-      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNC" value="JNC" autocomplete="off">
+  <div class="ble-section" data-page-node-id="8r6up4F8Lz9QG07lVVz76L">
+  <div class="ble-toolbar" data-page-node-id="whIYpisoj9gHOtj4Wqz0Th">
+    <button class="btn btn-primary" id="btnConnect" data-page-node-id="R8J438TEPTpPivmbpV5eEA"><span data-page-node-id="CtYkICEXoPYCDOHeb83s8w">🔗</span> 连接 BLE 设备</button>
+    <button class="btn btn-danger" id="btnDisconnect" disabled data-page-node-id="2FifV1hD5uG3PHCGEdQMZm"><span data-page-node-id="3gy0h4WzZGyqeD39x02eaD">⏏️</span> 断开</button>
+    <div class="name-filter" data-page-node-id="NyuaIvqcPF1HMxT5EHjw4O">
+      <label for="nameFilter" data-page-node-id="WHd2mfyCFItyc0C8EzZa3D">名称过滤</label>
+      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNC" value="JNC" autocomplete="off" data-page-node-id="i6UOklFb56YkRHo4KaURRs">
     </div>
-    <div class="status-badge disconnected" id="bleStatus">
-      <span class="status-dot"></span><span id="bleStatusText">未连接</span>
+    <div class="status-badge disconnected" id="bleStatus" data-page-node-id="JsgfAQpsHLrFvpdvFfA7B9">
+      <span class="status-dot" data-page-node-id="FjWfLyAZwgF1VxZkDfe9vU"></span><span id="bleStatusText" data-page-node-id="VIQzoqcjR6UyiGfyc0nSlQ">未连接</span>
     </div>
-    <span class="device-name" id="bleDeviceName"></span>
+    <span class="device-name" id="bleDeviceName" data-page-node-id="2hzu9KnPOjX5DqOEZvjrSh"></span>
   </div>
 
-  <div class="ble-grid">
+  <div class="ble-grid" data-page-node-id="XBszsKVZy8As2pqCbOBVeh">
     <!-- Parsed Data + Data Log + Commands -->
-    <div class="ble-right">
+    <div class="ble-right" data-page-node-id="tnmZ37bf0NqL4iHynt8BjM">
       <!-- 通道1 (FFE1 跟踪) -->
-      <div class="card">
-        <div class="card-title">
-          <span>通道1 (FFE1 跟踪)</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled>开始更新</button>
-            <span class="feature-badge locked" id="ffe1Badge">未就绪</span>
+      <div class="card" data-page-node-id="nUudOxwOfO44jKrNovIS6x">
+        <div class="card-title" data-page-node-id="DAH0ZUpDPklHWwwfDVnefi">
+          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">通道1 (FFE1 跟踪)</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
+            <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled data-page-node-id="40n34YLtfBClQQwMYuiGBb">开始更新</button>
+            <span class="feature-badge locked" id="ffe1Badge" data-page-node-id="qm1YphzFL0HLuSGMZpiWZs">未就绪</span>
           </div>
         </div>
-        <div class="fte1-slots" id="fte1Slots" style="display:none;">
-          <div class="slot-card" id="fte1Slot0" data-slot="1">
-            <div class="slot-title"><span>槽位</span><span class="slot-no">1</span></div>
-            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
-            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
-            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
-            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
-            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
-            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
-            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
-            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+        <div class="fte1-slots" id="fte1Slots" style="display:none;" data-page-node-id="GvegYFHpx5FrsaZ30jZDFL">
+          <div class="slot-card" id="fte1Slot0" data-slot="1" data-page-node-id="BlVKC9lhnWNyKCwzY5fTJj">
+            <div class="slot-title" data-page-node-id="vUJ23IABQYVyiDPVE3ucHr"><span data-page-node-id="f2tO9b2XBJFJiw4qezIegc">槽位</span><span class="slot-no" data-page-node-id="RaVNTNzLVpSAGSEl5zYool">1</span></div>
+            <div class="slot-row" data-page-node-id="mDYB0Rf7BB4hiGeSyv5At6"><span class="lbl" data-page-node-id="H0rsLs0yGPSXWWXTay6ccl">状态</span><span class="slot-status" data-page-node-id="6y6lfmFnQ3m2ToEaUXPA0V">--</span></div>
+            <div class="slot-row" data-page-node-id="eXf1qy8IcMutvHhFUWpuEv"><span class="lbl" data-page-node-id="yFHiJttj1qRurZfxjtflVp">剩余时间(s)</span><span class="val slot-time" data-page-node-id="IX12nenHzGoprGm0hxoSWu">--</span></div>
+            <div class="slot-row" data-page-node-id="WqrG01fJwRAJNhbWdoxF56"><span class="lbl" data-page-node-id="y7QITPDlBylu7tfD4XNy1H">检测结果</span><span class="val slot-result" data-page-node-id="sqyJAxAdBWkNsmTBVxi01w">--</span></div>
+            <div class="slot-row" data-page-node-id="evavEICYecKovemE0HLofE"><span class="lbl" data-page-node-id="PSk9yTSJa102JM4CDv755I">加样(s)</span><span class="val slot-add" data-page-node-id="q5XOALrsxwGUitLdHGUHHD">--</span></div>
+            <div class="slot-row" data-page-node-id="MH9VGYRiRxkBThioSfmNlU"><span class="lbl" data-page-node-id="SD3Y1oEFlLXOjnJDV6eTA2">完成(s)</span><span class="val slot-done" data-page-node-id="5a2wUD5Rn7fe5DL4ciUh7U">--</span></div>
+            <div class="slot-row" data-page-node-id="Q7qphavaN92Q4o60OrH5tb"><span class="lbl" data-page-node-id="kccDyfIOcyp6cVxFOLw2YD">C</span><span class="val slot-c" data-page-node-id="BrQIodboOMxHNc1Owtf68M">--</span></div>
+            <div class="slot-row" data-page-node-id="l9NrBrFqE07DthyH85MoyM"><span class="lbl" data-page-node-id="HBsW4Una7Hj9S7ADrMRQKA">B</span><span class="val slot-b" data-page-node-id="ymJccCCpCHG8cfwSGPRh1H">--</span></div>
+            <div class="slot-row" data-page-node-id="D7B2YK70NDm2ubauSkecJw"><span class="lbl" data-page-node-id="y7UFhNHdHm34l5aWHOcSED">T</span><span class="val slot-t" data-page-node-id="8nvt6hXW7hPW0BPCiUyfQD">--</span></div>
           </div>
-          <div class="slot-card" id="fte1Slot1" data-slot="2">
-            <div class="slot-title"><span>槽位</span><span class="slot-no">2</span></div>
-            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
-            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
-            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
-            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
-            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
-            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
-            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
-            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          <div class="slot-card" id="fte1Slot1" data-slot="2" data-page-node-id="VH1cLt3BdWdrjPoaEBsfiL">
+            <div class="slot-title" data-page-node-id="B4fFiV7VwizqgHLI7TSd9B"><span data-page-node-id="19MchWZMGAhs3CAhFgEVLg">槽位</span><span class="slot-no" data-page-node-id="CFiuAhIDeDXjrcVj607ddO">2</span></div>
+            <div class="slot-row" data-page-node-id="gFYOvd11FjV9QIZ8gv0ljF"><span class="lbl" data-page-node-id="VKG7xytIHuwEYMkjwm6X4v">状态</span><span class="slot-status" data-page-node-id="35wfNATOdIYTZn0Enq7B55">--</span></div>
+            <div class="slot-row" data-page-node-id="MPCsqqGM0ORIBVdLN4fWeq"><span class="lbl" data-page-node-id="wbsJWmjQod2HnYFtCDUkgt">剩余时间(s)</span><span class="val slot-time" data-page-node-id="ZF85ilmEjSyfIrhLXLxgzW">--</span></div>
+            <div class="slot-row" data-page-node-id="TuGC08tSdhBQxLpBrzIAvm"><span class="lbl" data-page-node-id="PiHu7vHSIFNs1z6VKIO3QE">检测结果</span><span class="val slot-result" data-page-node-id="lLCsKbMhEd9exN9q3Zl2D8">--</span></div>
+            <div class="slot-row" data-page-node-id="7USjJW43FexdQb6Qi4wt9f"><span class="lbl" data-page-node-id="jzm1aHwOvU6LUTKMfjPTtc">加样(s)</span><span class="val slot-add" data-page-node-id="MFfA9H4rufybgSJIHvvslQ">--</span></div>
+            <div class="slot-row" data-page-node-id="bhR3Kb0sDsJHLQnlpuvoQY"><span class="lbl" data-page-node-id="BAuZcEdGCoHcyP4gCptaeu">完成(s)</span><span class="val slot-done" data-page-node-id="vAg2B2T7bA3gTsZyoUHvWz">--</span></div>
+            <div class="slot-row" data-page-node-id="mNXZEc91YzyywBT0C6MItz"><span class="lbl" data-page-node-id="kuYuzJxACxCq9nlMVodQDR">C</span><span class="val slot-c" data-page-node-id="6F47vyBP2bFAHM1HIWtDZk">--</span></div>
+            <div class="slot-row" data-page-node-id="k0EXQc8x65p7ZuBcVMi2CU"><span class="lbl" data-page-node-id="69MRyw4sOwJqzx6OZE6Tpm">B</span><span class="val slot-b" data-page-node-id="rlY6KeNkiAKc6N9zihAWL4">--</span></div>
+            <div class="slot-row" data-page-node-id="1CVgDeG1mbSTCVJluFELmg"><span class="lbl" data-page-node-id="wzYMKq2Ty9vRCHz5CbrIrn">T</span><span class="val slot-t" data-page-node-id="pwepnEyMBuHIpPLJnT7qZn">--</span></div>
           </div>
-          <div class="slot-card" id="fte1Slot2" data-slot="3">
-            <div class="slot-title"><span>槽位</span><span class="slot-no">3</span></div>
-            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
-            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
-            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
-            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
-            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
-            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
-            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
-            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          <div class="slot-card" id="fte1Slot2" data-slot="3" data-page-node-id="EKMfPSv5UwC34XsXvKtqoy">
+            <div class="slot-title" data-page-node-id="uGFBeWWBrpIKzAgwIs6bRL"><span data-page-node-id="fFo5vnPncQO7G7tLKmKMz0">槽位</span><span class="slot-no" data-page-node-id="RbM7YWmBGD9vhjuCxpmEzV">3</span></div>
+            <div class="slot-row" data-page-node-id="35vHG87phW6r54aceaGVP7"><span class="lbl" data-page-node-id="wSi4MDGFIaX9Gvk1gQ2P7Y">状态</span><span class="slot-status" data-page-node-id="eK9TciTGjPy1psLdUxB3ko">--</span></div>
+            <div class="slot-row" data-page-node-id="nCRSc2NrY8vIMlinTB2qAT"><span class="lbl" data-page-node-id="CfXmztGkP3SbG9wy1HDPFJ">剩余时间(s)</span><span class="val slot-time" data-page-node-id="3EoKCFcghf8NNL1niPfa5R">--</span></div>
+            <div class="slot-row" data-page-node-id="XIihnHOYHv1Y1nNun66nVR"><span class="lbl" data-page-node-id="DLvyAreecUXh8LgwgUTQj0">检测结果</span><span class="val slot-result" data-page-node-id="xbRPptOsSMBFcsov4ub4H5">--</span></div>
+            <div class="slot-row" data-page-node-id="LzLQVKVtGkO5RvlqyZXZbJ"><span class="lbl" data-page-node-id="W8Ail4rwUXkTMMcg6wmcma">加样(s)</span><span class="val slot-add" data-page-node-id="8n45WUhWqjz3Dxc9x8ThoX">--</span></div>
+            <div class="slot-row" data-page-node-id="IGFjLiIEwqZijxdeTHyAkQ"><span class="lbl" data-page-node-id="G40UPF6ZEw0QDEYwktuFVh">完成(s)</span><span class="val slot-done" data-page-node-id="9ZT1mkSIlWkGVlca7nsdWd">--</span></div>
+            <div class="slot-row" data-page-node-id="GMPgCmLAxHZFoZhWHdHiIa"><span class="lbl" data-page-node-id="l7I4TSFqpPR3dPYYJUFBHH">C</span><span class="val slot-c" data-page-node-id="NfBSD6d82c2KCcMAHvmGZo">--</span></div>
+            <div class="slot-row" data-page-node-id="yrbuGo9gOXcXk01RsFAr8o"><span class="lbl" data-page-node-id="p1EPgoAXYkC9qOW2iVQCJR">B</span><span class="val slot-b" data-page-node-id="qmTatHdUj4PC7tM6uClqD1">--</span></div>
+            <div class="slot-row" data-page-node-id="FeSRqPQ8BUsJ68mOfFMuK2"><span class="lbl" data-page-node-id="kYzm98U5FS9oi70NITcFSC">T</span><span class="val slot-t" data-page-node-id="K8yAOAsa7ouphLbxSO9ZUA">--</span></div>
           </div>
-          <div class="slot-card" id="fte1Slot3" data-slot="4">
-            <div class="slot-title"><span>槽位</span><span class="slot-no">4</span></div>
-            <div class="slot-row"><span class="lbl">状态</span><span class="slot-status">--</span></div>
-            <div class="slot-row"><span class="lbl">剩余时间(s)</span><span class="val slot-time">--</span></div>
-            <div class="slot-row"><span class="lbl">检测结果</span><span class="val slot-result">--</span></div>
-            <div class="slot-row"><span class="lbl">加样(s)</span><span class="val slot-add">--</span></div>
-            <div class="slot-row"><span class="lbl">完成(s)</span><span class="val slot-done">--</span></div>
-            <div class="slot-row"><span class="lbl">C</span><span class="val slot-c">--</span></div>
-            <div class="slot-row"><span class="lbl">B</span><span class="val slot-b">--</span></div>
-            <div class="slot-row"><span class="lbl">T</span><span class="val slot-t">--</span></div>
+          <div class="slot-card" id="fte1Slot3" data-slot="4" data-page-node-id="bXO63WjtOQ9oHbrjKXnqh4">
+            <div class="slot-title" data-page-node-id="zYHiipNkALia2QyJIP1oOe"><span data-page-node-id="DGLnoHxPWJtH6jCkQXZnGk">槽位</span><span class="slot-no" data-page-node-id="lmYJlEu31ngWXJCgVIVVj0">4</span></div>
+            <div class="slot-row" data-page-node-id="A5E68f2rxPtuA5nhVcpsNj"><span class="lbl" data-page-node-id="MCrYoUkPwhuzeKH3LYad6r">状态</span><span class="slot-status" data-page-node-id="uTIx4f3k3FjQrDyUVAEAD7">--</span></div>
+            <div class="slot-row" data-page-node-id="AN4i3QQYkPQSDttNoawuYS"><span class="lbl" data-page-node-id="z5U2rlML23sQ7BDSxaZdde">剩余时间(s)</span><span class="val slot-time" data-page-node-id="S49qKoQm2LDiktf3J0KhEW">--</span></div>
+            <div class="slot-row" data-page-node-id="JgMmxslNLjIeIZ5WkCnWCo"><span class="lbl" data-page-node-id="Uni9uY2nZnoiZwRAjWtsSd">检测结果</span><span class="val slot-result" data-page-node-id="kHx0tUtMDQ88YhGL2VU2dn">--</span></div>
+            <div class="slot-row" data-page-node-id="wnW5bK8kY57QvvvBeFoWru"><span class="lbl" data-page-node-id="YwAEYM7p9rELTN2z9H20Ie">加样(s)</span><span class="val slot-add" data-page-node-id="JTlLFBaKDlAdU4Yx6VDgAL">--</span></div>
+            <div class="slot-row" data-page-node-id="xrMuyUY0LK5yl14GMBTQRt"><span class="lbl" data-page-node-id="zN41UnLnNMCCCSV6oU8J5F">完成(s)</span><span class="val slot-done" data-page-node-id="dEGiI44LWwfcU4q4B1PC0H">--</span></div>
+            <div class="slot-row" data-page-node-id="BacOV7PmePcJYHIxG64QGv"><span class="lbl" data-page-node-id="v3DISyndIIdn8p8cObFcoE">C</span><span class="val slot-c" data-page-node-id="fTlPFBLxWqQtJlGqB8I0Nj">--</span></div>
+            <div class="slot-row" data-page-node-id="mYXfaPZnCCZaOkFN8oUmbq"><span class="lbl" data-page-node-id="B3QvuzBVWN3gGt9hdPPy5A">B</span><span class="val slot-b" data-page-node-id="tQghuhYgGGdEMx6wnABwA0">--</span></div>
+            <div class="slot-row" data-page-node-id="aYlFvEP5Dfi3TauLqA0fI2"><span class="lbl" data-page-node-id="cXtO7Yq4g9bsR6d95weD9O">T</span><span class="val slot-t" data-page-node-id="EmNFZXU5brspflmyEDeH3c">--</span></div>
           </div>
         </div>
-        <div class="fte1-extras" id="fte1Extras" style="display:none;">
-          <div class="field-box" data-key="timer"><div class="field-label">计时(s)</div><div class="field-raw">--</div><div class="field-value">--</div></div>
-          <div class="field-box" data-key="version"><div class="field-label">版本号</div><div class="field-raw">--</div><div class="field-value">--</div></div>
+        <div class="fte1-extras" id="fte1Extras" style="display:none;" data-page-node-id="FDAQJSH93rHqqaEhyb08mg">
+          <div class="field-box" data-key="timer" data-page-node-id="LlMR3xgs2VGUcXWbxoCC03"><div class="field-label" data-page-node-id="tEb7dInNb7gemqHSbXJIt2">计时(s)</div><div class="field-raw" data-page-node-id="pr6eCh43y5anTAE11NILD8">--</div><div class="field-value" data-page-node-id="6XKIDUCBXczSIyfpj3C1Tx">--</div></div>
+          <div class="field-box" data-key="version" data-page-node-id="75099tVbTOx7Im07cjmMDI"><div class="field-label" data-page-node-id="NYNZV2vgAw4a2iX1XYQiU0">版本号</div><div class="field-raw" data-page-node-id="HVgj2BB1oBSGgx4RwwfyGY">--</div><div class="field-value" data-page-node-id="2QKAGCGiCpWsNX9BQXWjVE">--</div></div>
         </div>
-        <div id="fte1Empty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">连接设备后点击「开始更新」跟踪通道1状态</div>
+        <div id="fte1Empty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;" data-page-node-id="Ns5szTTCGXYojz3zEEb35Z">连接设备后点击「开始更新」跟踪通道1状态</div>
       </div>
 
       <!-- 解析数据面板 -->
-      <div class="card">
-        <div class="card-title">
-          <span>解析数据 (FFE2 查询响应)</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <label class="timeout-label" for="queryTimeout">等待(ms)</label>
-            <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" />
-            <button class="btn btn-primary btn-sm" id="btnQueryData">普通测试</button>
-            <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest">积分球测试</button>
-            <label class="timeout-label" for="copyMode">复制</label>
-            <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;">
-              <option value="table">表格(4×3)</option>
-              <option value="column">数值(12×1)</option>
+      <div class="card" data-page-node-id="50Mux1LuyFQStApMafg98B">
+        <div class="card-title" data-page-node-id="mbTu5XDEvacg3KOJh0XQ7c">
+          <span data-page-node-id="lTkuSaTAftHCPSQtLPN9Ne">解析数据 (FFE2 查询响应)</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="M3O2Xb62QXARTpAW2XKi9x">
+            <label class="timeout-label" for="queryTimeout" data-page-node-id="QkrmsnIK7UR6oJw79oakXn">等待(ms)</label>
+            <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" data-page-node-id="c3PHSBqyHu8HannWm3AvRK" />
+            <button class="btn btn-primary btn-sm" id="btnQueryData" data-page-node-id="KtDoWufH6YBBugn3lGtdMb">普通测试</button>
+            <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest" data-page-node-id="Om0CllRMrlc39LivovapFc">积分球测试</button>
+            <label class="timeout-label" for="copyMode" data-page-node-id="0SXiHjHR1v2Eqgu6vfzJKW">复制</label>
+            <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;" data-page-node-id="QNP1W7bKVoNl1BYnfaRnxt">
+              <option value="table" data-page-node-id="Gjrm8DGDgIaDtzgaha6a1Y">表格(4×3)</option>
+              <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">数值(12×1)</option>
             </select>
-            <button class="btn btn-sm" id="btnCopyData" disabled>复制数据</button>
+            <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
           </div>
         </div>
-        <div id="jncTableWrap" style="display:none;">
-          <table class="channel-table">
-            <thead>
-              <tr><th>通道</th><th>C线</th><th>B线</th><th>T线</th></tr>
+        <div id="jncTableWrap" style="display:none;" data-page-node-id="sISxN6622get3ne0qPpCTw">
+          <table class="channel-table" data-page-node-id="koLfgMU0Qkc0MlGDrvml9u">
+            <thead data-page-node-id="seXcGvRv82ZFUch7UAfTrc">
+              <tr data-page-node-id="jGm7XeZ9ciBwnuUVFjUZva"><th data-page-node-id="HUGjMK8Q7tEREcvTJ3Ybph">通道</th><th data-page-node-id="gW6FoE7Xmq4M5nf5OT81FI">C线</th><th data-page-node-id="obQY8b45QgCm9Em2WMSAt0">B线</th><th data-page-node-id="NtPclvVFwCXaOdlCBl2WJi">T线</th></tr>
             </thead>
-            <tbody id="jncTableBody"></tbody>
+            <tbody id="jncTableBody" data-page-node-id="k0ivSUJeHEOBgnQBMLjYLF"></tbody>
           </table>
         </div>
-        <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">
+        <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;" data-page-node-id="OpMXyDBb70IXo9bR1BZHYe">
           点击「普通测试」或「积分球测试」后将显示 12 通道解析结果
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">
-          <span>数据日志</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <div class="log-legend" title="颜色说明">
-              <span><i class="lg-out"></i>发送</span>
-              <span><i class="lg-in"></i>接收</span>
-              <span><i class="lg-err"></i>错误</span>
+      <div class="card" data-page-node-id="6rtCCi3lgH4QKlEA8ssh3f">
+        <div class="card-title" data-page-node-id="KFdaOu488VMuWOJQBq7Pzv">
+          <span data-page-node-id="qzirpbhfLMgCHMgj0PBC1D">数据日志</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="BPSrXN3lX7AjswWo8ovEa9">
+            <div class="log-legend" title="颜色说明" data-page-node-id="D7VVF2xR7flDntJ8nzS0b6">
+              <span data-page-node-id="kAq90qKAMPeoytTyny3dRx"><i class="lg-out" data-page-node-id="peDWxKFawDpVEKHeL0Bh7y"></i>发送</span>
+              <span data-page-node-id="p4QhECb1laAn8kNGke2ItS"><i class="lg-in" data-page-node-id="X5FCM8yt9FAC6l8uW4cp8o"></i>接收</span>
+              <span data-page-node-id="5umX8jlUBETVIbs6BGrjrh"><i class="lg-err" data-page-node-id="U1DwoOhhogI7aDNInbNi7E"></i>错误</span>
             </div>
-            <span style="font-size:.825rem;color:var(--text-muted);"><span id="logLineCount">0</span> 行</span>
-            <button class="btn btn-sm" id="btnClearLog">清空</button>
-            <button class="btn btn-sm" id="btnExportLog" disabled>导出</button>
+            <span style="font-size:.825rem;color:var(--text-muted);" data-page-node-id="QwMAib97oycBBefjuDFGcH"><span id="logLineCount" data-page-node-id="yIL26aUXPvSP6RibkOzsrX">0</span> 行</span>
+            <button class="btn btn-sm" id="btnClearLog" data-page-node-id="OBFNBHPZj0HreW7iPCNmpe">清空</button>
+            <button class="btn btn-sm" id="btnExportLog" disabled data-page-node-id="9zSCx7za9EzXNDJEt2UZfT">导出</button>
           </div>
         </div>
-        <div class="raw-log" id="rawLog"></div>
+        <div class="raw-log" id="rawLog" data-page-node-id="RatwL3TIkyWqfg63PPqh0Z"></div>
       </div>
 
       <!-- 命令交互 (FFE2) -->
-      <div class="card">
-        <div class="card-title">
-          <span>命令交互 (FFE2)</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-sm" id="btnClearCmd">清空</button>
+      <div class="card" data-page-node-id="bTa2VPxwAsb6gidsZydE3m">
+        <div class="card-title" data-page-node-id="CK8OMHnGpFqUgbLdGDIS2B">
+          <span data-page-node-id="53tRX5Be1IX01C0oEcFMQY">命令交互 (FFE2)</span>
+          <div style="display:flex;gap:8px;align-items:center;" data-page-node-id="7E9bHSG6AjaU9CkBgcIu53">
+            <button class="btn btn-sm" id="btnClearCmd" data-page-node-id="6giMix7NNAFJufZyzSYa9U">清空</button>
           </div>
         </div>
-        <div class="cmd-toolbar">
-          <select id="detectTimeSelect">
-            <option value="5">5 分钟</option>
-            <option value="10">10 分钟</option>
-            <option value="15" selected>15 分钟</option>
+        <div class="cmd-toolbar" data-page-node-id="rE7saAHnFKp6n5unGmc9hL">
+          <select id="detectTimeSelect" data-page-node-id="diD7vmjyS2rCaY2KIZsBqH">
+            <option value="5" data-page-node-id="to1omEcoj8MMFYoRCRmXw2">5 分钟</option>
+            <option value="10" data-page-node-id="feL5p9o1AfcfFaheehyVDu">10 分钟</option>
+            <option value="15" selected data-page-node-id="rCki3ogmq0tO80HmCAXYg2">15 分钟</option>
           </select>
-          <button class="btn btn-sm" id="btnSetDetectTime">设置检测时间</button>
-          <button class="btn btn-sm" id="btnReboot">设备重启</button>
-          <button class="btn btn-sm" id="btnShutdown">设备关机</button>
-          <button class="btn btn-sm" id="btnLightC">点亮C灯</button>
-          <button class="btn btn-sm" id="btnLightB">点亮B灯</button>
-          <button class="btn btn-sm" id="btnLightT">点亮T灯</button>
+          <button class="btn btn-sm" id="btnSetDetectTime" data-page-node-id="2hyj6BBsAX4hN471G7Ckm6">设置检测时间</button>
+          <button class="btn btn-sm" id="btnReboot" data-page-node-id="EaXxqx2JK3mbDC2GEAyExE">设备重启</button>
+          <button class="btn btn-sm" id="btnShutdown" data-page-node-id="vUvGsGAmRSwXWbrI2JJ7rV">设备关机</button>
+          <button class="btn btn-sm" id="btnLightC" data-page-node-id="CejouajJWVzKrbDKV72w2e">点亮C灯</button>
+          <button class="btn btn-sm" id="btnLightB" data-page-node-id="6CdzNscUmOJvYkGI14i2BX">点亮B灯</button>
+          <button class="btn btn-sm" id="btnLightT" data-page-node-id="yjmjC5E2lFYt7jwhMdoGxc">点亮T灯</button>
         </div>
-        <div class="cmd-log" id="cmdLog"></div>
+        <div class="cmd-log" id="cmdLog" data-page-node-id="Zk824QzA3ff314kR3DlPc6"></div>
       </div>
     </div>
   </div>
   </div>
 
   <!-- 串口连接 (Web Serial)：后半页区块，串口条在整个后半页（串口+曲线）顶置 -->
-  <div class="serial-section">
-    <div class="serial-toolbar">
-      <span class="serial-title">串口连接 (Web Serial)</span>
-      <label class="timeout-label" for="serialBaud">波特率</label>
-      <input type="number" id="serialBaud" class="timeout-input" value="115200" min="300" step="300" />
-      <span class="status-badge disconnected" id="serialStatus"><span class="status-dot"></span><span id="serialStatusText">未连接</span></span>
-      <button class="btn btn-primary btn-sm" id="btnSerialConnect">连接串口</button>
-      <button class="btn btn-danger btn-sm" id="btnSerialDisconnect" disabled>断开</button>
-      <button class="btn btn-sm" id="btnSerialLogToggle" type="button">显示日志</button>
+  <div class="serial-section" data-page-node-id="6t4Q62rBZ1eMzmTGHSB570">
+    <div class="serial-toolbar" data-page-node-id="DhVJ9SPnRkt7F3B50gthVT">
+      <span class="serial-title" data-page-node-id="OEDEY3lfZYI25m3jFti1SH">串口连接 (Web Serial)</span>
+      <label class="timeout-label" for="serialBaud" data-page-node-id="eqxDjfUlbS7BctHuBfFl0j">波特率</label>
+      <input type="number" id="serialBaud" class="timeout-input" value="115200" min="300" step="300" data-page-node-id="Z42Nc2YZ8Dr6w2laC0HUS0" />
+      <span class="status-badge disconnected" id="serialStatus" data-page-node-id="JCyA96zOdodSGC5NHXadFH"><span class="status-dot" data-page-node-id="gEOHifa7a3232rbuiT7LNa"></span><span id="serialStatusText" data-page-node-id="U4OAxB9lGDxp04EztZHC1O">未连接</span></span>
+      <button class="btn btn-primary btn-sm" id="btnSerialConnect" data-page-node-id="19inTPqWcOP3UgGHXC1ps2">连接串口</button>
+      <button class="btn btn-danger btn-sm" id="btnSerialDisconnect" disabled data-page-node-id="kZ6nmd6dLxKZef37KDuqCg">断开</button>
+      <button class="btn btn-sm" id="btnSerialLogToggle" type="button" data-page-node-id="hNNtuTMLNBoKwHtCKQr2BA">显示日志</button>
     </div>
-    <div class="card serial-card">
-    <div class="cmd-toolbar" style="align-items:stretch;">
-      <input type="text" id="serialSend" placeholder="发送内容（文本，回车发送）" style="flex:1;min-width:160px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:.875rem;color:var(--text);outline:none;" />
-      <button class="btn btn-sm" id="btnSerialSend" disabled>发送</button>
+    <div class="card serial-card" data-page-node-id="QEs3F5c79JEC7KZja7V6xG">
+    <div class="cmd-toolbar" style="align-items:stretch;" data-page-node-id="5MtzxXuKE25cye67zHoyqH">
+      <input type="text" id="serialSend" placeholder="发送内容（文本，回车发送）" style="flex:1;min-width:160px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:.875rem;color:var(--text);outline:none;" data-page-node-id="6XFhn4LzZ7Q49hQOlD7P5v" />
+      <button class="btn btn-sm" id="btnSerialSend" disabled data-page-node-id="FHlpbcKovyVteHuokO4M8V">发送</button>
     </div>
-    <div class="cmd-toolbar" style="align-items:stretch;gap:10px;flex-wrap:wrap;">
-      <label class="timeout-label" for="serialChannelSelect">通道</label>
-      <select id="serialChannelSelect" class="timeout-input" style="min-width:110px;" disabled>
-        <option value="all">全部</option>
-        <option value="0x11">C1</option>
-        <option value="0x12">B1</option>
-        <option value="0x13">T1</option>
-        <option value="0x21">C2</option>
-        <option value="0x22">B2</option>
-        <option value="0x23">T2</option>
-        <option value="0x31">C3</option>
-        <option value="0x32">B3</option>
-        <option value="0x33">T3</option>
-        <option value="0x41">C4</option>
-        <option value="0x42">B4</option>
-        <option value="0x43">T4</option>
+    <div class="cmd-toolbar" style="align-items:stretch;gap:10px;flex-wrap:wrap;" data-page-node-id="uEETtslfEzN1Pe7ED3HXkU">
+      <label class="timeout-label" for="serialChannelSelect" data-page-node-id="2u5sO0XM3qyS9D9VkmzaIb">通道</label>
+      <select id="serialChannelSelect" class="timeout-input" style="min-width:110px;" disabled data-page-node-id="7HQZG0Pb0bgNxhq5Z5PH64">
+        <option value="all" data-page-node-id="Q2CbLEefGBeOghmECVxumo">全部</option>
+        <option value="0x11" data-page-node-id="AZnSuLOltSxrgRRiUB50SP">C1</option>
+        <option value="0x12" data-page-node-id="7UrJ3eBK6yADdHuDAYf6XV">B1</option>
+        <option value="0x13" data-page-node-id="VbeQtLE2sfGx08W2EgVtIv">T1</option>
+        <option value="0x21" data-page-node-id="oiCQQak83owc3WtlY7vX0D">C2</option>
+        <option value="0x22" data-page-node-id="UPoMPga2bIvdYHT8p9Hsbx">B2</option>
+        <option value="0x23" data-page-node-id="0rqF9Caknct2hOgBdVERpC">T2</option>
+        <option value="0x31" data-page-node-id="n39o9cTn6GDd1kOoYn01OB">C3</option>
+        <option value="0x32" data-page-node-id="tABY15dh0h0YkuCsFAmLye">B3</option>
+        <option value="0x33" data-page-node-id="Xo1di6mQ8DkLhptlB81FMX">T3</option>
+        <option value="0x41" data-page-node-id="WmfQaA2JMdcYNWN8tzSYe4">C4</option>
+        <option value="0x42" data-page-node-id="5Qk44wYkLucRaUFz69ijVN">B4</option>
+        <option value="0x43" data-page-node-id="YKb0cnJKXTkdXt3O0fEqQ5">T4</option>
       </select>
-      <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled>获取通道数据</button>
-      <button class="btn btn-sm" id="btnSerialCopyData" disabled>复制 12×460 数据</button>
-      <button class="btn btn-warn btn-sm" id="btnSerialClearData" disabled title="发送主指令 0xA0 从指令 0x02 清空设备历史数据">清除数据</button>
-      <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;"></span>
+      <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled data-page-node-id="Hsb495jQEGCoKPRlrUsJL4">获取通道数据</button>
+      <button class="btn btn-sm" id="btnSerialCopyData" disabled data-page-node-id="kjrB6FX7X0h8sbD6kD8RA4">复制 12×460 数据</button>
+      <button class="btn btn-warn btn-sm" id="btnSerialClearData" disabled title="发送主指令 0xA0 从指令 0x02 清空设备历史数据" data-page-node-id="S2FNULe2ZZ51QzmQSRll2k">清除数据</button>
+      <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;" data-page-node-id="WIWBShcmKA1IPBYRnjyxDG"></span>
     </div>
-    <div class="cmd-log" id="serialLog"></div>
+    <div class="cmd-log" id="serialLog" data-page-node-id="ivTRhjIxtRV5A1LoiYgSOg"></div>
   </div>
 
   <!-- 数据曲线图（每 3 通道一组，共 4 张） -->
-  <div class="card chart-section">
-    <div class="card-title"><span>数据曲线图 (12×460)</span></div>
-    <div class="chart-grid">
-      <div class="chart-card">
-        <div class="chart-card-title"><span>通道1（C1 / B1 / T1）<span class="chart-result hidden" id="chartResult0"></span></span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
-        <div class="chart-card-body"><canvas id="chartCanvas0" data-group="0"></canvas></div>
+  <div class="card chart-section" data-page-node-id="HUvi3BZzE2yQB235egQ0Gb">
+    <div class="card-title" data-page-node-id="htDjFTEue4G21be5zjF4av"><span data-page-node-id="baRDWckkkwGspFJAfVibXS">数据曲线图 (12×460)</span></div>
+    <div class="chart-grid" data-page-node-id="CDsELsJTSTSS0EwmbzFTEx">
+      <div class="chart-card" data-page-node-id="EPaz3BVdcnsPmemJ65AFBC">
+        <div class="chart-card-title" data-page-node-id="xYjXTizc7oSeHB6rXzWTEp"><span data-page-node-id="KXjNbC8rglBTWurKYqzyaS">通道1（C1 / B1 / T1）<span class="chart-result hidden" id="chartResult0" data-page-node-id="eTTcnHJ4DgHR41WtRHvYNB"></span></span><span class="title-right" data-page-node-id="verxcqoCzDRecukVwG98TL"><button class="chart-expand-btn" type="button" data-page-node-id="LYFW7lJrPXA7tZZs3ftqzu">⛶ 全屏</button><span class="toggle-arrow" data-page-node-id="LdunS2xzdUYYNDH5IrMiC2">▾</span></span></div>
+        <div class="chart-card-body" data-page-node-id="ie725t4JY3QSwrJBJdUAlA"><canvas id="chartCanvas0" data-group="0" data-page-node-id="eMs0hALX8vNdBwdQfqG2TG"></canvas></div>
       </div>
-      <div class="chart-card">
-        <div class="chart-card-title"><span>通道2（C2 / B2 / T2）<span class="chart-result hidden" id="chartResult1"></span></span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
-        <div class="chart-card-body"><canvas id="chartCanvas1" data-group="1"></canvas></div>
+      <div class="chart-card" data-page-node-id="dVFPCDwmDKAujq4Ghsp0TX">
+        <div class="chart-card-title" data-page-node-id="k0RM9EgGeK2qJuoCZv8n0L"><span data-page-node-id="1wfJKHFJq8nujtz1BrNjGd">通道2（C2 / B2 / T2）<span class="chart-result hidden" id="chartResult1" data-page-node-id="Sn9n1sAlciAuMKCyWpPHLP"></span></span><span class="title-right" data-page-node-id="CXuTAFhlCX8fBI8EHAAkEU"><button class="chart-expand-btn" type="button" data-page-node-id="NoDAwyiylUPw92gh28SGyP">⛶ 全屏</button><span class="toggle-arrow" data-page-node-id="JmdABmBpH9zJTBFfb54rjU">▾</span></span></div>
+        <div class="chart-card-body" data-page-node-id="WxQ1hUEYtyFbd60RqgrBKw"><canvas id="chartCanvas1" data-group="1" data-page-node-id="WCC2C0T0gPvpL1Q7HCQ9Nh"></canvas></div>
       </div>
-      <div class="chart-card">
-        <div class="chart-card-title"><span>通道3（C3 / B3 / T3）<span class="chart-result hidden" id="chartResult2"></span></span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
-        <div class="chart-card-body"><canvas id="chartCanvas2" data-group="2"></canvas></div>
+      <div class="chart-card" data-page-node-id="kpBytKQS8PI4iiyuMLkqTQ">
+        <div class="chart-card-title" data-page-node-id="8dwvj8yDc1PnoYhZFYtauN"><span data-page-node-id="eZN9XbTl0yE71hyoti7ydF">通道3（C3 / B3 / T3）<span class="chart-result hidden" id="chartResult2" data-page-node-id="A4pl3pwPEy7LjnEbhwSiVq"></span></span><span class="title-right" data-page-node-id="kabPeiVGp6WGAiZEAq1JPS"><button class="chart-expand-btn" type="button" data-page-node-id="0lVz6fi5Lt1cc4uIHVFiYc">⛶ 全屏</button><span class="toggle-arrow" data-page-node-id="15lKGJcmj59pdhOtDTx5XX">▾</span></span></div>
+        <div class="chart-card-body" data-page-node-id="1PT9mInqchJdl876KGmBK9"><canvas id="chartCanvas2" data-group="2" data-page-node-id="IXvJotpv0Sfkie8oOl8GFy"></canvas></div>
       </div>
-      <div class="chart-card">
-        <div class="chart-card-title"><span>通道4（C4 / B4 / T4）<span class="chart-result hidden" id="chartResult3"></span></span><span class="title-right"><button class="chart-expand-btn" type="button">⛶ 全屏</button><span class="toggle-arrow">▾</span></span></div>
-        <div class="chart-card-body"><canvas id="chartCanvas3" data-group="3"></canvas></div>
+      <div class="chart-card" data-page-node-id="5Lt7917luqfBxMOJkLbVpA">
+        <div class="chart-card-title" data-page-node-id="V0jQWaqcbe1gDHdN39nxJ0"><span data-page-node-id="cDZ6jtpFVT5AGgBCNWomoI">通道4（C4 / B4 / T4）<span class="chart-result hidden" id="chartResult3" data-page-node-id="jSyEFpEpyBIfNj05XZDXQD"></span></span><span class="title-right" data-page-node-id="UqkhBwsd8tHkXLkbbRn7Id"><button class="chart-expand-btn" type="button" data-page-node-id="TqDSQu5kz18aIx32sPMP6i">⛶ 全屏</button><span class="toggle-arrow" data-page-node-id="ppSKCPe3AHBBCmU9kxhFCw">▾</span></span></div>
+        <div class="chart-card-body" data-page-node-id="KwuolTiwpK2sTZY5DLnX5X"><canvas id="chartCanvas3" data-group="3" data-page-node-id="fF43Qs6fA3e7BeAaGP67gB"></canvas></div>
       </div>
     </div>
   </div>
   </div>
 
-  <footer>JNC 工具 · FFE2 命令查询 · 数据均在本地处理</footer>
+  <footer data-page-node-id="GtnCdnpiRJXvN93OT0Ifyy">JNC 工具 · FFE2 命令查询 · 数据均在本地处理</footer>
 </div>
 
 <script>
@@ -698,11 +698,16 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
 
   // 串口状态
   let serialPort=null, serialReader=null, serialKeepReading=false, serialBuf=[];
+  // 串口单通道查询：新协议把原来 920 字节分成 4 包，每包 230 字节 = 115 uint16；
+  // 4 包拼回 SERIAL_SAMPLE_COUNT=460 个采样点（与旧版一致，绘图/复制均不需改）。
   const SERIAL_SAMPLE_COUNT=460;
+  const SERIAL_PACKET_COUNT=4;     // 每通道拆成 4 包
+  const SERIAL_PACKET_VALUES=115;  // 每包 115 个 uint16
   // 串口单通道查询：12 个通道 × C/B/T = 36 个数组；索引 = ch*3 + lineIndex(C=0,B=1,T=2)
   const serialChannelData=new Array(12).fill(null).map(()=>[]);
-  let serialPendingQuery=null; // {code, label, chIndex, lineIndex, timer, resolve}
+  let serialPendingQuery=null; // {code, label, chIndex, lineIndex, packetIndex, vals, timer, resolve}
   let serialQueryBusy=false; // 批量全部查询进行中，防止重复触发
+  // 每包 2 秒；4 包合计最多 8 秒（任意一包未在时限内到达就超时）
   const SERIAL_QUERY_TIMEOUT_MS=2000;
   // 读取「等待(ms)」输入框，校验范围 [50, 60000]，默认 500
   function getQueryTimeout(){
@@ -1077,27 +1082,37 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 数据字节序：大端，共 24 字节 = 12 个数值（4 通道 × C/B/T 三线，每值 2 字节）
   // 排列顺序：C1,B1,T1, C2,B2,T2, C3,B3,T3, C4,B4,T4（按通道交替）
   function parseJncResponse(dv){
+    // 通道查询进行中：应答是 237 字节通道帧，绝不在此解析普通测试帧（避免误吞通道帧导致缓冲区被清空）
+    if(serialPendingQuery) return false;
     const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
 
-    // Strategy A: 搜索响应帧 5B 0D 0A ?? 0A 11
+    // Strategy A: 搜索响应帧 5B [X] 0A [LEN] 04 11 [24字节] 5D
+    // 注意：设备回包的起始第 2 字节实测可能为 0x0D(普通测试) 或 0x01(积分球)，故不再强校验该字节；
+    // 改用 LEN 字段(第4字节，此处恒为 0x1F=31) 定位帧尾 5D 来强校验帧完整性，避免误匹配。
+    // 重要：必须精确匹配 LEN===0x1F。通道查询应答帧(5B 0D 0A ED 04 11 ... 5D)第4字节为 0xED(=237)，
+    //       若用 len>=31 会误判其帧尾并 return true 清空 serialBuf，导致通道帧被 parseSerialChannelResponse 漏解析。
     for(let i=0; i<=bytes.length-6; i++){
-      if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
-         bytes[i+4]===0x0A && bytes[i+5]===0x11){
-        const dataStart=i+6;
-        if(dataStart+24<=bytes.length){
-          const vals=[];
-          for(let k=0; k<12; k++){
-            vals.push((bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1]);
+      if(bytes[i]===0x5B && bytes[i+2]===0x0A &&
+         bytes[i+4]===0x04 && bytes[i+5]===0x11){
+        const len=bytes[i+3];
+        const endPos=i+len-1;
+        if(len===0x1F && endPos<bytes.length && bytes[endPos]===0x5D){
+          const dataStart=i+6;
+          if(dataStart+24<=bytes.length){
+            const vals=[];
+            for(let k=0; k<12; k++){
+              vals.push((bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1]);
+            }
+            updateJncTable(vals);
+            return true;
           }
-          updateJncTable(vals);
-          return true;
         }
       }
     }
 
-    // Strategy B: 搜索请求回显 5B 0D 0A 08 04 01 [01/02] 5D，取后续 24 字节
+    // Strategy B: 搜索请求回显 5B [X] 0A 08 04 01 [01/02] 5D，取后续 24 字节（同样放松第 2 字节校验）
     for(let i=0; i<=bytes.length-8; i++){
-      if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
+      if(bytes[i]===0x5B && bytes[i+2]===0x0A &&
          bytes[i+3]===0x08 && bytes[i+4]===0x04 && bytes[i+5]===0x01 &&
          (bytes[i+6]===0x01 || bytes[i+6]===0x02) && bytes[i+7]===0x5D){
         const dataStart=i+8;
@@ -1125,37 +1140,47 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     return false;
   }
 
-  // 串口单通道查询响应解析：
-  // 5B 0D 0A FF 04 11 [01~03 CBT] 01 [920 字节数据，460 个 uint16] 5D
-  // 数据域长度固定显示 FF，不依赖它计算实际长度。
-  // 第 4/5/6 字节（主指令 04 / 从指令 11 / CBT 标记）暂不校验。
-  // 需要结合 serialPendingQuery 才能知道当前是哪个通道。
+  // 串口单通道查询响应解析（新协议：每包 230 字节 = 115 uint16，每通道 4 包共 460）：
+  // 5B 0D 0A FF 04 11 [01~03 CBT] 01 [230 字节数据] 5D
+  // 总长 239 字节。第 4/5/6/7 字节暂不校验，结合 serialPendingQuery 才能定位通道/线/包号。
+  // 每收一包：把 115 个 uint16 写入对应偏移；未到 4 包则触发下一包请求；最后一包完成合并。
   function parseSerialChannelResponse(dv){
     const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
-    const FRAME_LEN=929; // 5B 0D 0A FF 04 11 xx 01 + 920 字节数据 + 5D
+    const FRAME_LEN=237; // 帧头 5B 0D 0A [第4字节] 04 11 (6B) + 230 字节数据 + 5D (1B) = 237
     for(let i=0; i<=bytes.length-FRAME_LEN; i++){
       if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A &&
-         bytes[i+3]===0xFF && bytes[i+FRAME_LEN-1]===0x5D){
-        // 提取 CBT 标记（即使不校验，也用于复核）
-        const cbtCode=bytes[i+6];
-        const lineMap={'1':'C','2':'B','3':'T'};
-        const lineName=lineMap[String(cbtCode)]||'?';
-        // 解析 460 个 uint16（高位在前）
-        const vals=new Array(SERIAL_SAMPLE_COUNT);
-        const dataStart=i+8;
-        for(let k=0; k<SERIAL_SAMPLE_COUNT; k++){
-          vals[k]=(bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1];
+         bytes[i+4]===0x04 && bytes[i+5]===0x11 && bytes[i+FRAME_LEN-1]===0x5D){
+        // 只打印收发原始数据，不做任何结构化分析摘要；
+        // 整帧已在 readLoop 命中后作为【一条】console.log 输出 rawHex，此处不再重复写入。
+        if(!serialPendingQuery) return false; // 没有 pending 直接忽略（避免误吃闲置帧）
+        const {chIndex, lineIndex, packetIndex, vals, label} = serialPendingQuery;
+        // 解析 115 个 uint16（高位在前），写入对应包号的 115 个槽位
+        // 数据域从帧头后第 6 字节开始（帧头 5B 0D 0A [X] 04 11 共 6B，应答帧不含 CBT 字节）
+        const dataStart=i+6;
+        for(let k=0; k<SERIAL_PACKET_VALUES; k++){
+          vals[packetIndex*SERIAL_PACKET_VALUES+k]=(bytes[dataStart+k*2]<<8)|bytes[dataStart+k*2+1];
         }
-        // 存储到对应通道数组
-        let label='';
-        if(serialPendingQuery){
-          const idx=serialPendingQuery.chIndex*3+serialPendingQuery.lineIndex;
-          serialChannelData[idx]=vals;
-          label=serialPendingQuery.label;
-        }else{
-          // 无 pending 时尝试用 CBT 反推 line，但不知道通道号，只能显示 line
-          label='line '+lineName;
+        // 只解析数据，不打任何分析摘要；控制台里的原始 hex 由 readLoop 整帧统一打印
+        const totalPackets=SERIAL_PACKET_COUNT;
+        const isLast=(packetIndex+1>=totalPackets);
+        if(!isLast){
+          // 推进到下一包：递增包号、重置单包超时、立即发下一包请求
+          serialPendingQuery.packetIndex++;
+          clearTimeout(serialPendingQuery.timer);
+          serialPendingQuery.timer=setTimeout(()=>{
+            if(serialPendingQuery){
+              const p=serialPendingQuery.packetIndex+1;
+              serialChannelResult.textContent=label+' 第 '+p+'/'+totalPackets+' 包超时（'+SERIAL_QUERY_TIMEOUT_MS+'ms）';
+              console.warn('[Serial] '+label+' 第 '+p+' 包超时');
+              clearSerialPending(false);
+            }
+          }, SERIAL_QUERY_TIMEOUT_MS);
+          sendNextChannelPacket();
+          return true;
         }
+        // 最后一包：合并完成，落盘到 serialChannelData
+        const idx=chIndex*3+lineIndex;
+        serialChannelData[idx]=vals;
         // 控制台输出摘要（460 个数全打印会卡，只打前/后 5 个 + 统计）
         console.log('[Serial] 收到 '+label+' 单通道数据：'+
           'count='+vals.length+', '+
@@ -1167,7 +1192,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         serialChannelResult.textContent='收到 '+label+'：'+vals.length+' 笔数据';
         btnSerialCopyData.disabled=false; // 有数据后可复制
         renderAllCharts(); // 刷新曲线图
-        clearSerialPending();
+        clearSerialPending(true);
         return true;
       }
     }
@@ -1442,18 +1467,27 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   function pad(n){return String(n).padStart(2,'0');}
 
   // ---- 串口 (Web Serial) ----
-  function logSerial(direction, value){
+  // 同时写「串口日志窗口」面板（serialLog）与浏览器 DevTools 控制台（console），
+  // 便于在控制台中直接核对收发的完整帧。UI 面板对超长帧做截断，console 输出完整内容。
+  function logSerial(direction, value, opts){
+    opts=opts||{};
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
-    // 串口大数据帧日志过长时截断显示
+    // 串口大数据帧（如 230 字节应答 ≈ 716 hex 字符）在 UI 面板截断显示，但保留完整长度信息
     let display=value;
-    if(typeof value==='string' && value.length>200){
-      display=value.slice(0,180)+' ... [共 '+value.length+' 字符]';
+    if(typeof value==='string' && value.length>720){
+      display=value.slice(0,700)+' ... [共 '+value.length+' 字符]';
     }
     const line=`[${direction} @ ${ts}] ${display}`;
     const p=document.createElement('div');p.textContent=line;
     serialLog.appendChild(p);
     serialLog.scrollTop=serialLog.scrollHeight;
+    // quietConsole：仅写入 UI 面板，不打浏览器控制台（避免 chunk 碎片刷屏）
+    if(opts.quietConsole) return;
+    // 同步到浏览器控制台（DevTools Console）—— 完整 value，不截断
+    if(direction.includes('Err')) console.error('[Serial]', direction+' @ '+ts+':', value);
+    else if(direction==='Tx') console.info('[Serial] Tx @ '+ts+':', value);
+    else console.log('[Serial] '+direction+' @ '+ts+':', value);
   }
 
   function setSerialStatus(state){
@@ -1494,12 +1528,21 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
           const {value, done}=await serialReader.read();
           if(done) break;
           if(value && value.byteLength){
-            logSerial('Rx', Array.from(value,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' '));
             // 累积字节，兼容被拆分的不完整帧
             serialBuf.push(...Array.from(value));
             if(serialBuf.length>2048) serialBuf=serialBuf.slice(-2048);
+            // 原始收数据先写入 UI 面板（每 chunk 一行，便于排查底层拆分）；
+            // 控制台不在 chunk 级打印，改为整帧识别后统一打印【一条】，避免一条消息被拆成多行
+            logSerial('Rx', Array.from(value,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' '), {quietConsole:true});
             const dv=new DataView(new Uint8Array(serialBuf).buffer);
-            if(parseJncResponse(dv) || parseSerialChannelResponse(dv)) serialBuf=[]; // 解析到完整帧则清空缓冲
+            if(parseJncResponse(dv) || parseSerialChannelResponse(dv)){
+              // 整帧已识别并消费：把缓冲的原始收数据作为【一条】控制台消息打印
+              const now=new Date();
+              const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
+              const rawHex=serialBuf.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+              console.log('[Serial] Rx @ '+ts+':', rawHex);
+              serialBuf=[]; // 解析到完整帧则清空缓冲
+            }
           }
         }
       }catch(err){
@@ -1544,37 +1587,74 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
   }
 
-  // 查询单个通道：发送命令，等待应答（最多 2s），返回 Promise<boolean>
-  // 成功解析后由 parseSerialChannelResponse 调用 clearSerialPending(true) 解决
+  // 构造「通道+线+包号」字节6（新协议）：
+  //   [7:6] 通道 0~3（按 0b00~0b03 对应通道 1~4）
+  //   [5:4] 线   C=00 / B=01 / T=10
+  //   [3:0] 包号 0~3（按 0b0000~0b0011 对应数据包 1~4）
+  // 入参 channel 取值 1-4，line 取值 'C'/'B'/'T'，packet 取值 1-4。
+  function buildChannelLinePacketCode(channel, line, packet){
+    const chField=(channel-1) & 0x03;              // [7:6]
+    const lineMap={'C':0x00, 'B':0x01, 'T':0x02};
+    const lineField=(lineMap[line]!=null ? lineMap[line] : 0x00) & 0x03; // [5:4]
+    const pktField=(packet-1) & 0x0F;                                // [3:0]
+    return ((chField<<6) | (lineField<<4) | pktField) & 0xFF;
+  }
+
+  // 由 queryChannel 启动 / parseSerialChannelResponse 推进：发送当前包号的请求帧
+  function sendNextChannelPacket(){
+    if(!serialPendingQuery) return;
+    if(!serialPort||!serialPort.writable){
+      clearSerialPending(false);
+      serialChannelResult.textContent='串口已断开，查询中止';
+      return;
+    }
+    const {chIndex, lineIndex, packetIndex, label} = serialPendingQuery;
+    const channel=chIndex+1;        // 1-4
+    const line=LINES[lineIndex];    // C/B/T
+    const packet=packetIndex+1;     // 1-4
+    const code=buildChannelLinePacketCode(channel, line, packet);
+    const frame=buildFrame(0x04,0x01,[code]);
+    const writer=serialPort.writable.getWriter();
+    writer.write(frame).then(()=>{
+      writer.releaseLock();
+      logSerial('Tx', frameToHex(frame));
+      serialChannelResult.textContent='已发送 '+label+' 第'+packet+'/'+SERIAL_PACKET_COUNT+'包，等待应答...';
+    }).catch(err=>{
+      logSerial('Tx-Err', err.message);
+      serialChannelResult.textContent='发送失败';
+      clearSerialPending(false);
+    });
+  }
+
+  // 查询单个通道：发送 4 包（共 4×230=920 字节 → 4×115=460 采样点），每包最多等 2s。
+  // 推进逻辑：parseSerialChannelResponse 每收一包就累加 packetIndex 并立即发下一包；
+  //           收满 4 包后由它调用 clearSerialPending(true) 解决 Promise。
   function queryChannel(code){
     return new Promise((resolve)=>{
       if(!serialPort||!serialPort.writable){ resolve(false); return; }
       const idx=channelCodeToIndex(code);
       if(!idx){ resolve(false); return; }
       const lineIndex=['C','B','T'].indexOf(idx.line);
+      const vals=new Array(SERIAL_SAMPLE_COUNT).fill(0); // 4 包合并的目标缓冲区
       serialPendingQuery={
         code,
         label:idx.label,
         chIndex:idx.row,
         lineIndex,
+        packetIndex:0,           // 当前包号（0~3）
+        vals,
         timer:setTimeout(()=>{
-          serialChannelResult.textContent=idx.label+' 查询超时（2s 未收到应答）';
-          console.warn('[Serial] '+idx.label+' 查询超时');
-          clearSerialPending(false);
+          if(serialPendingQuery){
+            const p=serialPendingQuery.packetIndex+1;
+            serialChannelResult.textContent=idx.label+' 第 '+p+'/'+SERIAL_PACKET_COUNT+' 包超时（'+SERIAL_QUERY_TIMEOUT_MS+'ms）';
+            console.warn('[Serial] '+idx.label+' 第 '+p+' 包超时');
+            clearSerialPending(false);
+          }
         }, SERIAL_QUERY_TIMEOUT_MS),
         resolve
       };
-      const frame=buildFrame(0x04,0x01,[code]); // 读取通道数据：01=读，02=写
-      const writer=serialPort.writable.getWriter();
-      writer.write(frame).then(()=>{
-        writer.releaseLock();
-        logSerial('Tx', frameToHex(frame));
-        serialChannelResult.textContent='已发送 '+idx.label+' 查询，等待 2s 应答...';
-      }).catch(err=>{
-        logSerial('Tx-Err', err.message);
-        serialChannelResult.textContent='发送失败';
-        clearSerialPending(false);
-      });
+      // 启动第 1 包（后续包由 parseSerialChannelResponse 收齐后调用 sendNextChannelPacket 推进）
+      sendNextChannelPacket();
     });
   }
 
