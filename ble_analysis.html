@@ -378,6 +378,7 @@ const Utils = {
             const charDiv=document.createElement('div');
             charDiv.className='gatt-char';
             const props=getPropList(ch);
+            const writable=props.includes('write');
             const shortU=Utils.shortUuid(ch.uuid);
             charDiv.innerHTML=`
               <span class="char-uuid">${shortU}</span>
@@ -389,6 +390,16 @@ const Utils = {
               `:''}
               ${(ch.properties.notify||ch.properties.indicate)?`
                 <button class="btn btn-sm char-sub-btn">订阅</button>
+              `:''}
+              ${writable?`
+                <button class="btn btn-sm char-send-btn">发送</button>
+                <span class="char-send-panel" style="display:none;width:100%;margin-top:4px;gap:6px;align-items:center;flex-wrap:wrap;">
+                  <input class="char-send-input" type="text" placeholder="16进制，如 A0 0B 02 / A00B02" style="flex:1;min-width:160px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-family:'Consolas','Monaco',monospace;font-size:.75rem;">
+                  <label style="font-size:.7rem;color:var(--text-muted);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;">
+                    <input type="checkbox" class="char-send-ascii"> ASCII
+                  </label>
+                  <button class="btn btn-sm char-send-go">发送</button>
+                </span>
               `:''}`;
             if(ch.properties.read){
               const readBtn=charDiv.querySelector('.char-read-btn');
@@ -454,6 +465,47 @@ const Utils = {
                 toggleSubscribe(ch, shortU, subBtn, charDiv);
               });
             }
+            // 可写特征：显示「发送」功能（默认 16 进制，勾选 ASCII 按文本发送）
+            if(writable){
+              const sendBtn=charDiv.querySelector('.char-send-btn');
+              const panel=charDiv.querySelector('.char-send-panel');
+              const input=charDiv.querySelector('.char-send-input');
+              const asciiChk=charDiv.querySelector('.char-send-ascii');
+              const sendGo=charDiv.querySelector('.char-send-go');
+              // 切换发送面板显隐
+              sendBtn.addEventListener('click',(e)=>{
+                e.stopPropagation();
+                panel.style.display = panel.style.display==='none' ? 'flex' : 'none';
+                if(panel.style.display==='flex') input.focus();
+              });
+              // 执行发送
+              const doSend=async ()=>{
+                const raw=input.value.trim();
+                if(!raw){ logToPanel('Req-Err',shortU,'发送内容为空'); return; }
+                let bytes;
+                try{
+                  bytes = asciiChk.checked ? new TextEncoder().encode(raw) : hexToBytes(raw);
+                }catch(err){
+                  logToPanel('Req-Err',shortU,err.message);
+                  return;
+                }
+                if(bytes.length===0){ logToPanel('Req-Err',shortU,'发送内容为空'); return; }
+                sendGo.textContent='...'; sendGo.disabled=true;
+                try{
+                  if(ch.properties.write) await ch.writeValue(bytes);
+                  else if(ch.properties.writeWithoutResponse) await ch.writeValueWithoutResponse(bytes);
+                  const shown = asciiChk.checked ? ('ASCII: '+raw)
+                    : (bytes.length<=64 ? Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join(' ') : (bytes.length+' 字节'));
+                  logToPanel('Req', shortU, shown);
+                }catch(err){
+                  logToPanel('Req-Err',shortU,err.message);
+                }finally{
+                  sendGo.textContent='发送'; sendGo.disabled=false;
+                }
+              };
+              sendGo.addEventListener('click',(e)=>{ e.stopPropagation(); doSend(); });
+              input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.stopPropagation(); doSend(); } });
+            }
             body.appendChild(charDiv);
           }
         }catch(err){
@@ -488,6 +540,18 @@ const Utils = {
     const text=arr.map(b=>String.fromCharCode(b)).join('');
     if(/^[\x20-\x7e\r\n\t]+$/.test(text)) return text.trim().substring(0,40);
     return arr.map(b=>b.toString(16).padStart(2,'0')).join(' ');
+  }
+
+  // 16进制字符串 → Uint8Array。
+  // 支持 "A0 0B 02" / "A00B02" / "a0,0b,02" 等分隔形式；空或非偶数长度/非 hex 字符抛错。
+  function hexToBytes(str){
+    const cleaned=str.replace(/[\s,]/g,'').toLowerCase();
+    if(cleaned.length===0) throw new Error('空内容');
+    if(cleaned.length%2!==0) throw new Error('16进制长度必须为偶数（每字节 2 位）');
+    if(!/^[0-9a-f]*$/.test(cleaned)) throw new Error('包含非 16进制字符');
+    const out=new Uint8Array(cleaned.length/2);
+    for(let i=0;i<out.length;i++) out[i]=parseInt(cleaned.substr(i*2,2),16);
+    return out;
   }
 
   // ---- BLE Data Handling ----
