@@ -100,9 +100,55 @@
   /* FFE4 命令收发日志：默认隐藏，由「显示日志/隐藏日志」按钮开关 */
   #ffe4Log{display:none;margin-top:12px;}
   #ffe4Log.show{display:block;}
+  /* 命令交互 (FFE2) 收发日志：同样默认隐藏，由标题栏按钮开关（与 FFE4 一致） */
+  #cmdLog{display:none;margin-top:12px;}
+  #cmdLog.show{display:block;}
+  /* 通道1 (FFE1) 数据日志：默认隐藏，由卡片标题栏按钮开关（同上） */
+  #ffe1LogWrap{display:none;margin-top:14px;}
+  #ffe1LogWrap.show{display:block;}
+  .log-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+  /* 命令卡片（与 JNA_tools 同款）：网格排布 + 标题点击折叠/展开 */
+  .cmd-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:4px;
+    align-items:start; /* 卡片按自身内容高度排布，展开一个不会把同行其他卡片拉长 */
+  }
+  .cmd-card{
+    background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;
+    transition:border-color .2s,box-shadow .2s;
+    display:flex;flex-direction:column;
+  }
+  .cmd-card.wide{grid-column:1 / -1;} /* 含表格等宽内容时独占一行 */
+  .cmd-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.08);}
+  .cmd-card-title{font-size:1rem;font-weight:600;margin:0 -10px 6px;color:var(--text);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    cursor:pointer;user-select:none;
+    padding:9px 10px;border-radius:8px;transition:background .15s;}
+  .cmd-card-title:hover{background:var(--accent-soft);}
+  .cmd-card-title .toggle-arrow{font-size:.85rem;color:var(--text-muted);transition:transform .2s;flex:none;}
+  .cmd-card.collapsed .cmd-card-title{margin-bottom:0;}
+  .cmd-card.collapsed .toggle-arrow{transform:rotate(-90deg);}
+  .cmd-card.collapsed .cmd-card-desc,
+  .cmd-card.collapsed .cmd-card-actions,
+  .cmd-card.collapsed .cmd-card-body,
+  .cmd-card.collapsed .cmd-result{display:none;}
+  .cmd-card-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;}
+  .cmd-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  .cmd-card-body{margin-bottom:4px;overflow-x:auto;} /* 卡片变窄时表格可横向滚动 */
+  .cmd-result{
+    background:var(--surface-2, #f8fafc);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+    min-height:70px;margin-top:auto;
+  }
+  .cmd-result-empty{color:var(--text-light);font-size:.8rem;text-align:center;padding:12px 0;}
+  .cmd-result-status{font-size:.85rem;padding:8px 0;text-align:center;}
+  .cmd-result-status.info{color:var(--accent);}
+  .cmd-result-status.ok{color:var(--success);}
+  .cmd-result-status.err{color:var(--danger);}
+  @media(max-width:600px){ .cmd-grid{grid-template-columns:1fr;} }
 
   /* ---- BLE page ---- */
   .ble-grid{display:flex;flex-direction:column;gap:20px;margin-top:16px;}
+  /* FFE4 区块在 .ble-grid 之外，需要自己补上与上方「命令交互 (FFE2)」卡片相同的 20px 间距 */
+  .ble-ffe4-section{margin-top:20px;}
 
   .ble-toolbar{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -336,7 +382,7 @@
 
   <header data-page-node-id="pD60nS9z3xrEzYOvMzAVV2">
     <h1 data-page-node-id="l0Y1WoSjOzRqaKquCRSMoD"><span class="icon" data-page-node-id="R6X6wPbCZAe6z1qjCFqany">🛰️</span> JNC 工具</h1>
-    <p data-page-node-id="GZ5AuqGB0KiErXfgbAa7eV">连接 JNC 开头的 BLE 设备，点击「解析数据」中的「普通测试」或「积分球测试」按钮，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
+    <p data-page-node-id="GZ5AuqGB0KiErXfgbAa7eV">连接 JNC 开头的 BLE 设备，在「命令交互 (FFE2)」的「单次测试」卡片中点击「普通测试」或「积分球测试」，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
   </header>
 
   <div class="ble-warning" id="bleWarning" data-page-node-id="OmKEHqCkojSB0WFF68GpLI">
@@ -369,8 +415,9 @@
         <div class="card-title" data-page-node-id="DAH0ZUpDPklHWwwfDVnefi">
           <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">通道1 (FFE1 跟踪)</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
-            <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled data-page-node-id="40n34YLtfBClQQwMYuiGBb">开始更新</button>
-            <span class="feature-badge locked" id="ffe1Badge" data-page-node-id="qm1YphzFL0HLuSGMZpiWZs">未就绪</span>
+          <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled data-page-node-id="40n34YLtfBClQQwMYuiGBb">开始更新</button>
+          <button class="btn btn-sm" id="btnFfe1LogToggle" type="button" data-page-node-id="Qb2Ffe1LogToggle01">显示日志</button>
+          <span class="feature-badge locked" id="ffe1Badge" data-page-node-id="qm1YphzFL0HLuSGMZpiWZs">未就绪</span>
           </div>
         </div>
         <div class="fte1-slots" id="fte1Slots" style="display:none;" data-page-node-id="GvegYFHpx5FrsaZ30jZDFL">
@@ -424,42 +471,10 @@
           <div class="field-box" data-key="version" data-page-node-id="75099tVbTOx7Im07cjmMDI"><div class="field-label" data-page-node-id="NYNZV2vgAw4a2iX1XYQiU0">版本号</div><div class="field-raw" data-page-node-id="HVgj2BB1oBSGgx4RwwfyGY">--</div><div class="field-value" data-page-node-id="2QKAGCGiCpWsNX9BQXWjVE">--</div></div>
         </div>
         <div id="fte1Empty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;" data-page-node-id="Ns5szTTCGXYojz3zEEb35Z">连接设备后点击「开始更新」跟踪通道1状态</div>
-      </div>
 
-      <!-- 解析数据面板 -->
-      <div class="card" data-page-node-id="50Mux1LuyFQStApMafg98B">
-        <div class="card-title" data-page-node-id="mbTu5XDEvacg3KOJh0XQ7c">
-          <span data-page-node-id="lTkuSaTAftHCPSQtLPN9Ne">解析数据 (FFE2 查询响应)</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="M3O2Xb62QXARTpAW2XKi9x">
-            <label class="timeout-label" for="queryTimeout" data-page-node-id="QkrmsnIK7UR6oJw79oakXn">等待(ms)</label>
-            <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" data-page-node-id="c3PHSBqyHu8HannWm3AvRK" />
-            <button class="btn btn-primary btn-sm" id="btnQueryData" data-page-node-id="KtDoWufH6YBBugn3lGtdMb">普通测试</button>
-            <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest" data-page-node-id="Om0CllRMrlc39LivovapFc">积分球测试</button>
-            <label class="timeout-label" for="copyMode" data-page-node-id="0SXiHjHR1v2Eqgu6vfzJKW">复制</label>
-            <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;" data-page-node-id="QNP1W7bKVoNl1BYnfaRnxt">
-              <option value="table" data-page-node-id="Gjrm8DGDgIaDtzgaha6a1Y">表格(4×3)</option>
-              <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">数值(12×1)</option>
-            </select>
-            <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
-          </div>
-        </div>
-        <div id="jncTableWrap" style="display:none;" data-page-node-id="sISxN6622get3ne0qPpCTw">
-          <table class="channel-table" data-page-node-id="koLfgMU0Qkc0MlGDrvml9u">
-            <thead data-page-node-id="seXcGvRv82ZFUch7UAfTrc">
-              <tr data-page-node-id="jGm7XeZ9ciBwnuUVFjUZva"><th data-page-node-id="HUGjMK8Q7tEREcvTJ3Ybph">通道</th><th data-page-node-id="gW6FoE7Xmq4M5nf5OT81FI">C线</th><th data-page-node-id="obQY8b45QgCm9Em2WMSAt0">B线</th><th data-page-node-id="NtPclvVFwCXaOdlCBl2WJi">T线</th></tr>
-            </thead>
-            <tbody id="jncTableBody" data-page-node-id="k0ivSUJeHEOBgnQBMLjYLF"></tbody>
-          </table>
-        </div>
-        <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;" data-page-node-id="OpMXyDBb70IXo9bR1BZHYe">
-          点击「普通测试」或「积分球测试」后将显示 12 通道解析结果
-        </div>
-      </div>
-
-      <div class="card" data-page-node-id="6rtCCi3lgH4QKlEA8ssh3f">
-        <div class="card-title" data-page-node-id="KFdaOu488VMuWOJQBq7Pzv">
-          <span data-page-node-id="qzirpbhfLMgCHMgj0PBC1D">数据日志</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="BPSrXN3lX7AjswWo8ovEa9">
+        <!-- 数据日志（FFE1）：默认隐藏，由标题栏「显示日志/隐藏日志」按钮开关 -->
+        <div id="ffe1LogWrap" data-page-node-id="JcFfe1LogWrap0001">
+          <div class="log-tools" data-page-node-id="BPSrXN3lX7AjswWo8ovEa9">
             <div class="log-legend" title="颜色说明" data-page-node-id="D7VVF2xR7flDntJ8nzS0b6">
               <span data-page-node-id="kAq90qKAMPeoytTyny3dRx"><i class="lg-out" data-page-node-id="peDWxKFawDpVEKHeL0Bh7y"></i>发送</span>
               <span data-page-node-id="p4QhECb1laAn8kNGke2ItS"><i class="lg-in" data-page-node-id="X5FCM8yt9FAC6l8uW4cp8o"></i>接收</span>
@@ -469,30 +484,65 @@
             <button class="btn btn-sm" id="btnClearLog" data-page-node-id="OBFNBHPZj0HreW7iPCNmpe">清空</button>
             <button class="btn btn-sm" id="btnExportLog" disabled data-page-node-id="9zSCx7za9EzXNDJEt2UZfT">导出</button>
           </div>
+          <div class="raw-log" id="rawLog" data-page-node-id="RatwL3TIkyWqfg63PPqh0Z"></div>
         </div>
-        <div class="raw-log" id="rawLog" data-page-node-id="RatwL3TIkyWqfg63PPqh0Z"></div>
       </div>
+
+      <!-- 解析数据已合并进「命令交互 (FFE2)」的单次测试卡片 -->
+
 
       <!-- 命令交互 (FFE2) -->
       <div class="card" data-page-node-id="bTa2VPxwAsb6gidsZydE3m">
         <div class="card-title" data-page-node-id="CK8OMHnGpFqUgbLdGDIS2B">
           <span data-page-node-id="53tRX5Be1IX01C0oEcFMQY">命令交互 (FFE2)</span>
           <div style="display:flex;gap:8px;align-items:center;" data-page-node-id="7E9bHSG6AjaU9CkBgcIu53">
+            <button class="btn btn-sm" id="btnCmdLogToggle" type="button" data-page-node-id="Qb2CmdLogToggle01">显示日志</button>
             <button class="btn btn-sm" id="btnClearCmd" data-page-node-id="6giMix7NNAFJufZyzSYa9U">清空</button>
           </div>
         </div>
-        <div class="cmd-toolbar" data-page-node-id="rE7saAHnFKp6n5unGmc9hL">
-          <select id="detectTimeSelect" data-page-node-id="diD7vmjyS2rCaY2KIZsBqH">
-            <option value="5" data-page-node-id="to1omEcoj8MMFYoRCRmXw2">5 分钟</option>
-            <option value="10" data-page-node-id="feL5p9o1AfcfFaheehyVDu">10 分钟</option>
-            <option value="15" selected data-page-node-id="rCki3ogmq0tO80HmCAXYg2">15 分钟</option>
-          </select>
-          <button class="btn btn-sm" id="btnSetDetectTime" data-page-node-id="2hyj6BBsAX4hN471G7Ckm6">设置检测时间</button>
-          <button class="btn btn-sm" id="btnReboot" data-page-node-id="EaXxqx2JK3mbDC2GEAyExE">设备重启</button>
-          <button class="btn btn-sm" id="btnShutdown" data-page-node-id="vUvGsGAmRSwXWbrI2JJ7rV">设备关机</button>
-          <button class="btn btn-sm" id="btnLightC" data-page-node-id="CejouajJWVzKrbDKV72w2e">点亮C灯</button>
-          <button class="btn btn-sm" id="btnLightB" data-page-node-id="6CdzNscUmOJvYkGI14i2BX">点亮B灯</button>
-          <button class="btn btn-sm" id="btnLightT" data-page-node-id="yjmjC5E2lFYt7jwhMdoGxc">点亮T灯</button>
+        <div class="cmd-grid" data-page-node-id="rE7saAHnFKp6n5unGmc9hL">
+          <!-- 设备控制 -->
+          <div class="cmd-card collapsed" data-page-node-id="JcDevCtrlCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcDevCtrlCard0002"><span data-page-node-id="JcDevCtrlCard0003">设备控制</span><span class="toggle-arrow" data-page-node-id="JcDevCtrlCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcDevCtrlCard0005">设备重启（主 0x02 / 从 0x02）与关机（主 0x02 / 从 0x03）。写后立即回读应答：01 成功 → 2s 后自动断开 BLE；02 失败。操作前二次确认。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcDevCtrlCard0006">
+              <button class="btn btn-sm" id="btnReboot" data-page-node-id="EaXxqx2JK3mbDC2GEAyExE">设备重启</button>
+              <button class="btn btn-danger btn-sm" id="btnShutdown" data-page-node-id="vUvGsGAmRSwXWbrI2JJ7rV">设备关机</button>
+            </div>
+            <div class="cmd-result" id="resultDevice" data-page-node-id="JcDevCtrlCard0007"><div class="cmd-result-empty" data-page-node-id="JcDevCtrlCard0008">等待操作...</div></div>
+          </div>
+
+          <!-- 单次测试（原独立「解析数据 (FFE2 查询响应)」卡片，现已合并为本卡片） -->
+          <div class="cmd-card collapsed" data-page-node-id="JcParseCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcParseCard0002"><span data-page-node-id="JcParseCard0003">单次测试</span><span class="toggle-arrow" data-page-node-id="JcParseCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcParseCard0005">通过 FFE2 发送测试命令（主 0x04 / 从 0x01，数据 0x01 普通 / 0x02 积分球），等待指定时间后回读响应并解析 12 通道数值。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcParseCard0006">
+              <label class="timeout-label" for="queryTimeout" data-page-node-id="QkrmsnIK7UR6oJw79oakXn">等待(ms)</label>
+              <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" data-page-node-id="c3PHSBqyHu8HannWm3AvRK" />
+              <button class="btn btn-primary btn-sm" id="btnQueryData" data-page-node-id="KtDoWufH6YBBugn3lGtdMb">普通测试</button>
+              <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest" data-page-node-id="Om0CllRMrlc39LivovapFc">积分球测试</button>
+              <label class="timeout-label" for="copyMode" data-page-node-id="0SXiHjHR1v2Eqgu6vfzJKW">复制</label>
+              <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;" data-page-node-id="QNP1W7bKVoNl1BYnfaRnxt">
+                <option value="table" data-page-node-id="Gjrm8DGDgIaDtzgaha6a1Y">表格(4×3)</option>
+                <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">数值(12×1)</option>
+              </select>
+              <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
+            </div>
+            <div class="cmd-card-body" data-page-node-id="JcParseCard0009">
+              <div id="jncTableWrap" style="display:none;" data-page-node-id="sISxN6622get3ne0qPpCTw">
+                <table class="channel-table" data-page-node-id="koLfgMU0Qkc0MlGDrvml9u">
+                  <thead data-page-node-id="seXcGvRv82ZFUch7UAfTrc">
+                    <tr data-page-node-id="jGm7XeZ9ciBwnuUVFjUZva"><th data-page-node-id="HUGjMK8Q7tEREcvTJ3Ybph">通道</th><th data-page-node-id="gW6FoE7Xmq4M5nf5OT81FI">C线</th><th data-page-node-id="obQY8b45QgCm9Em2WMSAt0">B线</th><th data-page-node-id="NtPclvVFwCXaOdlCBl2WJi">T线</th></tr>
+                  </thead>
+                  <tbody id="jncTableBody" data-page-node-id="k0ivSUJeHEOBgnQBMLjYLF"></tbody>
+                </table>
+              </div>
+              <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:18px 0;font-size:.85rem;" data-page-node-id="OpMXyDBb70IXo9bR1BZHYe">
+                点击「普通测试」或「积分球测试」后将显示 12 通道解析结果
+              </div>
+            </div>
+            <div class="cmd-result" id="resultParse" data-page-node-id="JcParseCard000A"><div class="cmd-result-empty" data-page-node-id="JcParseCard000B">等待测试...</div></div>
+          </div>
         </div>
         <div class="cmd-log" id="cmdLog" data-page-node-id="Zk824QzA3ff314kR3DlPc6"></div>
       </div>
@@ -655,14 +705,12 @@ const Utils = {
   const btnQueryData=document.getElementById('btnQueryData');
   const cmdLog=document.getElementById('cmdLog');
   const btnClearCmd=document.getElementById('btnClearCmd');
-  const detectTimeSelect=document.getElementById('detectTimeSelect');
-  const btnSetDetectTime=document.getElementById('btnSetDetectTime');
+  const btnCmdLogToggle=document.getElementById('btnCmdLogToggle');
+  const resultDevice=document.getElementById('resultDevice'); // 「设备控制」命令卡片的结果区
+  const resultParse=document.getElementById('resultParse');   // 「解析数据」命令卡片的结果区
   const btnReboot=document.getElementById('btnReboot');
   const btnShutdown=document.getElementById('btnShutdown');
   const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
-  const btnLightC=document.getElementById('btnLightC');
-  const btnLightB=document.getElementById('btnLightB');
-  const btnLightT=document.getElementById('btnLightT');
   const btnCopyData=document.getElementById('btnCopyData');
   const copyMode=document.getElementById('copyMode');
   // 串口 (Web Serial)
@@ -695,10 +743,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const ffe1Badge=document.getElementById('ffe1Badge');
   const fte1Slots=document.getElementById('fte1Slots');
   const fte1Extras=document.getElementById('fte1Extras');
+  const ffe1LogWrap=document.getElementById('ffe1LogWrap');
+  const btnFfe1LogToggle=document.getElementById('btnFfe1LogToggle');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,detectTimeSelect,btnSetDetectTime,btnReboot,btnShutdown,btnLightC,btnLightB,btnLightT];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -847,10 +897,11 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     querying=false;
     if(queryReadTimer) clearTimeout(queryReadTimer);
     queryReadTimer=null;
-    // 复位解析数据面板
+    // 复位解析数据卡片（已合并进「命令交互 (FFE2)」）
     jncTableWrap.style.display='none';
     jncFieldsEmpty.style.display='block';
     btnCopyData.disabled=true;
+    if(typeof setCmdResult==='function') setCmdResult(resultParse,'等待测试...','');
     channelRows.forEach(r=>{
       for(const line of LINES){
         r.cells[line].classList.remove('flash');
@@ -1586,12 +1637,15 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 点击「普通测试」(mode=0x01) 或「积分球测试」(mode=0x02)→ 发送测试帧 → 等待 N ms → 读取响应 → 解析
   async function queryData(mode){
     if(querying) return;
+    const label = mode===0x02 ? '积分球测试' : '普通测试';
     if(!ffe2Char||!device||!device.gatt.connected){
-      logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), 'FFE2 未就绪，请先连接设备');
+      logCmd('失败', `${label}：FFE2 未就绪，请先连接设备`);
+      setCmdResult(resultParse, 'FFE2 未就绪，请先连接设备', 'err');
       return;
     }
     if(mode!==0x01 && mode!==0x02){
-      logToPanel('Err', Utils.shortUuid(FFE2_SERVICE), '测试模式参数错误');
+      logCmd('失败', `${label}：测试模式参数错误`);
+      setCmdResult(resultParse, '测试模式参数错误', 'err');
       return;
     }
     querying=true;
@@ -1599,26 +1653,37 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     btnIntegralSphereTest.disabled=true;
     btnQueryData.textContent='普通测试中...';
     btnIntegralSphereTest.textContent='积分球测试中...';
+    setCmdResult(resultParse, `${label} 已发送，等待 ${getQueryTimeout()}ms 后回读...`, 'info');
     const waitMs=getQueryTimeout();
     const frame=buildFrame(0x04, 0x01, [mode]);
-    logToPanel('Req', Utils.shortUuid(FFE2_SERVICE), frameToHex(frame));
+    logCmd('发送', `${label}：${frameToHex(frame)}`);
     try{
       await ffe2Char.writeValue(frame.buffer);
     }catch(err){
-      logToPanel('Req-Err', Utils.shortUuid(FFE2_SERVICE), err.message);
+      logCmd('失败', `${label} 发送失败：${err.message}`);
+      setCmdResult(resultParse, `发送失败：${err.message}`, 'err');
       return resetQueryBtn();
     }
     // 等待 N ms 让设备处理并写入响应
     await new Promise(resolve=>{queryReadTimer=setTimeout(resolve, waitMs);});
-    if(!ffe2Char||!device||!device.gatt.connected) return resetQueryBtn();
+    if(!ffe2Char||!device||!device.gatt.connected){
+      logCmd('失败', `${label}：设备已断开，测试中止`);
+      setCmdResult(resultParse,'设备已断开，测试中止','err');
+      return resetQueryBtn();
+    }
     try{
       if(ffe2Char.properties.read){
         const dv=await ffe2Char.readValue();
         const ok=parseJncResponse(dv);
-        logToPanel(ok?'Data':'Raw', Utils.shortUuid(FFE2_SERVICE), formatDataView(dv));
+        logCmd(ok?'数据':'接收', `${label}：${formatDataView(dv)}`);
+        setCmdResult(resultParse, ok?`${label} 完成：已解析 12 通道数据`:`${label} 应答未识别（${dv.byteLength}B），详见日志`, ok?'ok':'err');
+      }else{
+        logCmd('失败', `${label}：FFE2 不支持 read，无法回读响应`);
+        setCmdResult(resultParse, 'FFE2 不支持 read，无法回读响应', 'err');
       }
     }catch(err){
-      logToPanel('Timeout', Utils.shortUuid(FFE2_SERVICE), '读取响应失败 ('+err.message+')');
+      logCmd('超时', `${label} 读取响应失败：${err.message}`);
+      setCmdResult(resultParse, `读取失败：${err.message}`, 'err');
     }finally{
       resetQueryBtn();
     }
@@ -1633,64 +1698,139 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     refreshFeatureState();
   }
 
-  // ---- FFE2 命令 ----
-  async function writeCmd(frame){
-    if(!ffe2Char){logCmd('发送失败','FFE2 未就绪');return;}
-    logCmd('发送', frameToHex(frame));
+  // ---- FFE2 命令：设备重启 / 设备关机 ----
+  // 协议（按 JNC 命令交互表格）：
+  //   发送：5B 0D 0A 08 02 [SUB] 00 5D（SUB=02 重启，03 关机；data 字节固定 00 占位）
+  //   应答：5B 0D 0A 08 02 12 [01/02] 5D（01=成功 02=失败，8 字节）
+  // 流程：writeValue 完成后**立即** readValue（无 sleep；BLE 链路层自然排程），
+  //       5s 超时；解析应答：第 6 字节（data）=01 → 成功 → 2s 后自动 device.gatt.disconnect()。
+  const DEVICE_CMD_READ_TIMEOUT_MS=5000;
+  const DEVICE_CMD_DISCONNECT_DELAY_MS=2000;
+
+  // 通用 FFE2 readValue + 超时包装（与 FFE4 readOneFfe4Packet 同款 Promise.race 模式）
+  function readFfe2WithTimeout(ms){
+    return new Promise(resolve=>{
+      if(!ffe2Char || !ffe2Char.properties.read){ resolve(null); return; }
+      let settled=false;
+      const timer=setTimeout(()=>{
+        if(settled) return;
+        settled=true;
+        logCmd('读取超时', `> ${ms}ms 未收到应答`);
+        resolve(null);
+      }, ms);
+      ffe2Char.readValue().then(dv=>{
+        if(settled) return;
+        settled=true;
+        clearTimeout(timer);
+        resolve(dv);
+      }).catch(err=>{
+        if(settled) return;
+        settled=true;
+        clearTimeout(timer);
+        logCmd('读取失败', err.message);
+        resolve(null);
+      });
+    });
+  }
+
+  // 命令卡片结果区：一行状态文本（info 蓝 / ok 绿 / err 红），与 JNA_tools 的 cmd-result 同款
+  function setCmdResult(el, text, kind){
+    if(!el) return;
+    el.innerHTML='';
+    const div=document.createElement('div');
+    div.className='cmd-result-status'+(kind?' '+kind:'');
+    div.textContent=text;
+    el.appendChild(div);
+  }
+
+  // 发送一条设备控制命令并立即回读判断（结果同时写卡片 result 区与 cmdLog）
+  async function sendDeviceCmd(frame, label, resultEl){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', `${label}：FFE2 未就绪`);
+      setCmdResult(resultEl, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    logCmd('发送', `${label}：${frameToHex(frame)}`);
+    setCmdResult(resultEl, `${label} 命令已发送，等待应答...`, 'info');
+    const tWriteDone=performance.now();
     try{
       await ffe2Char.writeValue(frame.buffer);
     }catch(err){
       logCmd('发送失败', err.message);
+      setCmdResult(resultEl, `发送失败：${err.message}`, 'err');
       return;
     }
-    // 发送后 500ms 读取响应
-    setTimeout(async ()=>{
-      if(!ffe2Char||!ffe2Char.properties.read) return;
-      try{
-        const dv=await ffe2Char.readValue();
-        logCmd('读取', formatDataView(dv));
-        parseJncResponse(dv);
-      }catch(err){
-        logCmd('读取失败', err.message);
+    // 写后立即 readValue（无 sleep）
+    const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+    if(!dv){ setCmdResult(resultEl, `读取失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+    const tReadDone=performance.now();
+    const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+    logCmd('读取', `(${bytes.length}B · 用时 ${Math.round(tReadDone-tWriteDone)}ms) ${frameToHex(bytes)}`);
+    // 解析 8 字节应答：5B [X] 0A 08 02 12 [RESULT] 5D（不校验第2字节，参考 FFE2 旧策略）
+    // 重要：FFE2 特征值实际长度 31 字节，应答帧只占前 8 字节，其后是 0x00 填充。
+    // 因此帧尾必须按「帧头偏移 +7」校验，绝不能用 bytes[bytes.length-1]（那是填充的 0x00）。
+    let result=null;
+    for(let i=0; i<=bytes.length-8; i++){
+      if(bytes[i]===0x5B && bytes[i+2]===0x0A && bytes[i+3]===0x08 &&
+         bytes[i+4]===0x02 && bytes[i+5]===0x12 && bytes[i+7]===0x5D){
+        result=bytes[i+6];
+        break;
       }
-    },500);
-  }
-
-  function lockCmdBar(ms){
-    const barEls=[btnSetDetectTime,btnReboot,btnShutdown,btnLightC,btnLightB,btnLightT,detectTimeSelect];
-    barEls.forEach(el=>{el._prevDisabled=el.disabled; el.disabled=true;});
-    setTimeout(()=>{barEls.forEach(el=>{el.disabled=el._prevDisabled;});},ms);
-  }
-
-  async function sendSetDetectTime(minutes){
-    const data=[Number(minutes)&0xFF];
-    await writeCmd(buildFrame(0x01,0x02,data));
+    }
+    if(result!==null){
+      if(result===0x01){
+        logCmd('成功', `${label} 成功（设备返回 01），${DEVICE_CMD_DISCONNECT_DELAY_MS/1000}s 后断开 BLE`);
+        setCmdResult(resultEl, `${label} 成功（01），${DEVICE_CMD_DISCONNECT_DELAY_MS/1000}s 后断开 BLE`, 'ok');
+        setTimeout(()=>{
+          try{ device.gatt.disconnect(); }
+          catch(e){ console.warn('disconnect 失败:', e); }
+        }, DEVICE_CMD_DISCONNECT_DELAY_MS);
+      }else if(result===0x02){
+        logCmd('失败', `${label} 失败（设备返回 02）`);
+        setCmdResult(resultEl, `${label} 失败：设备返回 02`, 'err');
+      }else{
+        logCmd('异常', `${label} 应答字节=${result.toString(16).padStart(2,'0').toUpperCase()}`);
+        setCmdResult(resultEl, `${label} 异常：未知应答 ${result.toString(16).padStart(2,'0').toUpperCase()}`, 'err');
+      }
+    }else{
+      logCmd('异常', `应答格式不符：${frameToHex(bytes)}`);
+      setCmdResult(resultEl, `应答格式不符（${bytes.length}B）`, 'err');
+    }
   }
 
   async function sendReboot(){
     if(!confirm('确定要重启设备吗？')) return;
-    await writeCmd(buildFrame(0x02,0x02,[]));
+    await sendDeviceCmd(buildFrame(0x02, 0x02, [0x00]), '设备重启', resultDevice);
   }
 
   async function sendShutdown(){
     if(!confirm('确定要关闭设备吗？')) return;
-    await writeCmd(buildFrame(0x03,0x02,[]));
+    await sendDeviceCmd(buildFrame(0x02, 0x03, [0x00]), '设备关机', resultDevice);
   }
 
-  async function sendLight(lightId){
-    await writeCmd(buildFrame(0x07,lightId,[]));
-  }
-
+  // FFE2 命令收发日志：只写在「命令交互 (FFE2)」卡片内的 #cmdLog（不进 FFE1 的全局 rawLog）。
+  // direction 用中文，日志行颜色复用 logCategory 的 out/in/err/sys 四类（cmd-log 同为深色底，配色可通用）。
   function logCmd(direction, value){
     const now=new Date();
     const ts=now.toLocaleTimeString('zh-CN',{hour12:false})+'.'+String(now.getMilliseconds()).padStart(3,'0');
     const line=`[${direction} @ ${ts}] ${value}`;
-    const p=document.createElement('div');p.textContent=line;
-    cmdLog.appendChild(p);
+    const div=document.createElement('div');
+    div.className='log-line log-'+logCategory(direction);
+    div.textContent=line;
+    cmdLog.appendChild(div);
     cmdLog.scrollTop=cmdLog.scrollHeight;
+    // 同步控制台（与 FFE4 一致，方便 DevTools 里核对）
+    if(/失败|异常|超时|错误/.test(direction)) console.error('[FFE2] '+direction+' @ '+ts+':', value);
+    else if(direction==='发送') console.info('[FFE2] '+direction+' @ '+ts+':', value);
+    else console.log('[FFE2] '+direction+' @ '+ts+':', value);
   }
 
   function logCategory(prefix){
+    // 中文（FFE2 命令日志：logCmd）——按「包含」匹配，覆盖 发送失败 / 读取失败 / 读取超时 等组合前缀
+    if(prefix.includes('失败')||prefix.includes('异常')||prefix.includes('超时')||prefix.includes('错误')) return 'err';
+    if(prefix.includes('发送')||prefix.includes('成功')) return 'out';
+    if(prefix.includes('读取')||prefix.includes('接收')||prefix.includes('数据')) return 'in';
+    // 英文（全局日志：logToPanel / FFE4：logFfe4）
     if(prefix==='Req'||prefix==='Tx') return 'out';                          // 发送
     if(prefix==='Data'||prefix==='Raw'||prefix==='Notify'||prefix==='Rx') return 'in'; // 接收
     if(prefix==='Req-Err'||prefix==='Tx-Err'||prefix==='Rx-Err'||prefix==='Err'||prefix==='Timeout'||prefix==='CMD-Err') return 'err'; // 错误
@@ -1730,6 +1870,21 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     btnExportLog.disabled=true;
   });
 
+  // 单次测试按钮 hover：显示实际发送的 hex 与回读等待时间（跟随「等待(ms)」输入框实时更新）
+  function updateParseCmdTitles(){
+    const wait=getQueryTimeout();
+    btnQueryData.title = '发送: ' + frameToHex(buildFrame(0x04, 0x01, [0x01])) +
+                         '\n等待 ' + wait + 'ms 后回读响应，解析 12 通道数值';
+    btnIntegralSphereTest.title = '发送: ' + frameToHex(buildFrame(0x04, 0x01, [0x02])) +
+                                  '\n等待 ' + wait + 'ms 后回读响应，解析 12 通道数值';
+  }
+  queryTimeout.addEventListener('input', updateParseCmdTitles);
+  updateParseCmdTitles();
+  btnCopyData.title = '把 12 通道数值按所选格式（表格 4×3 / 数值 12×1）复制为 TSV，可直接粘贴到 Excel';
+  copyMode.addEventListener('change', ()=>{
+    btnCopyData.title = '把 12 通道数值按「' + copyMode.options[copyMode.selectedIndex].text +
+                        '」复制为 TSV，可直接粘贴到 Excel';
+  });
   btnQueryData.addEventListener('click', ()=>queryData(0x01));
 
   // ---- 复制解析数据为 Excel 兼容的 TSV ----
@@ -1772,17 +1927,37 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     setTimeout(()=>{btnCopyData.textContent=old;},1200);
   }
 
-  btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
-  btnSetDetectTime.addEventListener('click', ()=>{
-    const minutes=detectTimeSelect.value;
-    sendSetDetectTime(minutes);
+  // 通道1 (FFE1) 数据日志开关（默认隐藏，写在 FFE1 卡片内，行为同上）
+  btnFfe1LogToggle.addEventListener('click',()=>{
+    const willShow=!ffe1LogWrap.classList.contains('show');
+    ffe1LogWrap.classList.toggle('show',willShow);
+    btnFfe1LogToggle.textContent=willShow?'隐藏日志':'显示日志';
+    if(willShow) rawLog.scrollTop=rawLog.scrollHeight; // 展开时直接滚到最新一条
   });
+
+  btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
+  // 命令交互 (FFE2) 日志窗口开关（默认隐藏，行为与 FFE4 / 串口日志一致）
+  btnCmdLogToggle.addEventListener('click',()=>{
+    const willShow=!cmdLog.classList.contains('show');
+    cmdLog.classList.toggle('show',willShow);
+    btnCmdLogToggle.textContent=willShow?'隐藏日志':'显示日志';
+    if(willShow) cmdLog.scrollTop=cmdLog.scrollHeight; // 展开时直接滚到最新一条
+  });
+  // 命令卡片折叠 / 展开（与 JNA_tools 同款：点标题行切换，箭头旋转指示状态）
+  document.querySelectorAll('.cmd-card').forEach(card=>{
+    const title=card.querySelector('.cmd-card-title');
+    if(!title) return;
+    title.addEventListener('click',()=>{ card.classList.toggle('collapsed'); });
+  });
+  // 设备重启 / 设备关机：发送后立即 readValue，5s 超时；成功 2s 后自动断开 BLE
+  // hover 显示发送的 hex 与回读等待时间，方便核对协议与超时设置
+  btnReboot.title = '发送: ' + frameToHex(buildFrame(0x02, 0x02, [0x00])) +
+                    '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；成功 2s 后断开 BLE';
+  btnShutdown.title = '发送: ' + frameToHex(buildFrame(0x02, 0x03, [0x00])) +
+                      '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；成功 2s 后断开 BLE';
   btnReboot.addEventListener('click', sendReboot);
   btnShutdown.addEventListener('click', sendShutdown);
   btnIntegralSphereTest.addEventListener('click', ()=>queryData(0x02));
-  btnLightC.addEventListener('click', ()=>sendLight(0x01));
-  btnLightB.addEventListener('click', ()=>sendLight(0x02));
-  btnLightT.addEventListener('click', ()=>sendLight(0x03));
   btnCopyData.addEventListener('click', copyJncTable);
 
   btnExportLog.addEventListener('click',()=>{
