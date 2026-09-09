@@ -766,17 +766,33 @@ const Utils = {
     }
   }
 
-  // 在设备全部服务/特征中查找指定 UUID 的特征（FFE1 / FFE2 共用）
+  // 在设备全部服务/特征中查找指定 UUID 特征（FFE1 / FFE2 共用）。
+  // 部分设备 GATT 连接后首次枚举不全（Web Bluetooth 已知时序坑），加 3 次重试（间隔 300ms），
+  // 覆盖慢设备/冷启动。失败时把枚举到的所有 services/characteristics 详细打到 console 便于诊断。
   async function discoverChar(srv, uuid){
+    const uuidLower=uuid.toLowerCase();
+    const targetShort=uuidLower.slice(0,8);
+    for(let attempt=1; attempt<=3; attempt++){
+      try{
+        const services=await srv.getPrimaryServices();
+        for(const svc of services){
+          const chars=await svc.getCharacteristics();
+          const ch=chars.find(c=>c.uuid.toLowerCase()===uuidLower);
+          if(ch) return ch;
+        }
+      }catch(err){
+        console.warn('[JNB] 发现服务失败 (尝试 '+attempt+'):',err);
+      }
+      if(attempt<3) await new Promise(r=>setTimeout(r,300));
+    }
+    // 全部尝试失败：最后一次详细诊断，把设备实际广播的 GATT 列出来
     try{
       const services=await srv.getPrimaryServices();
-      for(const svc of services){
-        const chars=await svc.getCharacteristics();
-        const ch=chars.find(c=>c.uuid.toLowerCase()===uuid);
-        if(ch) return ch;
-      }
+      const list=services.map(s=>'  '+Utils.shortUuid(s.uuid)+' ['+s.uuid+']').join('\n');
+      console.warn('[JNB] FFE1 未找到，目标 UUID:', uuid, '目标 short:', targetShort);
+      console.warn('[JNB] 设备 GATT services 列表 ('+services.length+' 个):\n'+list);
     }catch(err){
-      console.warn('发现服务失败:',err);
+      console.warn('[JNB] 诊断枚举也失败:', err.message);
     }
     return null;
   }

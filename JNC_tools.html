@@ -76,7 +76,27 @@
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
   /* 串口区块：后半页（串口卡片 + 曲线图）的吸顶作用域 */
-  .serial-section{}
+  .serial-section{
+    background:var(--surface);
+    border:1.5px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    margin-top:20px;
+  }
+  .serial-section .serial-toolbar{
+    border:0;
+    border-radius:0;
+    box-shadow:none;
+    margin:0;
+  }
+  .serial-section .card{
+    background:transparent;
+    box-shadow:none;
+    border:0;
+    border-radius:0;
+    padding:16px 20px;
+  }
   /* 串口连接条：在整个后半页顶置；到达顶部时覆盖挤开 BLE 连接条（z-index 高于 BLE 条 50） */
   .serial-toolbar{
     position:sticky;top:0;z-index:60;
@@ -236,7 +256,7 @@
   .cmd-log:empty::before{content:'命令收发日志...';color:#a89f6a;}
 
   /* 数据曲线图（12×460） */
-  .chart-section{margin-top:16px;}
+  .chart-section{margin-top:20px;}
   /* 图表卡片标题右侧工具栏（复制按钮 + 结果提示），靠右排布 */
   .chart-title-right{margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .chart-copy-result{font-size:.825rem;color:var(--text-muted);}
@@ -661,9 +681,9 @@
       </div>
     </div>
   </div>
-  </div>
 
   <footer data-page-node-id="GtnCdnpiRJXvN93OT0Ifyy">JNC 工具 · FFE2 命令查询 · 数据均在本地处理</footer>
+</div>
 </div>
 
 <script>
@@ -1845,13 +1865,14 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     const tReadDone=performance.now();
     const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
     logCmd('读取', `(${bytes.length}B · 用时 ${Math.round(tReadDone-tWriteDone)}ms) ${frameToHex(bytes)}`);
-    // 解析 8 字节应答：5B [X] 0A 08 02 12 [RESULT] 5D（不校验第2字节，参考 FFE2 旧策略）
+    // 解析 8 字节应答：5B [X] 0A 08 [MAIN] 12 [RESULT] 5D（MAIN 取自发送帧 frame[4]，重启 0x02 / 关机 0x03）
     // 重要：FFE2 特征值实际长度 31 字节，应答帧只占前 8 字节，其后是 0x00 填充。
     // 因此帧尾必须按「帧头偏移 +7」校验，绝不能用 bytes[bytes.length-1]（那是填充的 0x00）。
+    const mainExpected=frame[4];
     let result=null;
     for(let i=0; i<=bytes.length-8; i++){
       if(bytes[i]===0x5B && bytes[i+2]===0x0A && bytes[i+3]===0x08 &&
-         bytes[i+4]===0x02 && bytes[i+5]===0x12 && bytes[i+7]===0x5D){
+         bytes[i+4]===mainExpected && bytes[i+5]===0x12 && bytes[i+7]===0x5D){
         result=bytes[i+6];
         break;
       }
@@ -1884,7 +1905,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
 
   async function sendShutdown(){
     if(!confirm('确定要关闭设备吗？')) return;
-    await sendDeviceCmd(buildFrame(0x02, 0x03, [0x00]), '设备关机', resultDevice);
+    await sendDeviceCmd(buildFrame(0x03, 0x02, [0x00]), '设备关机', resultDevice);
   }
 
   // FFE2 命令收发日志：只写在「命令交互 (FFE2)」卡片内的 #cmdLog（不进 FFE1 的全局 rawLog）。
@@ -2032,7 +2053,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // hover 显示发送的 hex 与回读等待时间，方便核对协议与超时设置
   btnReboot.title = '发送: ' + frameToHex(buildFrame(0x02, 0x02, [0x00])) +
                     '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；成功 2s 后断开 BLE';
-  btnShutdown.title = '发送: ' + frameToHex(buildFrame(0x02, 0x03, [0x00])) +
+  btnShutdown.title = '发送: ' + frameToHex(buildFrame(0x03, 0x02, [0x00])) +
                       '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；成功 2s 后断开 BLE';
   btnReboot.addEventListener('click', sendReboot);
   btnShutdown.addEventListener('click', sendShutdown);

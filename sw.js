@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jnx-tools-v2-44';
+const CACHE_NAME = 'jnx-tools-v2-48';
 const ASSETS = [
   './',
   './index.html',
