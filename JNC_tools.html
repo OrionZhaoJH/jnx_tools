@@ -708,6 +708,7 @@
       <span data-page-node-id="baRDWckkkwGspFJAfVibXS">数据曲线图 (12×460)</span>
       <span class="chart-title-right" data-page-node-id="HuChartTitleRight001">
         <button class="btn btn-sm" id="btnChartCopyData" disabled data-page-node-id="kjrB6FX7X0h8sbD6kD8RA4">复制 12×460 数据</button>
+        <button class="btn btn-warn btn-sm" id="btnChartClearData" type="button" disabled title="清空 4 张图的全部数据（只清网页侧已读取的数据，不影响设备 Flash）">清空</button>
         <span id="chartCopyResult" class="chart-copy-result" data-page-node-id="HuChartCopyResult001"></span>
       </span>
     </div>
@@ -808,6 +809,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const serialChannelResult=document.getElementById('serialChannelResult');
   // 数据曲线图 (12×460)：复制按钮与结果提示属于图表区，不再挂在串口工具栏下
   const btnChartCopyData=document.getElementById('btnChartCopyData');
+  const btnChartClearData=document.getElementById('btnChartClearData');
   const chartCopyResult=document.getElementById('chartCopyResult');
   // BLE FFE4 通道数据查询
   const ffe4Badge=document.getElementById('ffe4Badge');
@@ -1216,7 +1218,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     // 收齐 4 包 → 落盘 + 渲染
     const dataIdx = idx.row*3 + lineIndex;
     serialChannelData[dataIdx] = vals;
-    btnChartCopyData.disabled = false;
+    setChartButtonsEnabled(true);
     renderAllCharts();
     logFfe4('Data', `收到 ${label}：${vals.length} 笔数据`);
     return true;
@@ -1295,7 +1297,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     ffe4ChannelResult.textContent = failed.length
       ? `全部通道查询完成（用时 ${totalSec}s，失败：${failed.join('、')}）`
       : `全部通道查询完成（用时 ${totalSec}s）`;
-    btnChartCopyData.disabled=false;
+    setChartButtonsEnabled(true);
     bleFfe4QueryBusy=false;
     refreshFeatureState();
   }
@@ -1829,7 +1831,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         // 最后一包：合并完成，落盘到 serialChannelData，复用曲线图
         const idx=chIndex*3+lineIndex;
         serialChannelData[idx]=vals;
-        btnChartCopyData.disabled=false;
+        setChartButtonsEnabled(true);
         renderAllCharts();
         console.log('[Serial] 收到 '+label+'：'+vals.length+' 笔数据');
         serialChannelResult.textContent='收到 '+label+'：'+vals.length+' 笔数据';
@@ -2401,7 +2403,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     setSerialStatus('disconnected');
     btnSerialConnect.disabled=false;
     btnSerialDisconnect.disabled=true;
-    btnChartCopyData.disabled=true;
+    setChartButtonsEnabled(false);
     serialChannelResult.textContent='';
     clearSerialPending();
     refreshSerialFeatureState(); // 统一按「已断开」禁用发送/查询/清除按钮
@@ -2527,7 +2529,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }finally{
       // 必须放 finally：中途抛异常也要复位 busy 并恢复按钮，否则「获取通道数据」永久灰掉
       serialQueryBusy=false;
-      btnChartCopyData.disabled=false;
+      setChartButtonsEnabled(true);
       refreshSerialFeatureState(); // 恢复串口侧按钮
       refreshFeatureState();       // 恢复 FFE4 侧按钮
     }
@@ -2559,7 +2561,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       serialChannelResult.textContent='查询异常：'+(err && err.message ? err.message : err);
     }finally{
       // 同样必须放 finally：抛异常也要恢复按钮
-      btnChartCopyData.disabled=false;
+      setChartButtonsEnabled(true);
       refreshSerialFeatureState(); // 恢复串口侧按钮
       refreshFeatureState();       // 恢复 FFE4 侧按钮
     }
@@ -2594,6 +2596,27 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 复制按钮归属图表区（标题栏右侧），事件与 hover 提示都跟着放在这里
   btnChartCopyData.title='把 12 条线的 460 个采样点复制为 TSV（12 行 × 460 列，未读到的位置补 0），可直接粘贴到 Excel';
   btnChartCopyData.addEventListener('click', copyChartAllData);
+
+  // 「复制 / 清空」两个按钮的可用性始终同步：有数据才亮，清空后一起变灰
+  function setChartButtonsEnabled(hasData){
+    if(btnChartCopyData) btnChartCopyData.disabled=!hasData;
+    if(btnChartClearData) btnChartClearData.disabled=!hasData;
+  }
+
+  // 清空数据曲线图：只清网页侧已读取的数据（serialChannelData），
+  // 不向设备发任何指令，因此设备 Flash 里的历史数据不受影响。
+  function clearChartData(){
+    for(let i=0;i<serialChannelData.length;i++) serialChannelData[i]=[];
+    for(const item of chartCanvases) item.hoverIndex=null; // 顺带清掉悬停指示点
+    renderAllCharts();                    // 内含 updateChartResults，会刷掉各通道「收到 N 笔数据」提示
+    setChartButtonsEnabled(false);
+    if(chartCopyResult){
+      chartCopyResult.textContent='已清空';
+      clearTimeout(copyChartAllData._t);
+      copyChartAllData._t=setTimeout(()=>{ chartCopyResult.textContent=''; }, 2000);
+    }
+  }
+  btnChartClearData.addEventListener('click', clearChartData);
 
   // ---- 数据曲线图（4 组，每组 C/B/T 三条线，支持悬停提示）----
   const chartCanvases=[...document.querySelectorAll('.chart-card canvas')].map(c=>({
