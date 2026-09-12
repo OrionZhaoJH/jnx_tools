@@ -525,7 +525,7 @@
           <div class="rt-chart-head" id="rtChartHead" data-page-node-id="RtChartHead0001">
             <span class="rt-chart-title" data-page-node-id="RtChartTitle0001">实时数据曲线图（4 通道 · C / B / T）</span>
             <span class="rt-chart-actions" data-page-node-id="RtChartActions001">
-              <span class="rt-chart-hint" id="rtChartHint" data-page-node-id="RtChartHint0001">等待「正在检测」…</span>
+              <span class="rt-chart-hint" id="rtChartHint" data-page-node-id="RtChartHint0001">等待数据…</span>
               <button class="btn btn-sm" id="btnRtChartClear" type="button" data-page-node-id="RtChartClearBtn01">清空</button>
               <span class="toggle-arrow" data-page-node-id="RtChartArrow0001">▾</span>
             </span>
@@ -1563,9 +1563,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
 
   // ---- 实时数据曲线图（FFE1 跟踪卡片底部）----
   // 4 个槽位各一张图，每张画 C / B / T 三条线；
-  // 仅当槽位状态为「正在检测」(0x01) 时推进数据，其余状态（未启动/完成/超时/故障）保持不变。
+  // 记录分两阶段：未加样期（0x00）记本底，转入「正在检测」(0x01) 时裁掉只留最后 10 点，之后继续记。
   const RT_MAX_POINTS=300;                                  // 每条线滚动窗口上限
   const RT_SAMPLE_PACKETS=2;                                // 每 2 包记一次（FFE1 每 1s 一包 → 对应 C/B/T 每 2s 刷新）
+  const RT_PRE_KEEP=10;                                     // 未加样期数据在转入「正在检测」时保留的最后点数
+  const RT_ST_IDLE=0x00;                                    // 未启动（即「未加样」）
+  const RT_ST_DETECTING=0x01;                               // 正在检测
   const RT_SERIES_NAMES=['C','B','T'];
   const RT_SERIES_COLORS=['#ef4444','#3b82f6','#22c55e'];   // 与「数据曲线图 (12×460)」配色一致
   const rtChartSection=document.getElementById('rtChartSection');
@@ -1575,21 +1578,31 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const rtChartCanvases=[0,1,2,3].map(i=>document.getElementById('rtChartCanvas'+i));
   let rtChartData=[[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]; // [槽位][C/B/T] = 数值数组
   let rtRafId=0;
-  let rtChartPacketCount=0;                                 // 「有槽位在检测」的帧计数（4 槽位共享同一计数）
+  let rtChartPacketCount=0;                                 // 「有槽位可记录」的帧计数（4 槽位共享同一计数）
+  let rtSlotArmed=[true,true,true,true];                    // 该槽位是否仍处于「未加样」待记录阶段（true=未加样期数据会记入曲线）
+  let rtChartMark=[null,null,null,null];                    // 「加样时刻」在曲线上的点索引（= 未加样期保留下来的点数），用于画分界线
 
   // 按「包计数」采样，而不是按时间窗口：
   //   FFE1 每 1s 读一包，设备 C/B/T 每 2s 刷新一次 → 每 2 包记一次。
   //   原先按 Date.now() 的 2000ms 窗口判断，轮询抖动（BLE 读取耗时 + 定时器漂移）会让某次
   //   间隔略小于 2000ms 而被跳过，跳过的包累积后就变成「3 包才采一次」——观察到的「3s 才变一次」，
   //   与设备真实刷新错位。改计数后严格每 2 包一次，与 FFE1 上报节奏天然对齐。
-  // 仅推进状态为「正在检测」(0x01) 的槽位，其余槽位保持不动。
+  // 记录规则（两阶段）：
+  //   1) 未加样期（status=0x00 且该槽位尚未进入过检测）：也记入曲线，作为加样前的本底/基线。
+  //   2) 转入「正在检测」(0x01) 的那一拍：把未加样期的数据裁掉，只保留最后 RT_PRE_KEEP 个点
+  //      （不足 10 个按实际数量保留），之后继续正常推进。
+  //      之后该槽位 armed 置 false —— 检测结束再回到 0x00 也不再记录，避免把上一轮的
+  //      检测曲线当成"基线"误裁。想重新采集需点「清空」。
   function pushRtChartFrame(p){
-    // 本帧没有任何槽位在检测：完全不计数（计数与检测过程对齐，避免检测开始时相位错位）
-    let anyDetecting=false;
+    // 本帧没有任何槽位处于可记录状态（未加样 且 armed / 正在检测）：完全不计数，
+    // 保证采样相位与设备刷新节奏对齐（与之前「只有检测中才计数」同理）
+    let anyRecordable=false;
     for(let i=0;i<4;i++){
-      if(p.slots[i] && p.slots[i].status===0x01){ anyDetecting=true; break; }
+      const s=p.slots[i];
+      if(!s) continue;
+      if(s.status===RT_ST_DETECTING || (s.status===RT_ST_IDLE && rtSlotArmed[i])){ anyRecordable=true; break; }
     }
-    if(!anyDetecting) return;
+    if(!anyRecordable) return;
 
     rtChartPacketCount++;
     if(rtChartPacketCount < RT_SAMPLE_PACKETS) return;      // 未到第 2 包
@@ -1597,23 +1610,51 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
 
     for(let i=0;i<4;i++){
       const s=p.slots[i];
-      if(!s || s.status!==0x01) continue;                   // 0x01 = 正在检测
-      const c=p.cbt[i]||[0,0,0];
+      if(!s) continue;
+      const detecting = (s.status===RT_ST_DETECTING);
+      const preSample = (s.status===RT_ST_IDLE && rtSlotArmed[i]);
+      if(!detecting && !preSample) continue;
+
       const dst=rtChartData[i];
+
+      // 未加样 → 正在检测 的跃迁：裁剪，只保留未加样期最后 RT_PRE_KEEP 个点
+      if(detecting && rtSlotArmed[i]){
+        let kept=0;
+        for(let k=0;k<3;k++){
+          if(dst[k].length>RT_PRE_KEEP) dst[k]=dst[k].slice(dst[k].length-RT_PRE_KEEP);
+          if(k===0) kept=dst[0].length;
+        }
+        rtSlotArmed[i]=false;
+        rtChartMark[i]=kept;                                // 加样时刻落在第 kept 个点上
+        console.log('[RT] 通道'+(i+1)+' 转入检测：未加样期保留 '+kept+' 点，之前数据已舍去');
+      }
+
+      const c=p.cbt[i]||[0,0,0];
+      let shifted=false;
       for(let k=0;k<3;k++){
         dst[k].push(Number(c[k])||0);
-        if(dst[k].length>RT_MAX_POINTS) dst[k].shift();
+        if(dst[k].length>RT_MAX_POINTS){ dst[k].shift(); if(k===0) shifted=true; }
       }
+      // 滚动窗口顶掉旧点时，加样标记索引同步左移
+      if(shifted && rtChartMark[i]!==null) rtChartMark[i]=Math.max(0, rtChartMark[i]-1);
     }
   }
 
   function updateRtChartHint(p){
     if(!rtChartHint) return;
-    let detecting=0;
-    for(let i=0;i<4;i++) if(p.slots[i] && p.slots[i].status===0x01) detecting++;
-    const n=rtChartData[0][0].length;
+    let detecting=0, pre=0;
+    for(let i=0;i<4;i++){
+      const s=p.slots[i];
+      if(!s) continue;
+      if(s.status===RT_ST_DETECTING) detecting++;
+      else if(s.status===RT_ST_IDLE && rtSlotArmed[i]) pre++;
+    }
+    // 点数取 4 槽位中最大的一条线（各槽位独立推进）
+    let n=0;
+    for(let i=0;i<4;i++){ const L=rtChartData[i][0].length; if(L>n) n=L; }
     if(detecting>0) rtChartHint.textContent='检测中 '+detecting+' 通道 · 已采 '+n+' 点';
-    else rtChartHint.textContent = n>0 ? ('已暂停 · 共 '+n+' 点') : '等待「正在检测」…';
+    else if(pre>0)  rtChartHint.textContent='未加样 · 基线 '+n+' 点（转入检测后仅保留最后 '+RT_PRE_KEEP+' 点）';
+    else rtChartHint.textContent = n>0 ? ('已暂停 · 共 '+n+' 点') : '等待数据…';
   }
 
   function drawRtChart(slot){
@@ -1667,7 +1708,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
 
     if(!anyData){
       ctx.fillStyle='#cbd5e1'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('等待「正在检测」数据…', PAD.L+plotW/2, PAD.T+plotH/2);
+      ctx.fillText('等待数据…', PAD.L+plotW/2, PAD.T+plotH/2);
       return;
     }
 
@@ -1683,6 +1724,19 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
       }
       ctx.stroke();
+    }
+
+    // 「加样时刻」分界线：左侧为未加样本底，右侧为检测数据
+    const mark=rtChartMark[slot];
+    if(mark!==null && N>1 && mark>=0 && mark<N){
+      const xm=PAD.L + mark/(N-1)*plotW;
+      ctx.save();
+      ctx.strokeStyle='#f59e0b'; ctx.setLineDash([4,3]); ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(xm,PAD.T); ctx.lineTo(xm,PAD.T+plotH); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle='#f59e0b'; ctx.font='10px sans-serif';
+      ctx.textAlign='left'; ctx.textBaseline='top';
+      ctx.fillText('加样', xm+3, PAD.T+2);
+      ctx.restore();
     }
   }
 
@@ -1707,7 +1761,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       e.stopPropagation();
       rtChartData=[[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]];
       rtChartPacketCount=0;                    // 复位帧计数，清空后重新从第 1 包开始数
-      if(rtChartHint) rtChartHint.textContent='等待「正在检测」…';
+      rtSlotArmed=[true,true,true,true];       // 重新允许未加样期记录
+      rtChartMark=[null,null,null,null];       // 清掉加样分界线
+      if(rtChartHint) rtChartHint.textContent='等待数据…';
       drawAllRtCharts();
     });
   }
