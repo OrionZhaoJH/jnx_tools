@@ -257,6 +257,25 @@
 
   /* 数据曲线图（12×460） */
   .chart-section{margin-top:20px;}
+  /* 实时数据曲线图（FFE1 跟踪卡片底部）：4 槽位各一张，默认折叠 */
+  .rt-chart-section{margin-top:16px;border-top:1.5px solid var(--border);padding-top:12px;}
+  .rt-chart-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:6px 8px;margin:0 -8px;border-radius:8px;cursor:pointer;user-select:none;}
+  .rt-chart-head:hover{background:var(--accent-soft);}
+  .rt-chart-title{font-weight:600;font-size:.9rem;color:var(--text);}
+  .rt-chart-actions{margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .rt-chart-hint{font-size:.8rem;color:var(--text-muted);}
+  .rt-chart-section.collapsed .rt-chart-grid{display:none;}
+  .rt-chart-section.collapsed .toggle-arrow{transform:rotate(-90deg);}
+  .rt-chart-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px;align-items:start;}
+  @media(min-width:780px){ .rt-chart-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .rt-chart-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;}
+  .rt-chart-card-title{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    font-size:.8rem;font-weight:600;color:var(--text-muted);border-bottom:1.5px solid var(--border);}
+  .rt-legend{margin-left:auto;display:inline-flex;align-items:center;gap:10px;font-weight:400;}
+  .rt-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:3px;vertical-align:middle;}
+  .rt-chart-card-body{padding:6px;}
+  .rt-chart-card-body canvas{width:100%;height:190px;display:block;}
   /* 图表卡片标题右侧工具栏（复制按钮 + 结果提示），靠右排布 */
   .chart-title-right{margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .chart-copy-result{font-size:.825rem;color:var(--text-muted);}
@@ -494,6 +513,36 @@
           <div class="field-box" data-key="version" data-page-node-id="75099tVbTOx7Im07cjmMDI"><div class="field-label" data-page-node-id="NYNZV2vgAw4a2iX1XYQiU0">版本号</div><div class="field-raw" data-page-node-id="HVgj2BB1oBSGgx4RwwfyGY">--</div><div class="field-value" data-page-node-id="2QKAGCGiCpWsNX9BQXWjVE">--</div></div>
         </div>
         <div id="fte1Empty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;" data-page-node-id="Ns5szTTCGXYojz3zEEb35Z">连接设备后点击「开始更新」跟踪通道1状态</div>
+
+        <!-- 实时数据曲线图（FFE1）：4 槽位各一张，仅在槽位状态为「正在检测」(0x01) 时推进数据；默认折叠 -->
+        <div class="rt-chart-section collapsed" id="rtChartSection" data-page-node-id="RtChartSection0001">
+          <div class="rt-chart-head" id="rtChartHead" data-page-node-id="RtChartHead0001">
+            <span class="rt-chart-title" data-page-node-id="RtChartTitle0001">实时数据曲线图（4 通道 · C / B / T）</span>
+            <span class="rt-chart-actions" data-page-node-id="RtChartActions001">
+              <span class="rt-chart-hint" id="rtChartHint" data-page-node-id="RtChartHint0001">等待「正在检测」…</span>
+              <button class="btn btn-sm" id="btnRtChartClear" type="button" data-page-node-id="RtChartClearBtn01">清空</button>
+              <span class="toggle-arrow" data-page-node-id="RtChartArrow0001">▾</span>
+            </span>
+          </div>
+          <div class="rt-chart-grid" id="rtChartGrid" data-page-node-id="RtChartGrid0001">
+            <div class="rt-chart-card" data-page-node-id="RtChartCard0">
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl0"><span data-page-node-id="RtChartCardName0">通道1</span><span class="rt-legend" data-page-node-id="RtLegend0"><span data-page-node-id="RtLegC0"><i style="background:#ef4444" data-page-node-id="RtLegCI0"></i>C</span><span data-page-node-id="RtLegB0"><i style="background:#3b82f6" data-page-node-id="RtLegBI0"></i>B</span><span data-page-node-id="RtLegT0"><i style="background:#22c55e" data-page-node-id="RtLegTI0"></i>T</span></span></div>
+              <div class="rt-chart-card-body" data-page-node-id="RtChartBody0"><canvas id="rtChartCanvas0" data-slot="0" data-page-node-id="RtCanvas0"></canvas></div>
+            </div>
+            <div class="rt-chart-card" data-page-node-id="RtChartCard1">
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl1"><span data-page-node-id="RtChartCardName1">通道2</span><span class="rt-legend" data-page-node-id="RtLegend1"><span data-page-node-id="RtLegC1"><i style="background:#ef4444" data-page-node-id="RtLegCI1"></i>C</span><span data-page-node-id="RtLegB1"><i style="background:#3b82f6" data-page-node-id="RtLegBI1"></i>B</span><span data-page-node-id="RtLegT1"><i style="background:#22c55e" data-page-node-id="RtLegTI1"></i>T</span></span></div>
+              <div class="rt-chart-card-body" data-page-node-id="RtChartBody1"><canvas id="rtChartCanvas1" data-slot="1" data-page-node-id="RtCanvas1"></canvas></div>
+            </div>
+            <div class="rt-chart-card" data-page-node-id="RtChartCard2">
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl2"><span data-page-node-id="RtChartCardName2">通道3</span><span class="rt-legend" data-page-node-id="RtLegend2"><span data-page-node-id="RtLegC2"><i style="background:#ef4444" data-page-node-id="RtLegCI2"></i>C</span><span data-page-node-id="RtLegB2"><i style="background:#3b82f6" data-page-node-id="RtLegBI2"></i>B</span><span data-page-node-id="RtLegT2"><i style="background:#22c55e" data-page-node-id="RtLegTI2"></i>T</span></span></div>
+              <div class="rt-chart-card-body" data-page-node-id="RtChartBody2"><canvas id="rtChartCanvas2" data-slot="2" data-page-node-id="RtCanvas2"></canvas></div>
+            </div>
+            <div class="rt-chart-card" data-page-node-id="RtChartCard3">
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl3"><span data-page-node-id="RtChartCardName3">通道4</span><span class="rt-legend" data-page-node-id="RtLegend3"><span data-page-node-id="RtLegC3"><i style="background:#ef4444" data-page-node-id="RtLegCI3"></i>C</span><span data-page-node-id="RtLegB3"><i style="background:#3b82f6" data-page-node-id="RtLegBI3"></i>B</span><span data-page-node-id="RtLegT3"><i style="background:#22c55e" data-page-node-id="RtLegTI3"></i>T</span></span></div>
+              <div class="rt-chart-card-body" data-page-node-id="RtChartBody3"><canvas id="rtChartCanvas3" data-slot="3" data-page-node-id="RtCanvas3"></canvas></div>
+            </div>
+          </div>
+        </div>
 
         <!-- 数据日志（FFE1）：默认隐藏，由标题栏「显示日志/隐藏日志」按钮开关 -->
         <div id="ffe1LogWrap" data-page-node-id="JcFfe1LogWrap0001">
@@ -846,6 +895,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const serialChannelData=new Array(12).fill(null).map(()=>[]);
   let channelPendingQuery=null; // {code, label, chIndex, lineIndex, packetIndex, vals, timer, resolve, transport:'serial'|'ble', onComplete:fn, onTimeout:fn}
   let serialQueryBusy=false; // 串口批量全部查询进行中，防止重复触发
+  let serialClearBusy=false; // 串口「清除数据」进行中（供 refreshSerialFeatureState 恢复按钮用）
   let bleFfe4QueryBusy=false; // BLE FFE4 单次/批量进行中
   // 每包 2 秒；4 包合计最多 8 秒（任意一包未在时限内到达就超时）
   const SERIAL_QUERY_TIMEOUT_MS=2000;      // 串口：单包 2s（设备响应快）
@@ -1000,6 +1050,18 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       ffe4Badge.className='feature-badge '+(ffe4Ready?'ready':'locked');
       ffe4Badge.textContent=ffe4Ready?(ffe4Busy?'查询中…':'已就绪'):'未就绪';
     }
+  }
+
+  // 串口侧控件状态：与 BLE 的 refreshFeatureState 对称。
+  // 关键：任何「查询结束/超时/失败」的收尾处都要调用它，否则按钮会被永久禁用
+  // （曾出现「获取通道数据只能用一次，之后一直灰色」——只禁用不恢复）。
+  function refreshSerialFeatureState(){
+    const ready=!!(serialPort && serialPort.writable);
+    const busy=!!(serialQueryBusy || (channelPendingQuery && channelPendingQuery.transport==='serial'));
+    if(btnSerialSend) btnSerialSend.disabled=!ready;
+    if(serialChannelSelect) serialChannelSelect.disabled=!ready||busy;
+    if(btnSerialQueryChannel) btnSerialQueryChannel.disabled=!ready||busy;
+    if(btnSerialClearData) btnSerialClearData.disabled=!ready||serialClearBusy;
   }
 
   // ---- 特征发现（FFE2 复用，参照 JNA 的 discoverChar）----
@@ -1388,6 +1450,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       return;
     }
     const be16=(o)=>(dv.getUint8(o)<<8) | dv.getUint8(o+1);
+    // C/B/T 与「回读 flash」同源：都是固件用 uint16 存的 (ADC - 校准值)，
+    // ADC < 校准值时下溢成 0xFFFF 之类。必须按 int16 解释（≥0x8000 减 0x10000），
+    // 否则负数会显示成 65xxx、把实时曲线 Y 轴顶到 65535，与 flash 图形状对不上。
+    const s16=(o)=>{ const u=be16(o); return u>=0x8000 ? u-0x10000 : u; };
     const slots=[];
     for(let i=0;i<4;i++){
       const b=i*7;
@@ -1396,10 +1462,14 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
     const cbt=[[0,0,0],[0,0,0],[0,0,0],[0,0,0]];
     if(dv.byteLength >= 71){
+      const rawHex=[];
       for(let i=0;i<4;i++){
         const o = 47 + i*6;
-        cbt[i] = [be16(o), be16(o+2), be16(o+4)]; // [C, B, T]
+        cbt[i] = [s16(o), s16(o+2), s16(o+4)]; // [C, B, T]（有符号，与 flash 回读一致）
+        rawHex.push([be16(o),be16(o+2),be16(o+4)].map(u=>u.toString(16).padStart(4,'0')).join('/'));
       }
+      // 诊断：同时打印原始 uint16 与有符号解释，便于核对设备实际字节
+      console.log('[FFE1] CBT raw/signed:', rawHex.map((h,i)=>'CH'+(i+1)+'['+h+'→'+cbt[i].join(',')+']').join(' '));
     }
     const data={
       slots,
@@ -1453,6 +1523,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       fte1LastSlots[i]={};
       for(const f of fields) fte1LastSlots[i][f.k]=f.val;
     }
+    // 实时曲线：C/B/T 每 2s 刷新一次，整帧统一采样（仅「正在检测」的槽位推进）
+    pushRtChartFrame(p);
 
     const setField=(key, val)=>{
       const el=document.querySelector('#fte1Extras .field-box[data-key="'+key+'"]');
@@ -1473,7 +1545,165 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     };
     setField('timer', p.timer);
     setField('version', p.version);
+    // 实时曲线：刷新状态提示并调度重绘（rAF 节流）
+    updateRtChartHint(p);
+    scheduleRtChartRedraw();
   }
+
+  // ---- 实时数据曲线图（FFE1 跟踪卡片底部）----
+  // 4 个槽位各一张图，每张画 C / B / T 三条线；
+  // 仅当槽位状态为「正在检测」(0x01) 时推进数据，其余状态（未启动/完成/超时/故障）保持不变。
+  const RT_MAX_POINTS=300;                                  // 每条线滚动窗口上限
+  const RT_SAMPLE_PACKETS=2;                                // 每 2 包记一次（FFE1 每 1s 一包 → 对应 C/B/T 每 2s 刷新）
+  const RT_SERIES_NAMES=['C','B','T'];
+  const RT_SERIES_COLORS=['#ef4444','#3b82f6','#22c55e'];   // 与「数据曲线图 (12×460)」配色一致
+  const rtChartSection=document.getElementById('rtChartSection');
+  const rtChartHead=document.getElementById('rtChartHead');
+  const rtChartHint=document.getElementById('rtChartHint');
+  const btnRtChartClear=document.getElementById('btnRtChartClear');
+  const rtChartCanvases=[0,1,2,3].map(i=>document.getElementById('rtChartCanvas'+i));
+  let rtChartData=[[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]; // [槽位][C/B/T] = 数值数组
+  let rtRafId=0;
+  let rtChartPacketCount=0;                                 // 「有槽位在检测」的帧计数（4 槽位共享同一计数）
+
+  // 按「包计数」采样，而不是按时间窗口：
+  //   FFE1 每 1s 读一包，设备 C/B/T 每 2s 刷新一次 → 每 2 包记一次。
+  //   原先按 Date.now() 的 2000ms 窗口判断，轮询抖动（BLE 读取耗时 + 定时器漂移）会让某次
+  //   间隔略小于 2000ms 而被跳过，跳过的包累积后就变成「3 包才采一次」——观察到的「3s 才变一次」，
+  //   与设备真实刷新错位。改计数后严格每 2 包一次，与 FFE1 上报节奏天然对齐。
+  // 仅推进状态为「正在检测」(0x01) 的槽位，其余槽位保持不动。
+  function pushRtChartFrame(p){
+    // 本帧没有任何槽位在检测：完全不计数（计数与检测过程对齐，避免检测开始时相位错位）
+    let anyDetecting=false;
+    for(let i=0;i<4;i++){
+      if(p.slots[i] && p.slots[i].status===0x01){ anyDetecting=true; break; }
+    }
+    if(!anyDetecting) return;
+
+    rtChartPacketCount++;
+    if(rtChartPacketCount < RT_SAMPLE_PACKETS) return;      // 未到第 2 包
+    rtChartPacketCount=0;                                   // 复位计数
+
+    for(let i=0;i<4;i++){
+      const s=p.slots[i];
+      if(!s || s.status!==0x01) continue;                   // 0x01 = 正在检测
+      const c=p.cbt[i]||[0,0,0];
+      const dst=rtChartData[i];
+      for(let k=0;k<3;k++){
+        dst[k].push(Number(c[k])||0);
+        if(dst[k].length>RT_MAX_POINTS) dst[k].shift();
+      }
+    }
+  }
+
+  function updateRtChartHint(p){
+    if(!rtChartHint) return;
+    let detecting=0;
+    for(let i=0;i<4;i++) if(p.slots[i] && p.slots[i].status===0x01) detecting++;
+    const n=rtChartData[0][0].length;
+    if(detecting>0) rtChartHint.textContent='检测中 '+detecting+' 通道 · 已采 '+n+' 点';
+    else rtChartHint.textContent = n>0 ? ('已暂停 · 共 '+n+' 点') : '等待「正在检测」…';
+  }
+
+  function drawRtChart(slot){
+    const canvas=rtChartCanvases[slot];
+    if(!canvas || rtChartSection.classList.contains('collapsed')) return; // 折叠时不绘制
+    const dpr=window.devicePixelRatio||1;
+    const cssW=canvas.clientWidth||canvas.parentElement.clientWidth||280;
+    const cssH=canvas.clientHeight||190;
+    canvas.width=Math.round(cssW*dpr);
+    canvas.height=Math.round(cssH*dpr);
+    const ctx=canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle='#fbfdff'; ctx.fillRect(0,0,cssW,cssH);
+
+    const PAD={L:40,R:10,T:10,B:20};
+    const plotW=cssW-PAD.L-PAD.R, plotH=cssH-PAD.T-PAD.B;
+    const series=rtChartData[slot].map((arr,k)=>({name:RT_SERIES_NAMES[k], arr, color:RT_SERIES_COLORS[k]}));
+
+    // Y 轴范围（与既有图表同款：下界钉 0，上界留 5% 余量）
+    let ymin=Infinity, ymax=-Infinity, anyData=false;
+    for(const s of series){
+      if(s.arr.length){ anyData=true; for(const v of s.arr){ if(v<ymin) ymin=v; if(v>ymax) ymax=v; } }
+    }
+    if(!anyData){ ymin=0; ymax=1; }
+    if(ymin===ymax){ ymin-=1; ymax+=1; }
+    const range=ymax-ymin;
+    // 注意：C/B/T 可能为负（ADC<校准值），下界不能再钉死 0，否则负值被画到绘图区外看不见
+    ymin-=range*0.05; ymax+=range*0.05;
+
+    // 网格 + Y 轴刻度
+    ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif'; ctx.lineWidth=1;
+    const yTicks=4;
+    for(let t=0;t<=yTicks;t++){
+      const yy=PAD.T+plotH*t/yTicks;
+      ctx.beginPath(); ctx.moveTo(PAD.L,yy); ctx.lineTo(PAD.L+plotW,yy); ctx.stroke();
+      const val=ymax-(ymax-ymin)*t/yTicks;
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(Math.round(val).toString(), PAD.L-6, yy);
+    }
+    // 0 基准线（数据跨正负时标出来，方便与 flash 图对比）
+    if(ymin<0 && ymax>0){
+      const y0=PAD.T+plotH*(1-(0-ymin)/(ymax-ymin));
+      ctx.save(); ctx.strokeStyle='#cbd5e1'; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(PAD.L,y0); ctx.lineTo(PAD.L+plotW,y0); ctx.stroke(); ctx.restore();
+    }
+    // X 轴刻度（0 与当前点数）
+    const N=rtChartData[slot][0].length;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('0', PAD.L, PAD.T+plotH+5);
+    if(N>0) ctx.fillText(String(N), PAD.L+plotW, PAD.T+plotH+5);
+
+    if(!anyData){
+      ctx.fillStyle='#cbd5e1'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('等待「正在检测」数据…', PAD.L+plotW/2, PAD.T+plotH/2);
+      return;
+    }
+
+    // 三条曲线
+    ctx.lineWidth=1.6; ctx.lineJoin='round';
+    for(const s of series){
+      if(!s.arr.length) continue;
+      ctx.strokeStyle=s.color;
+      ctx.beginPath();
+      for(let i=0;i<s.arr.length;i++){
+        const x = s.arr.length>1 ? PAD.L + i/(s.arr.length-1)*plotW : PAD.L;
+        const y = PAD.T + plotH*(1-(s.arr[i]-ymin)/(ymax-ymin));
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawAllRtCharts(){ for(let i=0;i<4;i++) drawRtChart(i); }
+
+  // rAF 节流：高频包到达时每帧最多重绘一次，避免 4 张图重复绘制
+  function scheduleRtChartRedraw(){
+    if(rtRafId) return;
+    rtRafId=requestAnimationFrame(()=>{ rtRafId=0; drawAllRtCharts(); });
+  }
+
+  // 折叠 / 展开（点「清空」按钮不触发折叠）
+  if(rtChartHead){
+    rtChartHead.addEventListener('click', (e)=>{
+      if(e.target===btnRtChartClear) return;
+      rtChartSection.classList.toggle('collapsed');
+      if(!rtChartSection.classList.contains('collapsed')) drawAllRtCharts();
+    });
+  }
+  if(btnRtChartClear){
+    btnRtChartClear.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      rtChartData=[[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]];
+      rtChartPacketCount=0;                    // 复位帧计数，清空后重新从第 1 包开始数
+      if(rtChartHint) rtChartHint.textContent='等待「正在检测」…';
+      drawAllRtCharts();
+    });
+  }
+  // 布局变化（画布宽度随窗口/断点改变）时重绘
+  window.addEventListener('resize', ()=>{
+    if(!rtChartSection.classList.contains('collapsed')) scheduleRtChartRedraw();
+  });
 
   function formatDataView(dv){
     const arr=[];
@@ -1616,6 +1846,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       if(channelPendingQuery.resolve) channelPendingQuery.resolve(result!==false);
       channelPendingQuery=null;
     }
+    // 统一收尾：无论成功/超时/失败，都要重算按钮可用性，否则按钮会一直灰着
+    refreshSerialFeatureState();
+    refreshFeatureState();
   }
 
   // 向后兼容：旧名仍可调用
@@ -2115,10 +2348,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       setSerialStatus('connected');
       btnSerialConnect.disabled=true;
       btnSerialDisconnect.disabled=false;
-      btnSerialSend.disabled=false;
-      serialChannelSelect.disabled=false;
-      btnSerialQueryChannel.disabled=false;
-      btnSerialClearData.disabled=false;
+      refreshSerialFeatureState(); // 统一按「已连接」启用发送/查询/清除按钮
       serialKeepReading=true;
       serialBuf=[];
       readLoop();
@@ -2171,13 +2401,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     setSerialStatus('disconnected');
     btnSerialConnect.disabled=false;
     btnSerialDisconnect.disabled=true;
-    btnSerialSend.disabled=true;
-    serialChannelSelect.disabled=true;
-    btnSerialQueryChannel.disabled=true;
     btnChartCopyData.disabled=true;
-    btnSerialClearData.disabled=true;
     serialChannelResult.textContent='';
     clearSerialPending();
+    refreshSerialFeatureState(); // 统一按「已断开」禁用发送/查询/清除按钮
     serialBuf=[];
   }
 
@@ -2282,20 +2509,28 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     const names=['C1','B1','T1','C2','B2','T2','C3','B3','T3','C4','B4','T4'];
     serialChannelResult.textContent='开始批量查询 12 通道（每通道最多 3 次）...';
     console.log('[Serial] 开始批量查询 12 通道');
-    for(let i=0;i<codes.length;i++){
-      const code=codes[i];
-      let ok=false;
-      for(let attempt=1; attempt<=3 && !ok; attempt++){
-        serialChannelResult.textContent='正在查询 '+names[i]+'（第 '+attempt+'/3 次）';
-        ok=await queryChannel(code);
-        if(!ok) console.warn('[Serial] '+names[i]+' 第 '+attempt+' 次未收到应答');
+    try{
+      for(let i=0;i<codes.length;i++){
+        const code=codes[i];
+        let ok=false;
+        for(let attempt=1; attempt<=3 && !ok; attempt++){
+          serialChannelResult.textContent='正在查询 '+names[i]+'（第 '+attempt+'/3 次）';
+          ok=await queryChannel(code);
+          if(!ok) console.warn('[Serial] '+names[i]+' 第 '+attempt+' 次未收到应答');
+        }
+        if(ok) console.log('[Serial] '+names[i]+' 完成');
       }
-      if(ok) console.log('[Serial] '+names[i]+' 完成');
+      serialChannelResult.textContent='全部通道查询完成';
+    }catch(err){
+      console.error('[Serial] 批量查询异常:', err);
+      serialChannelResult.textContent='批量查询异常：'+(err && err.message ? err.message : err);
+    }finally{
+      // 必须放 finally：中途抛异常也要复位 busy 并恢复按钮，否则「获取通道数据」永久灰掉
+      serialQueryBusy=false;
+      btnChartCopyData.disabled=false;
+      refreshSerialFeatureState(); // 恢复串口侧按钮
+      refreshFeatureState();       // 恢复 FFE4 侧按钮
     }
-    serialChannelResult.textContent='全部通道查询完成';
-    serialQueryBusy=false;
-    btnChartCopyData.disabled=false;
-    refreshFeatureState(); // 统一由 refreshFeatureState 决定 FFE4 按钮可用性
   }
 
   async function sendSerialChannelQuery(){
@@ -2317,9 +2552,17 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     if(isNaN(code)) return;
     btnSerialQueryChannel.disabled=true;
     btnFfe4QueryChannel.disabled=true;
-    await queryChannel(code);
-    btnChartCopyData.disabled=false;
-    refreshFeatureState(); // 统一由 refreshFeatureState 决定两个查询按钮的可用性
+    try{
+      await queryChannel(code);
+    }catch(err){
+      console.error('[Serial] 单通道查询异常:', err);
+      serialChannelResult.textContent='查询异常：'+(err && err.message ? err.message : err);
+    }finally{
+      // 同样必须放 finally：抛异常也要恢复按钮
+      btnChartCopyData.disabled=false;
+      refreshSerialFeatureState(); // 恢复串口侧按钮
+      refreshFeatureState();       // 恢复 FFE4 侧按钮
+    }
   }
 
   // 复制 12 行 × 460 列数据（每条线完整 460 个采样点）；未读取到的位置用 0 填充
@@ -2412,7 +2655,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     if(!anyData){ ymin=0; ymax=1; }
     if(ymin===ymax){ ymin-=1; ymax+=1; }
     const range=ymax-ymin;
-    ymin=0; ymax+=range*0.05;
+    // 注意：C/B/T 可能为负（ADC<校准值），下界不能再钉死 0，否则负值被画到绘图区外看不见
+    ymin-=range*0.05; ymax+=range*0.05;
 
     // 网格 + y 轴刻度
     ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif'; ctx.lineWidth=1;
@@ -2423,6 +2667,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       const val=ymax-(ymax-ymin)*t/yTicks;
       ctx.textAlign='right'; ctx.textBaseline='middle';
       ctx.fillText(Math.round(val).toString(), CHART_PAD.L-6, yy);
+    }
+    // 0 基准线（数据跨正负时标出来，方便与实时曲线对比）
+    if(ymin<0 && ymax>0){
+      const y0=CHART_PAD.T+geom.plotH*(1-(0-ymin)/(ymax-ymin));
+      ctx.save(); ctx.strokeStyle='#cbd5e1'; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(CHART_PAD.L,y0); ctx.lineTo(CHART_PAD.L+geom.plotW,y0); ctx.stroke(); ctx.restore();
     }
     // x 轴刻度
     ctx.textAlign='center'; ctx.textBaseline='top';
@@ -2706,6 +2956,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     if(!serialPort||!serialPort.writable) return;
     const frame=buildFrame(0xA0, 0x02, [0x00]);
     const snapshotLen=serialBuf.length; // 仅扫描本次发送之后的字节，避免吃到旧帧
+    serialClearBusy=true;
     btnSerialClearData.disabled=true;
     btnSerialClearData.textContent='清除中...';
     try{
@@ -2738,7 +2989,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       serialChannelResult.textContent='发送失败：'+err.message;
     }finally{
       btnSerialClearData.textContent='清除数据';
-      btnSerialClearData.disabled=false;
+      serialClearBusy=false;
+      refreshSerialFeatureState(); // 异常路径也要恢复按钮
     }
   });
   serialSend.addEventListener('keydown', e=>{ if(e.key==='Enter') sendSerial(); });
