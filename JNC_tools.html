@@ -278,7 +278,13 @@
   .rt-chart-card-body canvas{width:100%;height:190px;display:block;}
   /* 图表卡片标题右侧工具栏（复制按钮 + 结果提示），靠右排布 */
   .chart-title-right{margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;}
-  .chart-copy-result{font-size:.825rem;color:var(--text-muted);}
+  .chart-copy-result{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .chart-copy-result.ok{color:#16a34a;}
+  .chart-copy-result.err{color:#dc2626;}
+  /* 单次测试卡片内「复制数据」按钮右侧的结果提示（成功绿 / 失败红） */
+  .inline-copy-result{font-size:.825rem;color:var(--text-muted);white-space:nowrap;align-self:center;}
+  .inline-copy-result.ok{color:#16a34a;}
+  .inline-copy-result.err{color:#dc2626;}
   .chart-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:4px;align-items:start;}
   @media(min-width:780px){ .chart-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .chart-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;transition:border-color .2s,box-shadow .2s;}
@@ -599,6 +605,7 @@
                 <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">数值(12×1)</option>
               </select>
               <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
+              <span id="copyDataResult" class="inline-copy-result" data-page-node-id="JcCopyDataResult001"></span>
             </div>
             <div class="cmd-card-body" data-page-node-id="JcParseCard0009">
               <div id="jncTableWrap" style="display:none;" data-page-node-id="sISxN6622get3ne0qPpCTw">
@@ -655,7 +662,7 @@
           <option value="0x43" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHv">T4</option>
         </select>
         <button class="btn btn-primary btn-sm" id="btnFfe4QueryChannel" disabled data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHw">获取通道数据</button>
-        <button class="btn btn-warn btn-sm" id="btnFfe4ClearData" disabled title="发送主指令 0xA0 从指令 0x02 清空设备历史数据，写后 500ms 回读 8B 应答帧" data-page-node-id="HuFfe4ClearData001">清除数据</button>
+        <button class="btn btn-warn btn-sm" id="btnFfe4ClearData" disabled title="经 FFE4 通道发送主指令 0xA0 从指令 0x02 清空设备历史数据，写后 500ms 回读 8B 应答帧" data-page-node-id="HuFfe4ClearData001">清除数据</button>
         <span id="ffe4ChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHx"></span>
       </div>
       <div class="cmd-log" id="ffe4Log" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHy"></div>
@@ -790,8 +797,9 @@ const Utils = {
   const btnReboot=document.getElementById('btnReboot');
   const btnShutdown=document.getElementById('btnShutdown');
   const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
-  const btnCopyData=document.getElementById('btnCopyData');
-  const copyMode=document.getElementById('copyMode');
+const btnCopyData=document.getElementById('btnCopyData');
+const copyDataResult=document.getElementById('copyDataResult'); // 复制结果提示（按钮右侧）
+const copyMode=document.getElementById('copyMode');
   // 串口 (Web Serial)
   const serialWarning=document.getElementById('serialWarning');
   const serialBaud=document.getElementById('serialBaud');
@@ -819,7 +827,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const ffe4ChannelResult=document.getElementById('ffe4ChannelResult');
   const ffe4Log=document.getElementById('ffe4Log');
   const btnFfe4LogToggle=document.getElementById('btnFfe4LogToggle');
-  // 通道数据查询 (FFE4) 卡片内放置的「清除数据」按钮：走 FFE2 命令通道发 0xA0/0x02，写后 500ms 读 8B 应答
+  // 通道数据查询 (FFE4) 卡片内的「清除数据」按钮：**走 FFE4 通道**发 0xA0/0x02，写后 500ms 读 8B 应答。
+  // 与卡片所在通道保持一致（此前走 FFE2，与按钮位置不符，已按用户要求改为 FFE4）。
   const btnFfe4ClearData=document.getElementById('btnFfe4ClearData');
   const ffe4Controls=[ffe4QueryDelay,ffe4ChannelSelect,btnFfe4QueryChannel,btnFfe4ClearData];
   // 通道1 (FFE1 跟踪)
@@ -1881,6 +1890,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
 
   function updateJncTable(values){
+    // 新结果到达时清掉上一次的复制提示，避免误以为当前数据已复制
+    if(copyDataResult){ copyDataResult.textContent=''; copyDataResult.className='inline-copy-result'; }
     if(jncTableWrap.style.display==='none'){
       jncTableWrap.style.display='block';
       jncFieldsEmpty.style.display='none';
@@ -2018,9 +2029,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 写后等 500ms 立即 readValue ffe2Char，解析 8B 应答 (5B 0D 0A 08 A0 12 [01/02] 5D)。
   // 与串口 btnSerialClearData 行为完全一致：成功→01，失败→02，超时/格式不符→告警。
   async function sendFfe4ClearData(){
-    if(!ffe2Char || !device || !device.gatt.connected){
-      logFfe4('失败', '清除数据：FFE2 未就绪');
-      ffe4ChannelResult.textContent='FFE2 未就绪，无法发送清除命令';
+    if(!ffe4Char || !device || !device.gatt.connected){
+      logFfe4('失败', '清除数据：FFE4 未就绪');
+      ffe4ChannelResult.textContent='FFE4 未就绪，无法发送清除命令';
       return;
     }
     const frame=buildFrame(0xA0, 0x02, [0x00]);
@@ -2029,7 +2040,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     logFfe4('发送', '清除数据：'+frameToHex(frame));
     ffe4ChannelResult.textContent='清除数据已发送，等待 500ms 后回读...';
     try{
-      await ffe2Char.writeValue(frame.buffer);
+      await ffe4Char.writeValue(frame.buffer);
     }catch(err){
       logFfe4('失败', '清除数据 发送失败：'+err.message);
       ffe4ChannelResult.textContent='发送失败：'+err.message;
@@ -2038,19 +2049,19 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       return;
     }
     await new Promise(r=>setTimeout(r, 500));
-    if(!ffe2Char || !device || !device.gatt.connected){
+    if(!ffe4Char || !device || !device.gatt.connected){
       ffe4ChannelResult.textContent='设备已断开，测试中止';
       btnFfe4ClearData.textContent='清除数据';
       btnFfe4ClearData.disabled=false;
       return;
     }
     try{
-      if(!ffe2Char.properties.read){
-        logFfe4('失败', '清除数据：FFE2 不支持 read');
-        ffe4ChannelResult.textContent='FFE2 不支持 read，无法回读响应';
+      if(!ffe4Char.properties.read){
+        logFfe4('失败', '清除数据：FFE4 不支持 read');
+        ffe4ChannelResult.textContent='FFE4 不支持 read，无法回读响应';
         return;
       }
-      const dv=await ffe2Char.readValue();
+      const dv=await ffe4Char.readValue();
       const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
       let result=null;
       for(let i=0; i<=bytes.length-8; i++){
@@ -2065,6 +2076,11 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         ffe4ChannelResult.textContent='清除数据 成功（设备返回 01）';
       }else if(result===0x02){
         ffe4ChannelResult.textContent='清除数据 失败（设备返回 02）';
+      }else if(bytes.length>32){
+        // FFE4 是数据查询通道，readValue 典型回 237B 通道帧。
+        // 若读到的仍是大数据帧，说明设备没有在 FFE4 上应答这条命令（特征值未更新），
+        // 而不是"格式不符"——给出明确诊断，便于判断固件是否只在 FFE2 侧处理 0xA0。
+        ffe4ChannelResult.textContent='FFE4 未返回清除应答（读到 '+bytes.length+'B 通道数据帧，设备可能未在 FFE4 处理 0xA0）';
       }else{
         ffe4ChannelResult.textContent='清除数据 应答格式不符（'+dv.byteLength+'B）';
       }
@@ -2257,9 +2273,13 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         document.body.removeChild(ta);
       }catch(e){ ok=false; }
     }
-    const old=btnCopyData.textContent;
-    btnCopyData.textContent=ok?'已复制 ✓':'复制失败';
-    setTimeout(()=>{btnCopyData.textContent=old;},1200);
+    // 提示写在按钮右侧的 #copyDataResult，不再改写按钮自身文字（避免点击时按钮跳动）
+    if(copyDataResult){
+      copyDataResult.textContent=ok?'已复制 ✓':'复制失败';
+      copyDataResult.className='inline-copy-result '+(ok?'ok':'err');
+      clearTimeout(copyJncTable._t);
+      copyJncTable._t=setTimeout(()=>{ copyDataResult.textContent=''; copyDataResult.className='inline-copy-result'; }, 2000);
+    }
   }
 
   // 通道1 (FFE1) 数据日志开关（默认隐藏，写在 FFE1 卡片内，行为同上）
@@ -2568,6 +2588,17 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
 
   // 复制 12 行 × 460 列数据（每条线完整 460 个采样点）；未读取到的位置用 0 填充
+  // 图表标题栏结果提示（复制按钮右侧）：kind = ok(绿) / err(红) / 空(灰)，autoClearMs 后自动消失
+  function setChartCopyResult(text, kind, autoClearMs){
+    if(!chartCopyResult) return;
+    chartCopyResult.textContent=text||'';
+    chartCopyResult.className='chart-copy-result'+(kind?' '+kind:'');
+    clearTimeout(copyChartAllData._t);
+    if(text && autoClearMs) copyChartAllData._t=setTimeout(()=>{
+      chartCopyResult.textContent=''; chartCopyResult.className='chart-copy-result';
+    }, autoClearMs);
+  }
+
   // 归属：数据曲线图 (12×460) 卡片 —— 结果提示写图表标题栏的 #chartCopyResult
   async function copyChartAllData(){
     const rows=[];
@@ -2582,16 +2613,14 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     const text=rows.join('\n');
     try{
       await navigator.clipboard.writeText(text);
-      chartCopyResult.textContent='已复制 12×460 数据到剪贴板';
+      setChartCopyResult('已复制 12×460 数据到剪贴板', 'ok', 2500);
     }catch(err){
       const ta=document.createElement('textarea');
       ta.value=text; document.body.appendChild(ta); ta.select();
-      try{ document.execCommand('copy'); chartCopyResult.textContent='已复制 12×460 数据'; }
-      catch(e2){ chartCopyResult.textContent='复制失败：'+e2.message; }
+      try{ document.execCommand('copy'); setChartCopyResult('已复制 12×460 数据', 'ok', 2500); }
+      catch(e2){ setChartCopyResult('复制失败：'+e2.message, 'err', 4000); }
       document.body.removeChild(ta);
     }
-    clearTimeout(copyChartAllData._t);
-    copyChartAllData._t=setTimeout(()=>{ chartCopyResult.textContent=''; }, 2500);
   }
   // 复制按钮归属图表区（标题栏右侧），事件与 hover 提示都跟着放在这里
   btnChartCopyData.title='把 12 条线的 460 个采样点复制为 TSV（12 行 × 460 列，未读到的位置补 0），可直接粘贴到 Excel';
@@ -2610,11 +2639,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     for(const item of chartCanvases) item.hoverIndex=null; // 顺带清掉悬停指示点
     renderAllCharts();                    // 内含 updateChartResults，会刷掉各通道「收到 N 笔数据」提示
     setChartButtonsEnabled(false);
-    if(chartCopyResult){
-      chartCopyResult.textContent='已清空';
-      clearTimeout(copyChartAllData._t);
-      copyChartAllData._t=setTimeout(()=>{ chartCopyResult.textContent=''; }, 2000);
-    }
+    setChartCopyResult('已清空', '', 2000);
   }
   btnChartClearData.addEventListener('click', clearChartData);
 
