@@ -126,6 +126,8 @@
   /* 通道1 (FFE1) 数据日志：默认隐藏，由卡片标题栏按钮开关（同上） */
   #ffe1LogWrap{display:none;margin-top:14px;}
   #ffe1LogWrap.show{display:block;}
+  /* FFE1 收包计数：日志隐藏时也能看出「在收数 / 停了」 */
+  .ffe1-pkt-count{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
   .log-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
   /* 命令卡片（与 JNA_tools 同款）：网格排布 + 标题点击折叠/展开 */
   .cmd-grid{
@@ -465,6 +467,7 @@
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
           <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled data-page-node-id="40n34YLtfBClQQwMYuiGBb">开始更新</button>
           <button class="btn btn-sm" id="btnFfe1LogToggle" type="button" data-page-node-id="Qb2Ffe1LogToggle01">显示日志</button>
+          <span id="ffe1PktCount" class="ffe1-pkt-count" data-page-node-id="Qb2Ffe1PktCount01">已收 0 包</span>
           <span class="feature-badge locked" id="ffe1Badge" data-page-node-id="qm1YphzFL0HLuSGMZpiWZs">未就绪</span>
           </div>
         </div>
@@ -837,6 +840,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Slots=document.getElementById('fte1Slots');
   const fte1Extras=document.getElementById('fte1Extras');
   const ffe1LogWrap=document.getElementById('ffe1LogWrap');
+  const ffe1PktCount=document.getElementById('ffe1PktCount');
+  let ffe1PktTotal=0;                          // 累计收包数（日志隐藏时也可见的收数反馈）
   const btnFfe1LogToggle=document.getElementById('btnFfe1LogToggle');
   const fte1Empty=document.getElementById('fte1Empty');
 
@@ -1379,6 +1384,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     if(ffe1FeedActive) return;
     if(!ffe1Char && server) await discoverFFE1(server);
     if(!ffe1Char) return;
+    ffe1PktTotal=0;                            // 重新开始跟踪时计数归零
+    if(ffe1PktCount) ffe1PktCount.textContent='已收 0 包';
     const shortU=Utils.shortUuid(FFE1_SERVICE);
     const target=ffe1Char;
     // 优先 notify（事件驱动），不支持则回退到 1000ms 轮询
@@ -1461,6 +1468,15 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       return;
     }
     const be16=(o)=>(dv.getUint8(o)<<8) | dv.getUint8(o+1);
+    // 每包原始数据写进 FFE1 日志面板（面板默认隐藏，点标题栏「显示日志」查看）。
+    // 之前只更新槽位卡片、不写日志，所以点「开始更新」后日志里只有「已开启通知订阅」一行。
+    logToPanel('Rx', Utils.shortUuid(FFE1_SERVICE), dvToHex(dv)+'  ('+dv.byteLength+'B)');
+    ffe1PktTotal++;
+    if(ffe1PktCount){
+      const n=new Date();
+      ffe1PktCount.textContent='已收 '+ffe1PktTotal+' 包 · 最新 '+
+        n.toLocaleTimeString('zh-CN',{hour12:false});
+    }
     // C/B/T 与「回读 flash」同源：都是固件用 uint16 存的 (ADC - 校准值)，
     // ADC < 校准值时下溢成 0xFFFF 之类。必须按 int16 解释（≥0x8000 减 0x10000），
     // 否则负数会显示成 65xxx、把实时曲线 Y 轴顶到 65535，与 flash 图形状对不上。
@@ -1787,6 +1803,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
 
   function frameToHex(frame){
     return Array.from(frame,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  }
+
+  // DataView → 大写 hex 串（用于把 FFE1 每包原始数据打进日志；不依赖可打印性判断）
+  function dvToHex(dv){
+    const arr=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+    return Array.from(arr,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
   }
 
   // ---- JNC 数据请求 + 响应解析 ----
