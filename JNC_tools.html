@@ -650,10 +650,35 @@
             <div class="cmd-result" id="resultParse" data-page-node-id="JcParseCard000A"><div class="cmd-result-empty" data-page-node-id="JcParseCard000B">等待测试...</div></div>
           </div>
 
+          <!-- 读取结果 -->
+          <div class="cmd-card collapsed" data-page-node-id="JcReadResCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcReadResCard0002"><span data-page-node-id="JcReadResCard0003">读取结果</span><span class="toggle-arrow" data-page-node-id="JcReadResCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcReadResCard0005">通过 FFE2 发送主 0x05 / 从 0x01，读取 4 通道结果（数据域 16 字节 = 4 × 4 字节，小端还原为 float）。发送后立即读取。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcReadResCard0006">
+              <button class="btn btn-primary btn-sm" id="btnReadResult" data-page-node-id="JcReadResCard0007">读取结果</button>
+              <button class="btn btn-sm" id="btnCopyResult" disabled data-page-node-id="JcReadResCard0008">复制</button>
+              <span id="resultCopyHint" class="inline-copy-result" data-page-node-id="JcReadResCard0009"></span>
+            </div>
+            <div class="cmd-card-body" data-page-node-id="JcReadResCard000A">
+              <div id="resultTableWrap" style="display:none;" data-page-node-id="JcReadResCard000B">
+                <table class="channel-table" data-page-node-id="JcReadResCard000C">
+                  <thead data-page-node-id="JcReadResCard000D">
+                    <tr data-page-node-id="JcReadResCard000E"><th data-page-node-id="JcReadResCard000F">通道</th><th data-page-node-id="JcReadResCard0010">结果</th><th data-page-node-id="JcReadResCard0011">原始 4 字节</th></tr>
+                  </thead>
+                  <tbody id="resultTableBody" data-page-node-id="JcReadResCard0012"></tbody>
+                </table>
+              </div>
+              <div id="resultTableEmpty" style="color:var(--text-light);text-align:center;padding:18px 0;font-size:.85rem;" data-page-node-id="JcReadResCard0013">
+                点击「读取结果」后将显示 4 通道结果
+              </div>
+            </div>
+            <div class="cmd-result" id="resultRead" data-page-node-id="JcReadResCard0014"><div class="cmd-result-empty" data-page-node-id="JcReadResCard0015">等待操作...</div></div>
+          </div>
+
           <!-- 读取 MAC -->
           <div class="cmd-card collapsed" data-page-node-id="JcReadMacCard0001">
             <div class="cmd-card-title" data-page-node-id="JcReadMacCard0002"><span data-page-node-id="JcReadMacCard0003">读取 MAC</span><span class="toggle-arrow" data-page-node-id="JcReadMacCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcReadMacCard0005">通过 FFE2 发送主 0xA1 / 从 0x01，读取设备 MAC 地址（6 字节，高位在前）。应答帧长度以帧内长度字段为准（实测 LL=0x0F），解析按「帧内长度」定位帧尾，不按收到长度推断。</div>
+            <div class="cmd-card-desc" data-page-node-id="JcReadMacCard0005">通过 FFE2 发送主 0xA1 / 从 0x01，读取设备 MAC 地址（6 字节，高位在前）。发送后立即读取。</div>
             <div class="cmd-card-actions" data-page-node-id="JcReadMacCard0006">
               <button class="btn btn-primary btn-sm" id="btnReadMac" data-page-node-id="JcReadMacCard0007">读取 MAC 地址</button>
               <button class="btn btn-sm" id="btnCopyMac" disabled data-page-node-id="JcReadMacCard0008">复制</button>
@@ -665,7 +690,7 @@
           <!-- 读取 SN -->
           <div class="cmd-card collapsed" data-page-node-id="JcReadSnCard0001">
             <div class="cmd-card-title" data-page-node-id="JcReadSnCard0002"><span data-page-node-id="JcReadSnCard0003">读取 SN</span><span class="toggle-arrow" data-page-node-id="JcReadSnCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcReadSnCard0005">通过 FFE2 发送主 0xA2 / 从 0x01，读取设备 SN (12字节)。应答帧长度以帧内长度字段为准（协议表写 0x15），数据域尾部 0x00 自动裁掉；可打印 ASCII 原样显示，否则显示 hex。</div>
+            <div class="cmd-card-desc" data-page-node-id="JcReadSnCard0005">通过 FFE2 发送主 0xA2 / 从 0x01，读取设备 SN (12字节)。发送后立即读取。</div>
             <div class="cmd-card-actions" data-page-node-id="JcReadSnCard0006">
               <button class="btn btn-primary btn-sm" id="btnReadSn" data-page-node-id="JcReadSnCard0007">读取 SN</button>
               <button class="btn btn-sm" id="btnCopySn" disabled data-page-node-id="JcReadSnCard0008">复制</button>
@@ -857,6 +882,14 @@ const Utils = {
   const snCopyResult=document.getElementById('snCopyResult');   // 复制结果提示（按钮右侧）
   const resultSn=document.getElementById('resultSn');           // 「读取 SN」命令卡片的结果区
   let lastSnStr='';                                             // 最近一次读到的 SN（供复制使用）
+  const btnReadResult=document.getElementById('btnReadResult');
+  const btnCopyResult=document.getElementById('btnCopyResult');
+  const resultCopyHint=document.getElementById('resultCopyHint'); // 复制结果提示（按钮右侧）
+  const resultRead=document.getElementById('resultRead');        // 「读取结果」命令卡片的结果区
+  const resultTableWrap=document.getElementById('resultTableWrap');
+  const resultTableBody=document.getElementById('resultTableBody');
+  const resultTableEmpty=document.getElementById('resultTableEmpty');
+  let lastResultStr='';                                          // 最近一次的结果（供复制使用）
   const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
 const btnCopyData=document.getElementById('btnCopyData');
 const copyDataResult=document.getElementById('copyDataResult'); // 复制结果提示（按钮右侧）
@@ -904,7 +937,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnReadMac,btnReadSn];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnReadMac,btnReadSn,btnReadResult];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -1066,6 +1099,13 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     lastSnStr='';
     btnCopySn.disabled=true;
     if(typeof setCmdResult==='function') setCmdResult(resultSn,'等待操作...','');
+    // 复位「读取结果」卡片：断开后旧结果失效
+    lastResultStr='';
+    btnCopyResult.disabled=true;
+    resultTableBody.innerHTML='';
+    resultTableWrap.style.display='none';
+    resultTableEmpty.style.display='block';
+    if(typeof setCmdResult==='function') setCmdResult(resultRead,'等待操作...','');
     if(typeof setCmdResult==='function') setCmdResult(resultParse,'等待测试...','');
     channelRows.forEach(r=>{
       for(const line of LINES){
@@ -2531,6 +2571,81 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
   }
 
+  // ---- FFE2 命令：读取结果 ----
+  // 协议（JNC 命令交互表格）：
+  //   发送：5B 0D 0A 08 05 01 00 5D（主 0x05 / 从 0x01，data 字节固定 00 占位）
+  //   应答：5B 0D 0A 17 05 11 [DATA×16] 5D（23 字节，长度字段 0x17）
+  // 数据域 16 字节 = 4 通道 × 4 字节；每 4 字节按小端（低字节在前）还原为一个 float
+  //   （固件侧即 jieguo[0..3] = byte_arr[0..3] 的联合体写法，同一 4 字节的 u32 位模式就是 float）。
+  // 长度仍以帧内 LL 为准（findFfe2Reply），不按收到长度推断。
+  const RESULT_CH=4, RESULT_BYTES=RESULT_CH*4;
+  function fmtFloat(v){
+    if(!Number.isFinite(v)) return String(v);   // NaN / Infinity 原样显示
+    return v.toFixed(6);
+  }
+  async function readDeviceResult(){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', '读取结果：FFE2 未就绪');
+      setCmdResult(resultRead, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    const frame=buildFrame(0x05, 0x01, [0x00]);
+    btnReadResult.disabled=true;
+    btnReadResult.textContent='读取中...';
+    logCmd('发送', '读取结果：'+frameToHex(frame));
+    setCmdResult(resultRead, '结果读取命令已发送，等待应答...', 'info');
+    const tWriteDone=performance.now();
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+      // 写后立即 readValue（与设备控制 / 读取 MAC / 读取 SN 同款）
+      const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+      if(!dv){ setCmdResult(resultRead, `读取失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+      const tReadDone=performance.now();
+      const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+      logCmd('读取', `(${bytes.length}B · 用时 ${Math.round(tReadDone-tWriteDone)}ms) ${frameToHex(bytes)}`);
+      // 解析：按协议用帧内长度字段定位帧（主 0x05 / 从 0x11）
+      const reply=findFfe2Reply(bytes, 0x05, 0x11);
+      if(!reply || reply.data.length<RESULT_BYTES){
+        logCmd('异常', '应答格式不符：'+frameToHex(bytes));
+        setCmdResult(resultRead, `应答格式不符（${bytes.length}B，数据域 ${reply?reply.data.length:0}B < ${RESULT_BYTES}B）`, 'err');
+        return;
+      }
+      // 每 4 字节一组（小端）还原：u32 位模式 → float
+      const view=new DataView(reply.data.buffer, reply.data.byteOffset, reply.data.byteLength);
+      const rows=[];
+      for(let i=0;i<RESULT_CH;i++){
+        rows.push({
+          i,
+          u: view.getUint32(i*4, true),
+          f: view.getFloat32(i*4, true),
+          hex: frameToHex(reply.data.slice(i*4, i*4+4))
+        });
+      }
+      resultTableBody.innerHTML='';
+      rows.forEach(r=>{
+        const tr=document.createElement('tr');
+        const td1=document.createElement('td'); td1.textContent='结果'+(r.i+1);
+        const td2=document.createElement('td'); td2.textContent=fmtFloat(r.f);
+        const td3=document.createElement('td'); td3.textContent=r.hex;
+        tr.append(td1,td2,td3);
+        resultTableBody.appendChild(tr);
+        logCmd('数据', `结果${r.i+1} = ${fmtFloat(r.f)}（u32 ${r.u} / ${r.hex}）`);
+      });
+      resultTableWrap.style.display='block';
+      resultTableEmpty.style.display='none';
+      lastResultStr=rows.map(r=>fmtFloat(r.f)).join('\n');
+      btnCopyResult.disabled=false;
+      setCmdResult(resultRead, `读取成功（帧长 ${reply.frameLen}B / 数据域 ${reply.data.length}B）`, 'ok');
+    }catch(err){
+      logCmd('失败', '读取结果失败：'+err.message);
+      setCmdResult(resultRead, '读取失败：'+err.message, 'err');
+    }finally{
+      btnReadResult.textContent='读取结果';
+      refreshFeatureState(); // 统一恢复禁用状态（含 btnReadResult），避免按钮卡死
+    }
+  }
+  function copyResultStr(){ copyTextWithHint(lastResultStr, resultCopyHint); }
+
   // FFE2 命令收发日志：只写在「命令交互 (FFE2)」卡片内的 #cmdLog（不进 FFE1 的全局 rawLog）。
   // direction 用中文，日志行颜色复用 logCategory 的 out/in/err/sys 四类（cmd-log 同为深色底，配色可通用）。
   function logCmd(direction, value){
@@ -2696,6 +2811,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
                     '应答: 5B 0D 0A [LL] A2 11 [SN] ... 5D（LL 由设备给出；尾部 0x00 裁掉）';
   btnReadSn.addEventListener('click', readDeviceSn);
   btnCopySn.addEventListener('click', copySnAddr);
+  // 读取结果：hover 显示发送的 hex 与应答帧格式
+  btnReadResult.title = '发送: ' + frameToHex(buildFrame(0x05, 0x01, [0x00])) +
+                        '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
+                        '应答: 5B 0D 0A [LL] 05 11 [DATA×16] 5D（数据域 16B = 4 × 小端 float）';
+  btnReadResult.addEventListener('click', readDeviceResult);
+  btnCopyResult.addEventListener('click', copyResultStr);
   btnIntegralSphereTest.addEventListener('click', ()=>queryData(0x02));
   btnCopyData.addEventListener('click', copyJncTable);
 
