@@ -458,7 +458,7 @@
 
   <header data-page-node-id="pD60nS9z3xrEzYOvMzAVV2">
     <h1 data-page-node-id="l0Y1WoSjOzRqaKquCRSMoD"><span class="icon" data-page-node-id="R6X6wPbCZAe6z1qjCFqany">🛰️</span> JNC 工具</h1>
-    <p data-page-node-id="GZ5AuqGB0KiErXfgbAa7eV">连接 JNC 开头的 BLE 设备，在「命令交互 (FFE2)」的「单次测试」卡片中点击「普通测试」或「积分球测试」，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
+    <p data-page-node-id="GZ5AuqGB0KiErXfgbAa7eV">连接 JNC 开头的 BLE 设备，在「命令交互 (FFE2)」的「单次测试」卡片中点击「普通」或「积分球」，通过 FFE2 发送测试命令，等待一段时间后读取响应并解析 12 通道数据。</p>
   </header>
 
   <div class="ble-warning" id="bleWarning" data-page-node-id="OmKEHqCkojSB0WFF68GpLI">
@@ -644,7 +644,7 @@
                 </table>
               </div>
               <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:18px 0;font-size:.85rem;" data-page-node-id="OpMXyDBb70IXo9bR1BZHYe">
-                点击「普通测试」或「积分球测试」后将显示 12 通道解析结果
+                点击「普通」或「积分球」后将显示 12 通道解析结果
               </div>
             </div>
             <div class="cmd-result" id="resultParse" data-page-node-id="JcParseCard000A"><div class="cmd-result-empty" data-page-node-id="JcParseCard000B">等待测试...</div></div>
@@ -665,7 +665,7 @@
           <!-- 读取 SN -->
           <div class="cmd-card collapsed" data-page-node-id="JcReadSnCard0001">
             <div class="cmd-card-title" data-page-node-id="JcReadSnCard0002"><span data-page-node-id="JcReadSnCard0003">读取 SN</span><span class="toggle-arrow" data-page-node-id="JcReadSnCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcReadSnCard0005">通过 FFE2 发送主 0xA2 / 从 0x01，读取设备 SN。应答帧长度以帧内长度字段为准（协议表写 0x15），数据域尾部 0x00 自动裁掉；可打印 ASCII 原样显示，否则显示 hex。</div>
+            <div class="cmd-card-desc" data-page-node-id="JcReadSnCard0005">通过 FFE2 发送主 0xA2 / 从 0x01，读取设备 SN (12字节)。应答帧长度以帧内长度字段为准（协议表写 0x15），数据域尾部 0x00 自动裁掉；可打印 ASCII 原样显示，否则显示 hex。</div>
             <div class="cmd-card-actions" data-page-node-id="JcReadSnCard0006">
               <button class="btn btn-primary btn-sm" id="btnReadSn" data-page-node-id="JcReadSnCard0007">读取 SN</button>
               <button class="btn btn-sm" id="btnCopySn" disabled data-page-node-id="JcReadSnCard0008">复制</button>
@@ -2217,8 +2217,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     querying=false;
     if(queryReadTimer) clearTimeout(queryReadTimer);
     queryReadTimer=null;
-    btnQueryData.textContent='普通测试';
-    btnIntegralSphereTest.textContent='积分球测试';
+    btnQueryData.textContent='普通';
+    btnIntegralSphereTest.textContent='积分球';
     refreshFeatureState();
   }
 
