@@ -30,6 +30,38 @@
   }
   .nav-back:hover{color:var(--accent);}
 
+  /* ---- Sticky top bar（与 JNA / JNA_Plus / JNB / JNC 工具统一：
+       左「返回首页」+ 滚动后收进来的标题，右「连接/断开/清除缓存」；滚动后毛玻璃 ----） */
+  .topbar{
+    position:sticky;top:0;z-index:70;
+    display:flex;align-items:center;justify-content:space-between;gap:10px 12px;
+    flex-wrap:wrap;
+    padding:10px 0;margin:0 0 16px;
+    background:transparent;
+    transition:background .3s ease,box-shadow .3s ease,padding .3s ease,margin .3s ease,border-radius .3s ease;
+  }
+  .topbar.scrolled{
+    background:rgba(245,247,250,.88);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 1px 0 rgba(15,23,42,.08);
+    padding:8px 14px;margin:0 -14px 16px;border-radius:12px;
+  }
+  .topbar-left{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto;}
+  .topbar-left .nav-back{margin-bottom:0;flex:none;}
+  .topbar-title{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:1rem;font-weight:600;color:var(--text);white-space:nowrap;
+    opacity:0;transform:translateX(-10px);max-width:0;overflow:hidden;
+    transition:opacity .3s ease,transform .3s ease,max-width .35s ease;
+  }
+  .topbar.scrolled .topbar-title{opacity:1;transform:translateX(0);max-width:260px;}
+  .topbar-title .icon{font-size:1.05rem;}
+  .topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}
+  @media(max-width:560px){
+    .topbar-right{width:100%;margin-left:0;justify-content:flex-start;}
+    .topbar-right .btn{padding:6px 12px;font-size:.8rem;}
+  }
+
   header{margin-bottom:20px;}
   header h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
   header h1 .icon{font-size:1.5rem;}
@@ -150,7 +182,18 @@
 </head>
 <body>
 <div class="container">
-  <a href="./index.html" class="nav-back">← 返回首页</a>
+  <!-- 顶部吸顶条（与 JNA / JNA_Plus / JNB / JNC 工具统一布局） -->
+  <div class="topbar" id="topbar">
+    <div class="topbar-left">
+      <a href="./index.html" class="nav-back">← 返回首页</a>
+      <span class="topbar-title"><span class="icon">🔵</span> BLE 分析工具</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
+      <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
+      <button class="btn" id="btnClearCache" disabled><span>🧹</span> 清除缓存</button>
+    </div>
+  </div>
 
   <header>
     <h1><span class="icon">🔵</span> BLE 分析工具</h1>
@@ -161,10 +204,8 @@
     ⚠️ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome、Edge 或 Opera（需 HTTPS 或 localhost 访问）。
   </div>
 
+  <!-- 连接设置行：名称过滤 + 连接状态 + 设备名（普通行，不吸顶；吸顶由顶部 .topbar 负责） -->
   <div class="ble-toolbar">
-    <button class="btn btn-primary" id="btnConnect"><span>🔗</span> 连接 BLE 设备</button>
-    <button class="btn btn-danger" id="btnDisconnect" disabled><span>⏏️</span> 断开</button>
-    <button class="btn" id="btnClearCache" disabled><span>🧹</span> 清除缓存</button>
     <div class="name-filter">
       <label for="nameFilter">名称过滤</label>
       <input type="text" id="nameFilter" placeholder="设备名前缀，如 JN" value="JN" autocomplete="off">
@@ -652,6 +693,14 @@ const Utils = {
     URL.revokeObjectURL(url);
   });
   function pad(n){return String(n).padStart(2,'0');}
+
+  // ---- 顶部吸顶条：滚动后毛玻璃底 + 标题收进顶栏（与 JNA / JNC 工具同款交互） ----
+  const topbar=document.getElementById('topbar');
+  function syncTopbar(){
+    if(topbar) topbar.classList.toggle('scrolled', window.scrollY > 40);
+  }
+  window.addEventListener('scroll', syncTopbar, {passive:true});
+  syncTopbar();
 })();
 </script>
 </body>
