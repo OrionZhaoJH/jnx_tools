@@ -75,7 +75,7 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-  /* 串口区块：后半页（串口卡片 + 曲线图）的吸顶作用域 */
+  /* 串口区块：后半页容器（串口卡片 + 曲线图）。已取消该区块内部的吸顶工具条 */
   .serial-section{
     background:var(--surface);
     border:1.5px solid var(--border);
@@ -85,7 +85,7 @@
     margin-top:20px;
   }
   .serial-section .serial-toolbar{
-    border:0;
+    border:0;border-bottom:1.5px solid var(--border);
     border-radius:0;
     box-shadow:none;
     margin:0;
@@ -97,16 +97,11 @@
     border-radius:0;
     padding:16px 20px;
   }
-  /* 串口连接条：在整个后半页顶置；到达顶部时覆盖挤开 BLE 连接条（z-index 高于 BLE 条 50） */
+  /* 串口连接条：不吸顶，作为串口区块顶部的普通工具行（全页只有 BLE 连接条吸顶） */
   .serial-toolbar{
-    position:sticky;top:0;z-index:60;
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
     background:var(--surface);
-    border:1.5px solid var(--border);
-    border-radius:12px;
-    box-shadow:var(--shadow);
     padding:12px 18px;
-    margin-top:16px;
   }
   .serial-toolbar .serial-title{font-size:1.05rem;font-weight:600;margin-right:auto;display:inline-flex;align-items:center;gap:6px;}
   /* 串口卡片：与上方工具条统一 16px 间距 */
@@ -174,10 +169,17 @@
 
   .ble-toolbar{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-    /* 吸顶：仅限前半页 BLE 区块（.ble-section）内固定在最上面；
-       进入串口部分后随区块滚出，后半页（串口/曲线）不再出现 BLE 连接条 */
-    position:sticky;top:0;z-index:50;background:var(--bg);
-    margin-top:-8px;padding:8px 0 16px;
+    /* 全页吸顶：本条已移到页面最上方（header 之下、所有卡片之上），滚动全程固定在顶部。
+       页面上唯一吸顶的元素（串口连接条已取消吸顶）。滚动后加毛玻璃底，避免下方内容透过 */
+    position:sticky;top:0;z-index:50;background:transparent;
+    margin:0 0 4px;padding:10px 0 14px;
+    transition:background .3s ease,box-shadow .3s ease,padding .3s ease,margin .3s ease,border-radius .3s ease;
+  }
+  .ble-toolbar.scrolled{
+    background:rgba(245,247,250,.88);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 1px 0 rgba(15,23,42,.08);
+    padding:8px 14px;margin:0 -14px 16px;border-radius:12px;
   }
   .name-filter{display:flex;align-items:center;gap:6px;}
   .name-filter label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
@@ -443,7 +445,7 @@
     ⚠️ 当前浏览器不支持 Web Serial API。请使用 Chrome 或 Edge（需 HTTPS 或 localhost 访问）。
   </div>
 
-  <div class="ble-section" data-page-node-id="8r6up4F8Lz9QG07lVVz76L">
+  <!-- 连接 BLE 设备条：移到页面最上方（header 之下），整页滚动时始终吸顶 -->
   <div class="ble-toolbar" data-page-node-id="whIYpisoj9gHOtj4Wqz0Th">
     <button class="btn btn-primary" id="btnConnect" data-page-node-id="R8J438TEPTpPivmbpV5eEA"><span data-page-node-id="CtYkICEXoPYCDOHeb83s8w">🔗</span> 连接 BLE 设备</button>
     <button class="btn btn-danger" id="btnDisconnect" disabled data-page-node-id="2FifV1hD5uG3PHCGEdQMZm"><span data-page-node-id="3gy0h4WzZGyqeD39x02eaD">⏏️</span> 断开</button>
@@ -457,6 +459,7 @@
     <span class="device-name" id="bleDeviceName" data-page-node-id="2hzu9KnPOjX5DqOEZvjrSh"></span>
   </div>
 
+  <div class="ble-section" data-page-node-id="8r6up4F8Lz9QG07lVVz76L">
   <div class="ble-grid" data-page-node-id="XBszsKVZy8As2pqCbOBVeh">
     <!-- Parsed Data + Data Log + Commands -->
     <div class="ble-right" data-page-node-id="tnmZ37bf0NqL4iHynt8BjM">
@@ -3216,6 +3219,14 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     btnSerialLogToggle.textContent=willShow?'隐藏日志':'显示日志';
     if(willShow) serialLog.scrollTop=serialLog.scrollHeight; // 展开时直接滚到最新一条
   });
+
+  // 吸顶 BLE 连接条：滚动离开页面顶部后加毛玻璃底 + 分隔线（与 JNA_tools 顶栏同款交互）
+  const bleToolbar = document.querySelector('.ble-toolbar');
+  function syncBleToolbar(){
+    if(bleToolbar) bleToolbar.classList.toggle('scrolled', window.scrollY > 24);
+  }
+  window.addEventListener('scroll', syncBleToolbar, {passive:true});
+  syncBleToolbar();
 
   // 初始化：FFE2 未发现前禁用所有相关控件
   refreshFeatureState();
