@@ -308,6 +308,30 @@
     100%{background:var(--surface);border-color:var(--border);}
   }
 
+  /* 悬浮提示浮层（实时曲线用：显示该点 C/B/T 坐标） */
+  .chart-tooltip{position:fixed;pointer-events:none;z-index:9999;background:rgba(17,24,39,.92);color:#fff;
+    padding:6px 9px;border-radius:6px;font-size:12px;line-height:1.5;white-space:nowrap;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);display:none;}
+
+  /* 实时数据曲线图（FFE1 卡片底部）：单通道一张图，画 C/B/T 三条线，默认折叠 */
+  .rt-chart-section{margin-top:16px;border-top:1.5px solid var(--border);padding-top:12px;}
+  .rt-chart-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:6px 8px;margin:0 -8px;border-radius:8px;cursor:pointer;user-select:none;}
+  .rt-chart-head:hover{background:var(--accent-soft);}
+  .rt-chart-title{font-weight:600;font-size:.9rem;color:var(--text);}
+  .rt-chart-actions{margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .rt-chart-hint{font-size:.8rem;color:var(--text-muted);}
+  .rt-chart-section.collapsed .rt-chart-grid{display:none;}
+  .rt-chart-section.collapsed .toggle-arrow{transform:rotate(-90deg);}
+  .rt-chart-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px;align-items:start;}
+  .rt-chart-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;}
+  .rt-chart-card-title{display:flex;align-items:center;gap:8px;padding:6px 10px;
+    font-size:.8rem;font-weight:600;color:var(--text-muted);border-bottom:1.5px solid var(--border);}
+  .rt-legend{margin-left:auto;display:inline-flex;align-items:center;gap:10px;font-weight:400;}
+  .rt-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:3px;vertical-align:middle;}
+  .rt-chart-card-body{padding:6px;}
+  .rt-chart-card-body canvas{width:100%;height:190px;display:block;}
+
   /* JNA 模式：隐藏左侧 GATT Profile，右侧占满 */
   .jna .gatt-card{display:none;}
   .jna .ble-grid{grid-template-columns:1fr;}
@@ -392,6 +416,24 @@
           <div class="field-box" data-key="T"><div class="field-label">T值</div><div class="field-raw">--</div><div class="field-value">--</div></div>
         </div>
         <div id="jnaFieldsEmpty" style="color:var(--text-light);text-align:center;padding:24px 0;font-size:.875rem;">等待符合格式的数据包...</div>
+
+        <!-- 实时数据曲线图（FFE1）：单通道一张，仅在「正在检测」时推进；默认折叠 -->
+        <div class="rt-chart-section collapsed" id="rtChartSection">
+          <div class="rt-chart-head" id="rtChartHead">
+            <span class="rt-chart-title">实时数据曲线图（C / B / T）</span>
+            <span class="rt-chart-actions">
+              <span class="rt-chart-hint" id="rtChartHint">等待数据…</span>
+              <button class="btn btn-sm" id="btnRtChartClear" type="button">清空</button>
+              <span class="toggle-arrow">▾</span>
+            </span>
+          </div>
+          <div class="rt-chart-grid" id="rtChartGrid">
+            <div class="rt-chart-card">
+              <div class="rt-chart-card-title"><span>通道</span><span class="rt-legend"><span><i style="background:#ef4444"></i>C</span><span><i style="background:#3b82f6"></i>B</span><span><i style="background:#22c55e"></i>T</span></span></div>
+              <div class="rt-chart-card-body"><canvas id="rtChartCanvas0" data-slot="0"></canvas></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="card collapsible-card collapsed" id="logCard">
@@ -1276,6 +1318,10 @@ const Utils = {
     const obj=parseJna(dv);
     if(obj&&!jnaPaused){
       updateJnaTable(obj, dv);
+      // 实时曲线：仅「未启动(未加样)」与「正在检测」两态推进（暂停时整段不执行）
+      pushRtChartFrame(obj);
+      updateRtChartHint(obj);
+      scheduleRtChartRedraw();
     }
     // 数据日志始终写入，不受暂停影响
     logToPanel(obj?'Data':'Raw', Utils.shortUuid(FFE1_SERVICE), formatDataView(dv));
@@ -1317,6 +1363,253 @@ const Utils = {
       el.classList.add('flash');
     }
   }
+
+  // ---- 实时数据曲线图（FFE1 卡片底部）----
+  // 单通道一张图，画 C / B / T 三条线；
+  // 记录分两阶段：未加样期（状态 0x00「未启动」）记本底，转入「正在检测」(0x01) 时
+  // 裁掉只留最后 10 点，之后继续记。想重新采集需点「清空」。
+  // 采样按「包计数」而非时间窗口：FFE1 每 1s 一包、设备 C/B/T 每 2s 刷新 → 每 2 包记一次，
+  // 与上报节奏天然对齐（按时间窗口会被轮询抖动漏采，变成"3s 才变一次"）。
+  const RT_MAX_POINTS=460;                                  // 每条线滚动窗口上限
+  const RT_CHART_PAD={L:40,R:10,T:10,B:20};                 // 绘图区内边距（绘制与悬浮命中判定共用）
+  const RT_SAMPLE_PACKETS=2;                                // 每 2 包记一次
+  const RT_PRE_KEEP=10;                                     // 未加样期数据在转入「正在检测」时保留的最后点数
+  const RT_ST_IDLE=0x00;                                    // 未启动（即「未加样」）
+  const RT_ST_DETECTING=0x01;                               // 正在检测
+  const RT_SERIES_NAMES=['C','B','T'];
+  const RT_SERIES_COLORS=['#ef4444','#3b82f6','#22c55e'];
+  const rtChartSection=document.getElementById('rtChartSection');
+  const rtChartHead=document.getElementById('rtChartHead');
+  const rtChartHint=document.getElementById('rtChartHint');
+  const btnRtChartClear=document.getElementById('btnRtChartClear');
+  const rtChartCanvas=document.getElementById('rtChartCanvas0');
+  let rtChartData=[[],[],[]];                               // [C/B/T] = 数值数组
+  let rtRafId=0;
+  let rtChartPacketCount=0;                                 // 可记录帧的计数
+  let rtSlotArmed=true;                                     // 是否仍处于「未加样」待记录阶段
+  let rtChartMark=null;                                     // 「加样时刻」点索引（画分界线）
+  let rtHover=null;                                         // 当前悬浮点索引
+
+  // 悬浮提示浮层（独立于其他浮层）
+  const rtTooltip=document.createElement('div');
+  rtTooltip.className='chart-tooltip';
+  document.body.appendChild(rtTooltip);
+
+  // C/B/T 是固件用 uint16 存的 (ADC − 校准值)，ADC < 校准值时下溢成 0xFFFF 系 → 按 int16 解释
+  function rtS16(u){ return u>=0x8000 ? u-0x10000 : u; }
+
+  function pushRtChartFrame(obj){
+    const detecting=(obj.status===RT_ST_DETECTING);
+    const preSample=(obj.status===RT_ST_IDLE && rtSlotArmed);
+    // 其他状态（检测完成 / 待机超时 / 设备故障）不记录、也不计数，
+    // 保证采样相位与「可记录」节奏对齐
+    if(!detecting && !preSample) return;
+
+    rtChartPacketCount++;
+    if(rtChartPacketCount < RT_SAMPLE_PACKETS) return;       // 未到第 2 包
+    rtChartPacketCount=0;                                    // 复位计数
+
+    // 未加样 → 正在检测 的跃迁：裁剪，只保留未加样期最后 RT_PRE_KEEP 个点
+    if(detecting && rtSlotArmed){
+      for(let k=0;k<3;k++){
+        if(rtChartData[k].length>RT_PRE_KEEP) rtChartData[k]=rtChartData[k].slice(rtChartData[k].length-RT_PRE_KEEP);
+      }
+      rtSlotArmed=false;
+      rtChartMark=rtChartData[0].length;                     // 加样时刻落在第 mark 个点上
+      console.log('[RT] 转入检测：未加样期保留 '+rtChartMark+' 点，之前数据已舍去');
+    }
+
+    const c=[rtS16(obj.C), rtS16(obj.B), rtS16(obj.T)];
+    for(let k=0;k<3;k++){
+      rtChartData[k].push(Number(c[k])||0);
+      if(rtChartData[k].length>RT_MAX_POINTS){
+        rtChartData[k].shift();
+        if(k===0 && rtChartMark!==null) rtChartMark=Math.max(0, rtChartMark-1);
+      }
+    }
+  }
+
+  function updateRtChartHint(obj){
+    if(!rtChartHint) return;
+    const n=rtChartData[0].length;
+    if(obj && obj.status===RT_ST_DETECTING) rtChartHint.textContent='检测中 · 已采 '+n+' 点';
+    else if(obj && obj.status===RT_ST_IDLE && rtSlotArmed) rtChartHint.textContent='未加样 · 基线 '+n+' 点（转入检测后仅保留最后 '+RT_PRE_KEEP+' 点）';
+    else rtChartHint.textContent = n>0 ? ('已暂停 · 共 '+n+' 点') : '等待数据…';
+  }
+
+  function drawRtChart(){
+    const canvas=rtChartCanvas;
+    if(!canvas || rtChartSection.classList.contains('collapsed')) return; // 折叠时不绘制
+    const dpr=window.devicePixelRatio||1;
+    const cssW=canvas.clientWidth||canvas.parentElement.clientWidth||280;
+    const cssH=canvas.clientHeight||190;
+    canvas.width=Math.round(cssW*dpr);
+    canvas.height=Math.round(cssH*dpr);
+    const ctx=canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle='#fbfdff'; ctx.fillRect(0,0,cssW,cssH);
+
+    const PAD=RT_CHART_PAD;
+    const plotW=cssW-PAD.L-PAD.R, plotH=cssH-PAD.T-PAD.B;
+    const series=rtChartData.map((arr,k)=>({name:RT_SERIES_NAMES[k], arr, color:RT_SERIES_COLORS[k]}));
+
+    // Y 轴范围自适应（下界不钉 0，否则负值会被画到绘图区外看不见）
+    let ymin=Infinity, ymax=-Infinity, anyData=false;
+    for(const s of series){
+      if(s.arr.length){ anyData=true; for(const v of s.arr){ if(v<ymin) ymin=v; if(v>ymax) ymax=v; } }
+    }
+    if(!anyData){ ymin=0; ymax=1; }
+    if(ymin===ymax){ ymin-=1; ymax+=1; }
+    const range=ymax-ymin;
+    ymin-=range*0.05; ymax+=range*0.05;
+
+    // 网格 + Y 轴刻度
+    ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif'; ctx.lineWidth=1;
+    const yTicks=4;
+    for(let t=0;t<=yTicks;t++){
+      const yy=PAD.T+plotH*t/yTicks;
+      ctx.beginPath(); ctx.moveTo(PAD.L,yy); ctx.lineTo(PAD.L+plotW,yy); ctx.stroke();
+      const val=ymax-(ymax-ymin)*t/yTicks;
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(Math.round(val).toString(), PAD.L-6, yy);
+    }
+    // 0 基准线（数据跨正负时标出来）
+    if(ymin<0 && ymax>0){
+      const y0=PAD.T+plotH*(1-(0-ymin)/(ymax-ymin));
+      ctx.save(); ctx.strokeStyle='#cbd5e1'; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(PAD.L,y0); ctx.lineTo(PAD.L+plotW,y0); ctx.stroke(); ctx.restore();
+    }
+    // X 轴刻度（0 与当前点数）
+    const N=rtChartData[0].length;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('0', PAD.L, PAD.T+plotH+5);
+    if(N>0) ctx.fillText(String(N), PAD.L+plotW, PAD.T+plotH+5);
+
+    if(!anyData){
+      ctx.fillStyle='#cbd5e1'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('等待数据…', PAD.L+plotW/2, PAD.T+plotH/2);
+      return;
+    }
+
+    // 三条曲线
+    ctx.lineWidth=1.6; ctx.lineJoin='round';
+    for(const s of series){
+      if(!s.arr.length) continue;
+      ctx.strokeStyle=s.color;
+      ctx.beginPath();
+      for(let i=0;i<s.arr.length;i++){
+        const x = s.arr.length>1 ? PAD.L + i/(s.arr.length-1)*plotW : PAD.L;
+        const y = PAD.T + plotH*(1-(s.arr[i]-ymin)/(ymax-ymin));
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+
+    // 「加样时刻」分界线：左侧为未加样本底，右侧为检测数据
+    if(rtChartMark!==null && N>1 && rtChartMark>=0 && rtChartMark<N){
+      const xm=PAD.L + rtChartMark/(N-1)*plotW;
+      ctx.save();
+      ctx.strokeStyle='#f59e0b'; ctx.setLineDash([4,3]); ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(xm,PAD.T); ctx.lineTo(xm,PAD.T+plotH); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle='#f59e0b'; ctx.font='10px sans-serif';
+      ctx.textAlign='left'; ctx.textBaseline='top';
+      ctx.fillText('加样', xm+3, PAD.T+2);
+      ctx.restore();
+    }
+
+    // 悬停指示器：竖虚线 + 三条线上的圆点
+    if(rtHover!=null && N>1 && rtHover>=0 && rtHover<N){
+      const hx=PAD.L + rtHover/(N-1)*plotW;
+      ctx.save();
+      ctx.strokeStyle='rgba(71,85,105,.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(hx,PAD.T); ctx.lineTo(hx,PAD.T+plotH); ctx.stroke();
+      ctx.setLineDash([]);
+      for(const s of series){
+        if(rtHover>=s.arr.length) continue;
+        const y=PAD.T + plotH*(1-(s.arr[rtHover]-ymin)/(ymax-ymin));
+        ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(hx,y,3.5,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  // rAF 节流：高频包到达时每帧最多重绘一次
+  function scheduleRtChartRedraw(){
+    if(rtRafId) return;
+    rtRafId=requestAnimationFrame(()=>{ rtRafId=0; drawRtChart(); });
+  }
+
+  // 折叠 / 展开（点「清空」按钮不触发折叠）
+  if(rtChartHead){
+    rtChartHead.addEventListener('click', (e)=>{
+      if(e.target===btnRtChartClear) return;
+      rtChartSection.classList.toggle('collapsed');
+      if(!rtChartSection.classList.contains('collapsed')) drawRtChart();
+    });
+  }
+  if(btnRtChartClear){
+    btnRtChartClear.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      rtChartData=[[],[],[]];
+      rtChartPacketCount=0;               // 复位计数，清空后重新从第 1 包开始数
+      rtSlotArmed=true;                   // 重新允许未加样期记录
+      rtChartMark=null;                   // 清掉加样分界线
+      rtHover=null;                       // 清掉悬停指示
+      rtTooltip.style.display='none';
+      if(rtChartHint) rtChartHint.textContent='等待数据…';
+      drawRtChart();
+    });
+  }
+
+  // ---- 实时曲线悬停：竖虚线 + 圆点 + 浮层显示该点 C/B/T 坐标 ----
+  function rtIndexFromX(canvas, cssX){
+    const N=rtChartData[0].length;
+    if(N<1) return null;
+    const cssW=canvas.clientWidth||canvas.parentElement.clientWidth||280;
+    const plotW=cssW-RT_CHART_PAD.L-RT_CHART_PAD.R;
+    if(plotW<=0) return null;
+    let i=Math.round((cssX-RT_CHART_PAD.L)/plotW*(N-1));
+    return Math.max(0, Math.min(N-1, i));
+  }
+
+  function showRtTooltip(canvas, offsetX, clientX, clientY){
+    const i=rtIndexFromX(canvas, offsetX);
+    if(i==null){ rtTooltip.style.display='none'; return; }
+    rtHover=i;
+    drawRtChart();
+    const phase = rtChartMark!=null ? (i<rtChartMark ? '未加样' : '检测中') : '';
+    let html='<div style="margin-bottom:3px;opacity:.85;">点 #'+i+
+             (phase?(' · <span style="color:#fbbf24;">'+phase+'</span>'):'')+'</div>';
+    for(let k=0;k<3;k++){
+      const v = i<rtChartData[k].length ? rtChartData[k][i] : null;
+      html+='<div><span style="color:'+RT_SERIES_COLORS[k]+';font-weight:700;">●</span> '+
+            RT_SERIES_NAMES[k]+': '+(v==null?'—':v)+'</div>';
+    }
+    rtTooltip.innerHTML=html;
+    rtTooltip.style.display='block';
+    const tw=rtTooltip.offsetWidth, th=rtTooltip.offsetHeight;
+    let tx=clientX+14, ty=clientY+14;
+    if(tx+tw>window.innerWidth-8) tx=clientX-tw-14;
+    if(ty+th>window.innerHeight-8) ty=clientY-th-14;
+    rtTooltip.style.left=tx+'px';
+    rtTooltip.style.top=ty+'px';
+  }
+
+  function hideRtTooltip(){
+    if(rtHover!=null){ rtHover=null; drawRtChart(); }
+    rtTooltip.style.display='none';
+  }
+
+  if(rtChartCanvas){
+    rtChartCanvas.style.cursor='crosshair';
+    rtChartCanvas.addEventListener('mousemove', e=>showRtTooltip(rtChartCanvas, e.offsetX, e.clientX, e.clientY));
+    rtChartCanvas.addEventListener('mouseleave', hideRtTooltip);
+  }
+  // 布局变化（画布宽度随窗口/断点改变）时重绘
+  window.addEventListener('resize', ()=>{
+    if(!rtChartSection.classList.contains('collapsed')) scheduleRtChartRedraw();
+  });
 
   // ---- Clear log ----
   btnClearLog.addEventListener('click',()=>{
