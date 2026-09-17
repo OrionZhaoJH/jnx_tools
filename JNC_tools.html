@@ -650,6 +650,18 @@
             </div>
             <div class="cmd-result" id="resultParse" data-page-node-id="JcParseCard000A"><div class="cmd-result-empty" data-page-node-id="JcParseCard000B">等待测试...</div></div>
           </div>
+
+          <!-- 读取 MAC -->
+          <div class="cmd-card collapsed" data-page-node-id="JcReadMacCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcReadMacCard0002"><span data-page-node-id="JcReadMacCard0003">读取 MAC</span><span class="toggle-arrow" data-page-node-id="JcReadMacCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcReadMacCard0005">通过 FFE2 发送主 0xA1 / 从 0x01，读取设备 MAC 地址。应答 13 字节：5B 0D 0A 0D A1 11 [MAC×6] 5D，MAC 高位在前。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcReadMacCard0006">
+              <button class="btn btn-primary btn-sm" id="btnReadMac" data-page-node-id="JcReadMacCard0007">读取 MAC 地址</button>
+              <button class="btn btn-sm" id="btnCopyMac" disabled data-page-node-id="JcReadMacCard0008">复制</button>
+              <span id="macCopyResult" class="inline-copy-result" data-page-node-id="JcReadMacCard0009"></span>
+            </div>
+            <div class="cmd-result" id="resultMac" data-page-node-id="JcReadMacCard000A"><div class="cmd-result-empty" data-page-node-id="JcReadMacCard000B">等待操作...</div></div>
+          </div>
         </div>
         <div class="cmd-log" id="cmdLog" data-page-node-id="Zk824QzA3ff314kR3DlPc6"></div>
       </div>
@@ -824,6 +836,11 @@ const Utils = {
   const resultParse=document.getElementById('resultParse');   // 「解析数据」命令卡片的结果区
   const btnReboot=document.getElementById('btnReboot');
   const btnShutdown=document.getElementById('btnShutdown');
+  const btnReadMac=document.getElementById('btnReadMac');
+  const btnCopyMac=document.getElementById('btnCopyMac');
+  const macCopyResult=document.getElementById('macCopyResult'); // 复制结果提示（按钮右侧）
+  const resultMac=document.getElementById('resultMac');         // 「读取 MAC」命令卡片的结果区
+  let lastMacStr='';                                            // 最近一次读到的 MAC（供复制使用）
   const btnIntegralSphereTest=document.getElementById('btnIntegralSphereTest');
 const btnCopyData=document.getElementById('btnCopyData');
 const copyDataResult=document.getElementById('copyDataResult'); // 复制结果提示（按钮右侧）
@@ -871,7 +888,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnReadMac];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -1025,6 +1042,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     jncTableWrap.style.display='none';
     jncFieldsEmpty.style.display='block';
     btnCopyData.disabled=true;
+    // 复位「读取 MAC」卡片：断开后旧 MAC 失效
+    lastMacStr='';
+    btnCopyMac.disabled=true;
+    if(typeof setCmdResult==='function') setCmdResult(resultMac,'等待操作...','');
     if(typeof setCmdResult==='function') setCmdResult(resultParse,'等待测试...','');
     channelRows.forEach(r=>{
       for(const line of LINES){
@@ -2342,6 +2363,85 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     await sendDeviceCmd(buildFrame(0x03, 0x02, [0x00]), '设备关机', resultDevice);
   }
 
+  // ---- FFE2 命令：读取 MAC 地址 ----
+  // 协议（JNC 命令交互表格）：
+  //   发送：5B 0D 0A 08 A1 01 00 5D（主 0xA1 / 从 0x01，data 字节固定 00 占位）
+  //   应答：5B 0D 0A 0D A1 11 [MAC_ADDR×6] 5D（13 字节，MAC 高位在前）
+  // 铁律：FFE2 特征值固定 31B，应答帧只占前 13B，其后是 0x00 填充。
+  //       帧尾必须按「帧头偏移 +12」校验，绝不能用 bytes[bytes.length-1]（那是填充的 0x00）。
+  const MAC_FRAME_LEN=13;
+  async function readDeviceMac(){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', '读取 MAC：FFE2 未就绪');
+      setCmdResult(resultMac, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    const frame=buildFrame(0xA1, 0x01, [0x00]);
+    btnReadMac.disabled=true;
+    btnReadMac.textContent='读取中...';
+    logCmd('发送', '读取 MAC：'+frameToHex(frame));
+    setCmdResult(resultMac, 'MAC 读取命令已发送，等待应答...', 'info');
+    const tWriteDone=performance.now();
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+      // 写后立即 readValue（与设备控制同款；设备在 write 时即更新 FFE2 特征值）
+      const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+      if(!dv){ setCmdResult(resultMac, `读取失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+      const tReadDone=performance.now();
+      const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+      logCmd('读取', `(${bytes.length}B · 用时 ${Math.round(tReadDone-tWriteDone)}ms) ${frameToHex(bytes)}`);
+      let mac=null;
+      for(let i=0; i<=bytes.length-MAC_FRAME_LEN; i++){
+        if(bytes[i]===0x5B && bytes[i+1]===0x0D && bytes[i+2]===0x0A && bytes[i+3]===MAC_FRAME_LEN &&
+           bytes[i+4]===0xA1 && bytes[i+5]===0x11 && bytes[i+12]===0x5D){
+          mac=bytes.slice(i+6, i+12);
+          break;
+        }
+      }
+      if(!mac){
+        logCmd('异常', '应答格式不符：'+frameToHex(bytes));
+        setCmdResult(resultMac, `应答格式不符（${bytes.length}B，未匹配 A1 11 帧）`, 'err');
+        return;
+      }
+      lastMacStr=Array.from(mac,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(':');
+      btnCopyMac.disabled=false;
+      logCmd('成功', 'MAC 地址：'+lastMacStr);
+      setCmdResult(resultMac, 'MAC 地址：'+lastMacStr, 'ok');
+    }catch(err){
+      logCmd('失败', '读取 MAC 失败：'+err.message);
+      setCmdResult(resultMac, '读取失败：'+err.message, 'err');
+    }finally{
+      btnReadMac.textContent='读取 MAC 地址';
+      refreshFeatureState(); // 统一恢复禁用状态（含 btnReadMac），避免按钮卡死
+    }
+  }
+
+  // 复制 MAC：提示写在按钮右侧的 #macCopyResult，不改写按钮自身文字
+  async function copyMacAddr(){
+    if(!lastMacStr) return;
+    let ok=false;
+    try{
+      await navigator.clipboard.writeText(lastMacStr);
+      ok=true;
+    }catch(err){
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=lastMacStr;
+        ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok=document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e){ ok=false; }
+    }
+    if(macCopyResult){
+      macCopyResult.textContent=ok?'已复制 ✓':'复制失败';
+      macCopyResult.className='inline-copy-result '+(ok?'ok':'err');
+      clearTimeout(copyMacAddr._t);
+      copyMacAddr._t=setTimeout(()=>{ macCopyResult.textContent=''; macCopyResult.className='inline-copy-result'; }, 2000);
+    }
+  }
+
   // FFE2 命令收发日志：只写在「命令交互 (FFE2)」卡片内的 #cmdLog（不进 FFE1 的全局 rawLog）。
   // direction 用中文，日志行颜色复用 logCategory 的 out/in/err/sys 四类（cmd-log 同为深色底，配色可通用）。
   function logCmd(direction, value){
@@ -2495,6 +2595,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
                       '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；成功 2s 后断开 BLE';
   btnReboot.addEventListener('click', sendReboot);
   btnShutdown.addEventListener('click', sendShutdown);
+  // 读取 MAC：hover 显示发送的 hex 与应答帧格式，方便核对协议
+  btnReadMac.title = '发送: ' + frameToHex(buildFrame(0xA1, 0x01, [0x00])) +
+                     '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
+                     '应答 13B：5B 0D 0A 0D A1 11 [MAC×6] 5D（高位在前）';
+  btnReadMac.addEventListener('click', readDeviceMac);
+  btnCopyMac.addEventListener('click', copyMacAddr);
   btnIntegralSphereTest.addEventListener('click', ()=>queryData(0x02));
   btnCopyData.addEventListener('click', copyJncTable);
 
