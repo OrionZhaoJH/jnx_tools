@@ -36,7 +36,37 @@
     margin-bottom:16px;transition:color .2s;
   }
   .nav-back:hover{color:var(--accent);}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+  /* ---- Sticky top bar（参考 JNA_tools：返回首页 + 连接/断开按钮同一行，滚动后毛玻璃）---- */
+  .topbar{
+    position:sticky;top:0;z-index:70;
+    display:flex;align-items:center;justify-content:space-between;gap:10px 12px;
+    flex-wrap:wrap;
+    padding:10px 0;margin:0 0 16px;
+    background:transparent;
+    transition:background .3s ease,box-shadow .3s ease,padding .3s ease,margin .3s ease,border-radius .3s ease;
+  }
+  .topbar.scrolled{
+    background:rgba(245,247,250,.88);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 1px 0 rgba(15,23,42,.08);
+    padding:8px 14px;margin:0 -14px 16px;border-radius:12px;
+  }
+  .topbar-left{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto;}
+  .topbar-left .nav-back{margin-bottom:0;flex:none;}
+  /* 滚动后把页面标题收进顶栏（与 JNA_tools 同款交互） */
+  .topbar-title{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:1rem;font-weight:600;color:var(--text);white-space:nowrap;
+    opacity:0;transform:translateX(-10px);max-width:0;overflow:hidden;
+    transition:opacity .3s ease,transform .3s ease,max-width .35s ease;
+  }
+  .topbar.scrolled .topbar-title{opacity:1;transform:translateX(0);max-width:260px;}
+  .topbar-title .icon{font-size:1.05rem;}
+  .topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}
+  @media(max-width:560px){
+    .topbar-right{width:100%;margin-left:0;justify-content:flex-start;}
+    .topbar-right .btn{padding:6px 12px;font-size:.8rem;}
+  }
   .pwa-install-btn{display:none;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;
     border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;transition:opacity .15s;}
   .pwa-install-btn:hover{opacity:.9;}
@@ -97,7 +127,7 @@
     border-radius:0;
     padding:16px 20px;
   }
-  /* 串口连接条：不吸顶，作为串口区块顶部的普通工具行（全页只有 BLE 连接条吸顶） */
+  /* 串口连接条：不吸顶，作为串口区块顶部的普通工具行（全页吸顶由顶部 .topbar 负责） */
   .serial-toolbar{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
     background:var(--surface);
@@ -167,21 +197,8 @@
   /* FFE4 区块在 .ble-grid 之外，需要自己补上与上方「命令交互 (FFE2)」卡片相同的 20px 间距 */
   .ble-ffe4-section{margin-top:20px;}
 
-  .ble-toolbar{
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-    /* 页面最顶部的唯一吸顶条（.container 的第一个子元素），滚动全程固定在视口顶部，
-       不会因任何区块（BLE/FFE4/串口/曲线图）滚出而消失。
-       常驻不透明底色，避免下方内容穿透；滚动后叠加毛玻璃 + 分隔阴影 */
-    position:sticky;top:0;z-index:70;
-    background:var(--bg);
-    margin:0;padding:10px 0 12px;
-    transition:background .3s ease,box-shadow .3s ease,padding .3s ease;
-  }
-  .ble-toolbar.scrolled{
-    background:rgba(245,247,250,.9);
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-    box-shadow:0 1px 0 rgba(15,23,42,.08),0 6px 16px rgba(15,23,42,.06);
-  }
+  /* 连接设置行（名称过滤 + 连接状态 + 设备名）：普通行，不吸顶（吸顶由顶部 .topbar 负责，同 JNA_tools） */
+  .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
   .name-filter{display:flex;align-items:center;gap:6px;}
   .name-filter label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
   .name-filter input{
@@ -425,23 +442,15 @@
 </head>
 <body data-page-node-id="Dn6QaxQgYWkTGFholkvdAj">
 <div class="container" data-page-node-id="Qb1d4NvLw7ql0i0uxwCChN">
-  <!-- 连接 BLE 设备条：页面最顶部的唯一吸顶元素（整页滚动全程固定，不随任何区块滚出） -->
-  <div class="ble-toolbar" data-page-node-id="whIYpisoj9gHOtj4Wqz0Th">
-    <button class="btn btn-primary" id="btnConnect" data-page-node-id="R8J438TEPTpPivmbpV5eEA"><span data-page-node-id="CtYkICEXoPYCDOHeb83s8w">🔗</span> 连接 BLE 设备</button>
-    <button class="btn btn-danger" id="btnDisconnect" disabled data-page-node-id="2FifV1hD5uG3PHCGEdQMZm"><span data-page-node-id="3gy0h4WzZGyqeD39x02eaD">⏏️</span> 断开</button>
-    <div class="name-filter" data-page-node-id="NyuaIvqcPF1HMxT5EHjw4O">
-      <label for="nameFilter" data-page-node-id="WHd2mfyCFItyc0C8EzZa3D">名称过滤</label>
-      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNC" value="JNC" autocomplete="off" data-page-node-id="i6UOklFb56YkRHo4KaURRs">
+  <!-- 顶部吸顶条（参考 JNA_tools）：左「返回首页」+ 滚动后出现的标题，右「连接 BLE 设备 / 断开 / 安装 / 刷新缓存」 -->
+  <div class="topbar" id="topbar" data-page-node-id="ZeOmOCtZnNrf3DkqEPWcvC">
+    <div class="topbar-left" data-page-node-id="ItIOPYAAI5KFIYFJmAqMMD">
+      <a href="./index.html" class="nav-back" data-page-node-id="B3x3zquqDmBMeuDmYYxOs5">← 返回首页</a>
+      <span class="topbar-title" data-page-node-id="JcTopbarTitle01"><span class="icon" data-page-node-id="JcTopbarTitle02">🛰️</span> JNC 工具</span>
     </div>
-    <div class="status-badge disconnected" id="bleStatus" data-page-node-id="JsgfAQpsHLrFvpdvFfA7B9">
-      <span class="status-dot" data-page-node-id="FjWfLyAZwgF1VxZkDfe9vU"></span><span id="bleStatusText" data-page-node-id="VIQzoqcjR6UyiGfyc0nSlQ">未连接</span>
-    </div>
-    <span class="device-name" id="bleDeviceName" data-page-node-id="2hzu9KnPOjX5DqOEZvjrSh"></span>
-  </div>
-
-  <div class="topbar" data-page-node-id="ZeOmOCtZnNrf3DkqEPWcvC">
-    <a href="./index.html" class="nav-back" data-page-node-id="B3x3zquqDmBMeuDmYYxOs5">← 返回首页</a>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" data-page-node-id="ItIOPYAAI5KFIYFJmAqMMD">
+    <div class="topbar-right" data-page-node-id="JcTopbarRight001">
+      <button class="btn btn-primary" id="btnConnect" data-page-node-id="R8J438TEPTpPivmbpV5eEA"><span data-page-node-id="CtYkICEXoPYCDOHeb83s8w">🔗</span> 连接 BLE 设备</button>
+      <button class="btn btn-danger" id="btnDisconnect" disabled data-page-node-id="2FifV1hD5uG3PHCGEdQMZm"><span data-page-node-id="3gy0h4WzZGyqeD39x02eaD">⏏️</span> 断开</button>
       <button class="pwa-install-btn" id="pwaInstallBtn" type="button" data-page-node-id="Kp70Px5Gn9rzLtwE4qg3Xt">＋ 安装到桌面</button>
       <button class="btn btn-sm" id="btnRefreshCache" type="button" style="display:none;" data-page-node-id="s1UuiFERG2UKdEIvL5oYpX">🔄 刷新缓存</button>
     </div>
@@ -460,7 +469,17 @@
     ⚠️ 当前浏览器不支持 Web Serial API。请使用 Chrome 或 Edge（需 HTTPS 或 localhost 访问）。
   </div>
 
-  <!-- 连接 BLE 设备条已移至页面最顶部 -->
+  <!-- 连接设置行（参考 JNA_tools）：名称过滤 + 连接状态 + 设备名，普通行不吸顶 -->
+  <div class="ble-toolbar" data-page-node-id="whIYpisoj9gHOtj4Wqz0Th">
+    <div class="name-filter" data-page-node-id="NyuaIvqcPF1HMxT5EHjw4O">
+      <label for="nameFilter" data-page-node-id="WHd2mfyCFItyc0C8EzZa3D">名称过滤</label>
+      <input type="text" id="nameFilter" placeholder="设备名前缀，如 JNC" value="JNC" autocomplete="off" data-page-node-id="i6UOklFb56YkRHo4KaURRs">
+    </div>
+    <div class="status-badge disconnected" id="bleStatus" data-page-node-id="JsgfAQpsHLrFvpdvFfA7B9">
+      <span class="status-dot" data-page-node-id="FjWfLyAZwgF1VxZkDfe9vU"></span><span id="bleStatusText" data-page-node-id="VIQzoqcjR6UyiGfyc0nSlQ">未连接</span>
+    </div>
+    <span class="device-name" id="bleDeviceName" data-page-node-id="2hzu9KnPOjX5DqOEZvjrSh"></span>
+  </div>
 
   <div class="ble-section" data-page-node-id="8r6up4F8Lz9QG07lVVz76L">
   <div class="ble-grid" data-page-node-id="XBszsKVZy8As2pqCbOBVeh">
@@ -3223,13 +3242,13 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     if(willShow) serialLog.scrollTop=serialLog.scrollHeight; // 展开时直接滚到最新一条
   });
 
-  // 顶部吸顶 BLE 连接条：页面滚动后叠加毛玻璃底 + 分隔阴影（与 JNA_tools 顶栏同款交互）
-  const bleToolbar = document.querySelector('.ble-toolbar');
-  function syncBleToolbar(){
-    if(bleToolbar) bleToolbar.classList.toggle('scrolled', window.scrollY > 4);
+  // 顶部吸顶条：滚动后毛玻璃底 + 页面标题收进顶栏（与 JNA_tools 同款交互）
+  const topbar = document.getElementById('topbar');
+  function syncTopbar(){
+    if(topbar) topbar.classList.toggle('scrolled', window.scrollY > 40);
   }
-  window.addEventListener('scroll', syncBleToolbar, {passive:true});
-  syncBleToolbar();
+  window.addEventListener('scroll', syncTopbar, {passive:true});
+  syncTopbar();
 
   // 初始化：FFE2 未发现前禁用所有相关控件
   refreshFeatureState();
