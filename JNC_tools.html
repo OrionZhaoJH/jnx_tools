@@ -490,9 +490,11 @@
         <div class="card-title" data-page-node-id="DAH0ZUpDPklHWwwfDVnefi">
           <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">通道1 (FFE1 跟踪)</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
+          <!-- 收包提示固定在最左：该容器靠右对齐（父级 space-between），最右元素位置恒定，
+               提示文字变长时容器整体向左扩展，右侧按钮/徽章不会位移 -->
+          <span id="ffe1PktCount" class="ffe1-pkt-count" data-page-node-id="Qb2Ffe1PktCount01">已收 0 包</span>
           <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled data-page-node-id="40n34YLtfBClQQwMYuiGBb">开始更新</button>
           <button class="btn btn-sm" id="btnFfe1LogToggle" type="button" data-page-node-id="Qb2Ffe1LogToggle01">显示日志</button>
-          <span id="ffe1PktCount" class="ffe1-pkt-count" data-page-node-id="Qb2Ffe1PktCount01">已收 0 包</span>
           <span class="feature-badge locked" id="ffe1Badge" data-page-node-id="qm1YphzFL0HLuSGMZpiWZs">未就绪</span>
           </div>
         </div>
@@ -790,9 +792,11 @@
     <div class="card-title" data-page-node-id="htDjFTEue4G21be5zjF4av">
       <span data-page-node-id="baRDWckkkwGspFJAfVibXS">数据曲线图 (12×460)</span>
       <span class="chart-title-right" data-page-node-id="HuChartTitleRight001">
+        <!-- 复制提示固定在最左：本容器 margin-left:auto 靠右，最右元素位置恒定，
+             提示出现/变长时容器向左扩展，两个按钮不会被推着跑 -->
+        <span id="chartCopyResult" class="chart-copy-result" data-page-node-id="HuChartCopyResult001"></span>
         <button class="btn btn-sm" id="btnChartCopyData" disabled data-page-node-id="kjrB6FX7X0h8sbD6kD8RA4">复制 12×460 数据</button>
         <button class="btn btn-warn btn-sm" id="btnChartClearData" type="button" disabled title="清空 4 张图的全部数据（只清网页侧已读取的数据，不影响设备 Flash）">清空</button>
-        <span id="chartCopyResult" class="chart-copy-result" data-page-node-id="HuChartCopyResult001"></span>
       </span>
     </div>
     <div class="chart-grid" data-page-node-id="CDsELsJTSTSS0EwmbzFTEx">
