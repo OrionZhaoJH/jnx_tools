@@ -623,7 +623,7 @@
           <!-- 单次测试（原独立「解析数据 (FFE2 查询响应)」卡片，现已合并为本卡片） -->
           <div class="cmd-card collapsed" data-page-node-id="JcParseCard0001">
             <div class="cmd-card-title" data-page-node-id="JcParseCard0002"><span data-page-node-id="JcParseCard0003">单次测试</span><span class="toggle-arrow" data-page-node-id="JcParseCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcParseCard0005">通过 FFE2 发送测试命令（主 0x04 / 从 0x01，数据 0x01 普通 / 0x02 积分球），等待指定时间后回读响应并解析 12 通道数值。</div>
+            <div class="cmd-card-desc" data-page-node-id="JcParseCard0005">通过 FFE2 发送测试命令（主 0xA4 / 从 0x01，数据 0x01 普通 / 0x02 积分球），等待指定时间后回读响应并解析 12 通道数值。</div>
             <div class="cmd-card-actions" data-page-node-id="JcParseCard0006">
               <label class="timeout-label" for="queryTimeout" data-page-node-id="QkrmsnIK7UR6oJw79oakXn">等待(ms)</label>
               <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" data-page-node-id="c3PHSBqyHu8HannWm3AvRK" />
@@ -2029,19 +2029,28 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 设备固件把 (ADC - 校准值) 用 uint16_t 存，ADC<校准值时下溢成 0xFFFF。
   // 网页侧按有符号 16-bit 解释：≥ 0x8000 减 0x10000 还原成 -32768~-1。
   function toInt16(u){ return u>=0x8000 ? u-0x10000 : u; }
+
+  // 单次测试命令主指令（2026-09-18 固件由 0x04 改为 0xA4）：
+  //   0x04 同时被「通道数据查询」占用（应答帧 LL=0xED/237B），单次测试帧 LL=0x1F/31B，两者靠长度区分；
+  //   固件改为 0xA4 后语义更清晰。解析侧**同时兼容旧固件的 0x04**，避免老设备回包被误判「应答未识别」。
+  //   ⚠ 发送与解析必须用同一个常量，禁止再各写各的字面量（本次故障就是只改了发送侧）。
+  const SINGLE_TEST_MAIN = 0xA4;        // 新固件：单次测试命令主指令
+  const SINGLE_TEST_MAIN_LEGACY = 0x04; // 旧固件兼容
+  function isSingleTestMain(b){ return b===SINGLE_TEST_MAIN || b===SINGLE_TEST_MAIN_LEGACY; }
+
   function parseJncResponse(dv){
     // 通道查询进行中：应答是 237 字节通道帧，绝不在此解析普通测试帧（避免误吞通道帧导致缓冲区被清空）
     if(channelPendingQuery) return false;
     const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
 
-    // Strategy A: 搜索响应帧 5B [X] 0A [LEN] 04 11 [24字节] 5D
+    // Strategy A: 搜索响应帧 5B [X] 0A [LEN] A4 11 [24字节] 5D
     // 注意：设备回包的起始第 2 字节实测可能为 0x0D(普通测试) 或 0x01(积分球)，故不再强校验该字节；
     // 改用 LEN 字段(第4字节，此处恒为 0x1F=31) 定位帧尾 5D 来强校验帧完整性，避免误匹配。
     // 重要：必须精确匹配 LEN===0x1F。通道查询应答帧(5B 0D 0A ED 04 11 ... 5D)第4字节为 0xED(=237)，
     //       若用 len>=31 会误判其帧尾并 return true 清空 serialBuf，导致通道帧被 parseSerialChannelResponse 漏解析。
     for(let i=0; i<=bytes.length-6; i++){
       if(bytes[i]===0x5B && bytes[i+2]===0x0A &&
-         bytes[i+4]===0x04 && bytes[i+5]===0x11){
+         isSingleTestMain(bytes[i+4]) && bytes[i+5]===0x11){
         const len=bytes[i+3];
         const endPos=i+len-1;
         if(len===0x1F && endPos<bytes.length && bytes[endPos]===0x5D){
@@ -2058,10 +2067,11 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       }
     }
 
-    // Strategy B: 搜索请求回显 5B [X] 0A 08 04 01 [01/02] 5D，取后续 24 字节（同样放松第 2 字节校验）
+    // Strategy B: 搜索请求回显 5B [X] 0A 08 A4 01 [01/02] 5D，取后续 24 字节（同样放松第 2 字节校验）
+    // 注：0x04 分支只会在旧固件回显时命中；通道查询期间已被开头 channelPendingQuery 提前拦掉，不会串帧。
     for(let i=0; i<=bytes.length-8; i++){
       if(bytes[i]===0x5B && bytes[i+2]===0x0A &&
-         bytes[i+3]===0x08 && bytes[i+4]===0x04 && bytes[i+5]===0x01 &&
+         bytes[i+3]===0x08 && isSingleTestMain(bytes[i+4]) && bytes[i+5]===0x01 &&
          (bytes[i+6]===0x01 || bytes[i+6]===0x02) && bytes[i+7]===0x5D){
         const dataStart=i+8;
         if(dataStart+24<=bytes.length){
@@ -2223,7 +2233,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     btnIntegralSphereTest.textContent='积分球测试中...';
     setCmdResult(resultParse, `${label} 已发送，等待 ${getQueryTimeout()}ms 后回读...`, 'info');
     const waitMs=getQueryTimeout();
-    const frame=buildFrame(0x04, 0x01, [mode]);
+    const frame=buildFrame(SINGLE_TEST_MAIN, 0x01, [mode]);
     logCmd('发送', `${label}：${frameToHex(frame)}`);
     try{
       await ffe2Char.writeValue(frame.buffer);
@@ -2244,6 +2254,15 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         const dv=await ffe2Char.readValue();
         const ok=parseJncResponse(dv);
         logCmd(ok?'数据':'接收', `${label}：${formatDataView(dv)}`);
+        if(!ok){
+          // 诊断：解出应答里的主/从指令，便于一眼发现「发送与解析主指令不一致」这类问题
+          const arr=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+          const j=arr.indexOf(0x5B);
+          if(j>=0 && arr[j+2]===0x0A){
+            const hx=b=>'0x'+Number(b||0).toString(16).padStart(2,'0').toUpperCase();
+            logCmd('诊断', `应答主/从 = ${hx(arr[j+4])} / ${hx(arr[j+5])}，长度字段 LL=${hx(arr[j+3])}；期望主 ${hx(SINGLE_TEST_MAIN)} / 从 0x11、LL=0x1F`);
+          }
+        }
         setCmdResult(resultParse, ok?`${label} 完成：已解析 12 通道数据`:`${label} 应答未识别（${dv.byteLength}B），详见日志`, ok?'ok':'err');
       }else{
         logCmd('失败', `${label}：FFE2 不支持 read，无法回读响应`);
@@ -2715,9 +2734,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 单次测试按钮 hover：显示实际发送的 hex 与回读等待时间（跟随「等待(ms)」输入框实时更新）
   function updateParseCmdTitles(){
     const wait=getQueryTimeout();
-    btnQueryData.title = '发送: ' + frameToHex(buildFrame(0x04, 0x01, [0x01])) +
+    btnQueryData.title = '发送: ' + frameToHex(buildFrame(SINGLE_TEST_MAIN, 0x01, [0x01])) +
                          '\n等待 ' + wait + 'ms 后回读响应，解析 12 通道数值';
-    btnIntegralSphereTest.title = '发送: ' + frameToHex(buildFrame(0x04, 0x01, [0x02])) +
+    btnIntegralSphereTest.title = '发送: ' + frameToHex(buildFrame(SINGLE_TEST_MAIN, 0x01, [0x02])) +
                                   '\n等待 ' + wait + 'ms 后回读响应，解析 12 通道数值';
   }
   queryTimeout.addEventListener('input', updateParseCmdTitles);
