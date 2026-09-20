@@ -346,7 +346,7 @@ const Utils = {
    *   - 建链与特征发现各自独立重试（不再一次失败就判死刑）；
    *   - connect() 成功后先 settle 一小会儿再枚举，避开服务树未就绪窗口；
    *   - 永远只枚举一次服务树再本地匹配，避免"每个特征各枚举一遍"放大抖动；
-   *   - 意外掉线自动重连（保留 device，不重新弹设备选择框）；
+   *   - 意外掉线**不自动重连**（用户明确要求手动重连），复位 UI 但保留 device 引用；
    *   - 全过程用提示条 + 状态徽章显式反馈，杜绝静默失败。
    * ---------------------------------------------------------------------- */
   const CONNECT_ATTEMPTS=4;                       // GATT 建链尝试次数
@@ -354,10 +354,8 @@ const Utils = {
   const DISCOVER_SETTLE_MS=120;                   // 建链成功后等多久再枚举服务树
   const DISCOVER_ATTEMPTS=3;                      // 特征发现尝试次数
   const DISCOVER_RETRY_DELAYS=[200,450];          // 每次发现失败后的等待(ms)
-  const RECONNECT_ATTEMPTS=2;                     // 意外掉线自动重连次数
-  const RECONNECT_DELAY=350;                      // 重连间隔(ms)
   let connecting=false;        // 正在建立连接
-  let reconnecting=false;      // 正在自动重连（区分于用户点击连接）
+  // 注：掉线后不自动重连（用户要求手动重连），故无 reconnecting 标志。
   let userDisconnect=false;    // 主动断开标志：只有它才释放 device
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -563,7 +561,8 @@ const Utils = {
 
   /**
    * gattserverdisconnected 事件入口。
-   * 主动断开 → 彻底复位并释放 device；意外掉线 → 尝试自动重连，保留 device。
+   * 主动断开 → 彻底复位并释放 device；意外掉线 → 复位 UI 但不释放 device。
+   * 注：**不自动重连**（用户明确要求：设备断电后不要一直尝试重连，每次都手动点连接）。
    */
   function onGattDisconnected(){
     if(userDisconnect){
@@ -571,47 +570,9 @@ const Utils = {
       onDeviceLost(true);
       return;
     }
-    handleUnexpectedDisconnect();
-  }
-
-  /** 意外掉线：保留 device，尝试静默重连；失败则给出明确反馈 */
-  async function handleUnexpectedDisconnect(){
-    if(reconnecting){ return; }
-    reconnecting=true;
-    try{
-      logToPanel('Info','connect','检测到链路意外断开，尝试自动重连…');
-      for(let attempt=1; attempt<=RECONNECT_ATTEMPTS; attempt++){
-        if(userDisconnect) return;
-        showBleNotice(`连接意外断开，正在自动重连（第 ${attempt}/${RECONNECT_ATTEMPTS} 次）…`);
-        await sleep(RECONNECT_DELAY);
-        if(userDisconnect) return;
-        const srv=await connectGattWithRetry();
-        if(srv){
-          server=srv;
-          await sleep(DISCOVER_SETTLE_MS);
-          setStatus('discovering', device.name||'未知设备');
-          const res=await discoverGATT(server);
-          if(res.ffe1){
-            setStatus('connected', device.name||'未知设备');
-            showBleNotice('');
-            logToPanel('Info','connect','自动重连成功');
-          }else{
-            setStatus('partial', device.name||'未知设备');
-            showBleNotice('已重连，但未发现 FFE1 特征，可点右侧重试。', true);
-          }
-          return;
-        }
-      }
-      // 重连次数用尽：保留 device，但复位为未连接，由用户点击连接静默重试
-      onDeviceLost(false);
-      showBleNotice('连接已断开，自动重连未成功，请点击「连接」重试。');
-    }catch(err){
-      console.error('auto reconnect error:',err);
-      onDeviceLost(false);
-      showBleNotice('连接已断开（'+(err&&err.message||err)+'），请点击「连接」重试。');
-    }finally{
-      reconnecting=false;
-    }
+    onDeviceLost(false);
+    showBleNotice('设备连接已断开，请点击「连接」重新连接。');
+    logToPanel('Error','connect','设备连接已断开（不自动重连，请手动重连）');
   }
 
   /**

@@ -814,33 +814,17 @@ const Utils = {
   // 初始化：未连接时 FFE1/FFE2 均未发现，先锁定两个面板
   refreshFeatureState();
 
-  // GATT 掉线回调：区分「用户主动断开」与「意外掉线」。意外掉线自动重连一次。
+  // GATT 掉线回调：区分「用户主动断开」与「意外掉线」。
+  // 意外掉线**不自动重连**（用户明确要求：设备断电后不要一直尝试重连，
+  // 每次都手动点连接）。掉线后立即回到「未连接」，但保留 device 引用，
+  // 这样用户点「连接」时可静默重连、不重复弹设备选择框。
   function onGattDisconnected(){
     const wasUser=userDisconnect;
     userDisconnect=false;
     resetConnectionUI(wasUser);
-    if(wasUser) return;
-    handleUnexpectedDisconnect();
-  }
-
-  async function handleUnexpectedDisconnect(){
-    if(reconnecting) return;
-    reconnecting=true;
-    try{
-      for(let i=1; i<=RECONNECT_ATTEMPTS; i++){
-        setStatus('connecting','');
-        showBleNotice(`设备连接意外断开，正在自动重连（第 ${i}/${RECONNECT_ATTEMPTS} 次）…`);
-        logToPanel('ERR','connect',`设备掉线，自动重连第 ${i}/${RECONNECT_ATTEMPTS} 次`);
-        await sleep(RECONNECT_DELAY);
-        if(!device || !device.gatt) break;
-        const ok=await connectAndDiscover();
-        if(ok){ logToPanel('SYS','connect','自动重连成功'); return; }
-      }
-      showBleNotice('自动重连失败。可点「重试连接」，或断开后重新选择设备。', true);
-      setStatus('disconnected','');
-    }finally{
-      reconnecting=false;
-      syncConnectButtons();
+    if(!wasUser){
+      showBleNotice('设备连接已断开，请点「连接」重新连接。');
+      logToPanel('ERR','connect','设备连接已断开（不自动重连，请手动重连）');
     }
   }
 
@@ -872,7 +856,7 @@ const Utils = {
 
   // 连接/断开按钮状态统一在此处理
   function syncConnectButtons(){
-    const busy=connecting||reconnecting;
+    const busy=connecting;
     if(btnConnect){
       btnConnect.disabled=busy;
       if(!busy && btnConnect.textContent.indexOf('发现特征中')>=0){
@@ -881,7 +865,7 @@ const Utils = {
     }
     if(btnDisconnect){
       const linkOk=!!(device && device.gatt && device.gatt.connected);
-      btnDisconnect.disabled=!linkOk && !busy;
+      btnDisconnect.disabled=!linkOk || busy;
     }
   }
 
@@ -898,10 +882,8 @@ const Utils = {
   const DISCOVER_SETTLE_MS=120;
   const DISCOVER_ATTEMPTS=3;
   const DISCOVER_RETRY_DELAYS=[200,450];
-  const RECONNECT_ATTEMPTS=2;
-  const RECONNECT_DELAY=350;
   let connecting=false;
-  let reconnecting=false;
+  // 注：掉线后不自动重连（用户要求手动重连），故无 reconnecting 标志。
   let userDisconnect=false;
 
   function setStatus(state, name){

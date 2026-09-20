@@ -1283,38 +1283,16 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
 
   // GATT 掉线回调：区分「用户主动断开」与「意外掉线」。
-  // 意外掉线自动重连一次（Web Bluetooth 建链后偶发立刻断开，重连通常立即成功），
-  // 连续失败才提示用户，避免用户看到「啥也没发生」而困惑。
+  // 意外掉线**不自动重连**（用户明确要求：设备断电后不要一直尝试重连，
+  // 每次都手动点连接）。掉线后立即回到「未连接」，但保留 device 引用，
+  // 这样用户点「连接」时可静默重连、不重复弹设备选择框。
   function onGattDisconnected(){
     const wasUser=userDisconnect;
     userDisconnect=false;
     onDeviceLost(wasUser);
-    if(wasUser) return;
-    // 意外掉线：自动重连（保留 device，不再弹选择框）
-    handleUnexpectedDisconnect();
-  }
-
-  async function handleUnexpectedDisconnect(){
-    if(reconnecting) return;
-    reconnecting=true;
-    try{
-      for(let i=1; i<=RECONNECT_ATTEMPTS; i++){
-        setStatus('connecting','');
-        showBleNotice(`设备连接意外断开，正在自动重连（第 ${i}/${RECONNECT_ATTEMPTS} 次）…`);
-        logToPanel('CMD-Err','connect',`设备掉线，自动重连第 ${i}/${RECONNECT_ATTEMPTS} 次`);
-        await sleep(RECONNECT_DELAY);
-        if(!device || !device.gatt) break;
-        const ok=await connectAndDiscover();
-        if(ok){
-          logToPanel('CMD','connect','自动重连成功');
-          return;
-        }
-      }
-      showBleNotice('自动重连失败。可点「重试连接」，或断开后重新选择设备。');
-      setStatus('disconnected','');
-    }finally{
-      reconnecting=false;
-      syncConnectButtons();
+    if(!wasUser){
+      showBleNotice('设备连接已断开，请点「连接 BLE 设备」重新连接。');
+      logToPanel('CMD-Err','connect','设备连接已断开（不自动重连，请手动重连）');
     }
   }
 
@@ -1377,9 +1355,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     syncConnectButtons();
   }
 
-  // 连接/断开按钮状态统一在此处理（连接中禁用连接按钮、显示 spinner）
+  // 连接/断开按钮状态统一在此处理。
+  // 只有「连接流程进行中」才禁用连接按钮；掉线后必须立即恢复可点（不自动重连，由用户手动重连）。
   function syncConnectButtons(){
-    const busy=connecting||reconnecting;
+    const busy=connecting;
     if(btnConnect){
       btnConnect.disabled=busy;
       if(!busy && btnConnect.textContent.indexOf('发现特征中')>=0){
@@ -1388,7 +1367,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
     if(btnDisconnect){
       const linkOk=!!(device && device.gatt && device.gatt.connected);
-      btnDisconnect.disabled=!linkOk && !busy;
+      btnDisconnect.disabled=!linkOk || busy;
     }
   }
 
@@ -1417,11 +1396,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const DISCOVER_SETTLE_MS=120;   // gatt.connect() 返回后，等服务树就绪再开始发现
   const DISCOVER_ATTEMPTS=3;      // 特征发现总尝试次数（含首次）
   const DISCOVER_RETRY_DELAYS=[200,450];  // 第 1/2 次失败后的等待
-  const RECONNECT_ATTEMPTS=2;     // 意外掉线时的自动重连次数
-  const RECONNECT_DELAY=350;      // 自动重连前的等待
   let connecting=false;           // 连接流程进行中（含建链/发现）
-  let reconnecting=false;         // 掉线自动重连中
   let userDisconnect=false;       // 本次掉线是否由用户主动触发
+  // 注：掉线后**不自动重连**（用户明确要求手动重连），故无 RECONNECT_* 常量与 reconnecting 标志。
+  //     意外掉线时保留 device 引用，用户点「连接」即可静默重连（不重复弹设备选择框）。
 
   // 根据 FFE1/FFE2 就绪状态启用/禁用所有相关控件
   function refreshFeatureState(){
