@@ -3,7 +3,6 @@ const ASSETS = [
   './',
   './index.html',
   './JNC_tools.html',
-  './adc_analysis.html',
   './ble_analysis.html',
   './JNA_tools.html',
   './JNA_Plus_Tool.html',
