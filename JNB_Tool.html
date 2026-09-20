@@ -139,6 +139,29 @@
   .status-badge.connecting .status-dot{background:var(--warn);animation:pulse 1s infinite;}
   .status-badge.connected{background:#d1fae5;color:#065f46;}
   .status-badge.connected .status-dot{background:var(--success);}
+  /* 「已连接」但特征还在发现中：绿底闪点，区分「链路通了」与「工具就绪」 */
+  .status-badge.connected.discovering .status-dot{background:var(--warn);animation:pulse 1s infinite;}
+  /* 「已连接但特征缺失」：灰底琥珀点，不误报成功 */
+  .status-badge.partial{background:#f1f5f9;color:#92400e;}
+  .status-badge.partial .status-dot{background:var(--warn);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  /* 小型 spinner：按钮内「发现特征中」的旋转指示 */
+  .spinner{
+    display:inline-block;width:11px;height:11px;vertical-align:-1px;
+    border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  /* 特征重试提示条：只在进行/失败时显示，不占常驻空间 */
+  .ble-notice{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:0 0 12px;padding:9px 14px;border-radius:10px;
+    font-size:.85rem;line-height:1.5;
+    background:#fffbeb;border:1px solid #fde68a;color:#92400e;
+  }
+  .ble-notice[hidden]{display:none;}
+  .ble-notice .notice-text{flex:1 1 220px;min-width:0;}
+  .ble-notice .btn{flex:none;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
   .device-name{font-size:.875rem;color:var(--text-muted);}
   .device-name strong{color:var(--text);}
@@ -359,6 +382,12 @@
     <span class="device-name" id="bleDeviceName"></span>
   </div>
 
+  <!-- 特征发现提示条：仅在进行中/失败/部分缺失时显示，成功后自动隐藏 -->
+  <div class="ble-notice" id="bleNotice" hidden>
+    <span class="notice-text" id="bleNoticeText"></span>
+    <button class="btn btn-sm" id="btnRetryDiscover" type="button">重试发现特征</button>
+  </div>
+
   <div class="ble-grid">
     <!-- Left: GATT Profile (JNB 模式隐藏) -->
     <div class="card gatt-card">
@@ -522,6 +551,9 @@ const Utils = {
   const bleStatusText=document.getElementById('bleStatusText');
   const bleDeviceName=document.getElementById('bleDeviceName');
   const bleWarning=document.getElementById('bleWarning');
+  const bleNotice=document.getElementById('bleNotice');
+  const bleNoticeText=document.getElementById('bleNoticeText');
+  const btnRetryDiscover=document.getElementById('btnRetryDiscover');
   const gattTree=document.getElementById('gattTree');
   const rawLog=document.getElementById('rawLog');
   const logLineCount=document.getElementById('logLineCount');
@@ -612,56 +644,203 @@ const Utils = {
   }
 
   // ---- Connect ----
+  // 连接分两阶段：① GATT 建链 → ② 特征发现。两阶段各自独立重试：
+  //   · 建链阶段偶发「连上后立刻掉线」（gatt 报 connected 但服务树未就绪）；
+  //   · 发现阶段首次 getPrimaryServices() 枚举不全（Web Bluetooth 已知时序坑）。
+  // 「连上就断开」与「连上但没找到 FFE1」是同一个坑的两种表现。
   btnConnect.addEventListener('click', async ()=>{
+    if(connecting) return;
+    connecting=true;
+    syncConnectButtons();
+    const keyword=nameFilter.value.trim();
+    const options={optionalServices:COMMON_SERVICES};
+    if(keyword){
+      // 有过滤关键字：浏览器弹窗只显示名称以关键字开头的设备
+      options.filters=[{namePrefix:keyword}];
+    }else{
+      // 名称为空：Web Bluetooth 的 namePrefix 必须是非空字符串，无法在弹窗内用「空前缀」表达「仅显示有名称」的设备。
+      // 改用 services 过滤——只列出广播了 FFE0（Nordic UART 串口）服务的设备，
+      // 这正好把「未知/不支持」的手机、杂牌 BLE 等挡在弹窗外（它们不会广播 FFE0）。
+      // 若你的 JNB 设备未在广播中带 FFE0，则弹窗可能为空，此时在「名称过滤」填前缀（如 JNB）即可。
+      options.filters=[{services:[FFE0_SERVICE]}];
+    }
+    // 选设备只做一次：重试连接时不再弹选择框（除非用户主动断开）
     try{
-      setStatus('connecting','');
-      const keyword=nameFilter.value.trim();
-      const options={optionalServices:COMMON_SERVICES};
-      if(keyword){
-        // 有过滤关键字：浏览器弹窗只显示名称以关键字开头的设备
-        options.filters=[{namePrefix:keyword}];
-      }else{
-        // 名称为空：Web Bluetooth 的 namePrefix 必须是非空字符串，无法在弹窗内用「空前缀」表达「仅显示有名称」的设备。
-        // 改用 services 过滤——只列出广播了 FFE0（Nordic UART 串口）服务的设备，
-        // 这正好把「未知/不支持」的手机、杂牌 BLE 等挡在弹窗外（它们不会广播 FFE0）。
-        // 若你的 JNB 设备未在广播中带 FFE0，则弹窗可能为空，此时在「名称过滤」填前缀（如 JNB）即可。
-        options.filters=[{services:[FFE0_SERVICE]}];
+      if(!device){
+        setStatus('connecting','');
+        device=await navigator.bluetooth.requestDevice(options);
+        device.addEventListener('gattserverdisconnected',onGattDisconnected);
       }
-      device=await navigator.bluetooth.requestDevice(options);
-      // 弹窗已通过 services 过滤只列出 FFE0 设备，无需再在选中后拦截无名称设备；
-      // 「不支持 JNB 协议」的判定交给下方 discoverFFE1 的 FFE1 特征检查。
-      device.addEventListener('gattserverdisconnected',onDisconnected);
-      setStatus('connecting', device.name||device.id);
-      server=await device.gatt.connect();
-      setStatus('connected', device.name||'未知设备');
-      btnConnect.disabled=true;
-      btnDisconnect.disabled=false;
-      // 连接成功后先清空上一会话遗留的记录与日志
-      resetSessionState();
-      // JNB 模式：发现 FFE1（仅探测特征，不立即轮询）与 FFE2（用于命令）
-      await discoverFFE1(server);
-      if(!ffe1Char){
-        // 已连接但设备无 FFE1 特征：判定为「不支持 JNB 协议」，主动断开并提示重选
-        alert('所选设备未找到 FFE1 特征，可能不支持 JNB 协议。\n请重新选择设备，或在「名称过滤」中填写前缀（如 JNB）以缩小范围。');
-        if(server && server.connected) await server.disconnect().catch(()=>{});
-        throw new Error('unsupported device (no FFE1)');
-      }
-      await discoverFFE2(server);
-      // 若用户已提前点击“开始更新”，则立即启动 FFE1 订阅/轮询
-      if(!jnbPaused) await startFFE1Feed();
     }catch(err){
-      console.error('BLE connect error:',err);
-      setStatus('disconnected','');
-      if(err.name!=='NotFoundError'){
-        alert('连接失败: '+err.message);
+      connecting=false; setStatus('disconnected',''); syncConnectButtons();
+      if(err.name!=='NotFoundError') alert('选择设备失败: '+err.message);
+      return;
+    }
+    const ok=await connectAndDiscover();
+    connecting=false;
+    syncConnectButtons();
+    // 已连接但设备无 FFE1 → 判定不支持 JNB 协议，主动断开并提示（保留原有语义，但改为提示条而非弹窗）
+    if(ok===false && ffe1Missing){
+      ffe1Missing=false;
+      userDisconnect=true;
+      if(device && device.gatt && device.gatt.connected){
+        try{ await device.gatt.disconnect(); }catch(e){}
       }
+      resetConnectionUI(true);
+      showBleNotice('所选设备未找到 FFE1 特征，可能不支持 JNB 协议。请重新选择设备，或在「名称过滤」中填写前缀（如 JNB）以缩小范围。');
+      return;
+    }
+    if(!ok && device && device.gatt && !device.gatt.connected){
+      showBleNotice('连接失败，设备无响应。可点「重试连接」，或重新选择设备。');
     }
   });
 
+  // 建链：带重试。Web Bluetooth 常见「连上立刻掉线」，隔一小段时间重试即可稳定。
+  async function connectGattWithRetry(){
+    const DELAYS=[300, 700, 1200];
+    let lastErr=null;
+    for(let attempt=0; attempt<=DELAYS.length; attempt++){
+      if(!device || !device.gatt) return {ok:false, err:new Error('设备不可用')};
+      try{
+        if(!device.gatt.connected) await device.gatt.connect();
+        return {ok:true, attempt};
+      }catch(err){
+        lastErr=err;
+        console.warn(`[JNB] gatt.connect 第 ${attempt+1} 次失败:`, err);
+        try{ if(device.gatt.connected) device.gatt.disconnect(); }catch(e){}
+        if(attempt<DELAYS.length) await sleep(DELAYS[attempt]);
+      }
+    }
+    return {ok:false, err:lastErr};
+  }
+
+  // 完整流程：建链 → 发现特征 → 给出明确结论。返回是否就绪。
+  async function connectAndDiscover(){
+    setStatus('connecting','');
+    showBleNotice('正在连接…');
+    const conn=await connectGattWithRetry();
+    if(!conn.ok){
+      console.error('[JNB] 建链失败:', conn.err);
+      server=null;
+      resetConnectionUI(false);            // 清理状态，保留 device 供重试
+      showBleNotice('连接失败：'+((conn.err&&conn.err.message)||'设备无响应'));
+      logToPanel('ERR','connect','建链失败：'+((conn.err&&conn.err.message)||'unknown'));
+      return false;
+    }
+    if(conn.attempt>0) console.info(`[JNB] 第 ${conn.attempt+1} 次尝试建链成功`);
+    server=device.gatt;
+    setStatus('connected', device.name||'未知设备');
+    await sleep(DISCOVER_SETTLE_MS);       // 等服务树就绪再做发现
+    if(!device.gatt.connected){
+      logToPanel('ERR','connect','建链后立即断开，正在重连…');
+      return await connectAndDiscover();
+    }
+    setStatus('discovering', device.name||'未知设备');
+    if(btnConnect) btnConnect.innerHTML='<span class="spinner"></span> 发现特征中…';
+    const result=await discoverAllFeatures(server);
+    if(btnConnect) btnConnect.textContent='🔗 连接 BLE 设备';
+    // 连接成功后先清空上一会话遗留的记录与日志
+    resetSessionState();
+    if(!result.ffe1){
+      // FFE1 缺失 = 判定不支持 JNB 协议（由调用方断开并提示）
+      ffe1Missing=true;
+      setStatus('partial', device.name||'未知设备');
+      logToPanel('ERR','discover','未发现 FFE1，判定设备不支持 JNB 协议');
+      return false;
+    }
+    if(result.missing.length===0){
+      setStatus('connected', device.name||'未知设备');
+      showBleNotice(null);
+      logToPanel('SYS','discover',`特征发现完成：FFE1/FFE2 均已就绪（${result.ms}ms）`);
+      if(!jnbPaused) await startFFE1Feed();
+      return true;
+    }
+    // FFE1 有了但 FFE2 缺：可能刚连上未就绪，给提示 + 重试入口，不断开
+    setStatus('partial', device.name||'未知设备');
+    showBleNotice(`未发现特征：${result.missing.join('、')}。设备可能刚连上尚未就绪，可点「重试发现特征」。`);
+    logToPanel('ERR','discover',`未发现：${result.missing.join('、')}（用时 ${result.ms}ms）`);
+    if(!jnbPaused) await startFFE1Feed();
+    return false;
+  }
+
+  // 发现全部特征：一次枚举全部服务/特征后本地匹配（避免对同一服务树反复枚举放大时序抖动），
+  // 未命中再整体重试。返回 {ffe1,ffe2,missing:[],ms}
+  async function discoverAllFeatures(srv){
+    const t0=performance.now();
+    let found1=null, found2=null;
+    for(let attempt=0; attempt<DISCOVER_ATTEMPTS; attempt++){
+      try{
+        if(!device || !device.gatt.connected) break;
+        const services=await srv.getPrimaryServices();
+        const charArrays=await Promise.all(services.map(s=>s.getCharacteristics().catch(()=>[])));
+        const all=[];
+        charArrays.forEach(arr=>arr.forEach(c=>all.push(c)));
+        const pick=u=>all.find(c=>c.uuid.toLowerCase()===u);
+        found1=pick(FFE1_SERVICE);
+        found2=pick(FFE2_SERVICE);
+        if(found1 && found2) break;
+      }catch(err){
+        console.warn('[JNB] 发现服务失败:',err);
+      }
+      if(attempt<DISCOVER_ATTEMPTS-1) await sleep(DISCOVER_RETRY_DELAYS[attempt]||300);
+    }
+    ffe1Char=found1||null;
+    ffe2Char=found2||null;
+    if(ffe2Char) await setupFfe2();
+    else logToPanel('ERR', Utils.shortUuid(FFE2_SERVICE), '未找到 FFE2 特征');
+    if(ffe1Char) logToPanel('SYS', Utils.shortUuid(FFE1_SERVICE), 'FFE1 已就绪');
+    else logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
+    refreshFeatureState();
+    const missing=[];
+    if(!ffe1Char) missing.push('FFE1');
+    if(!ffe2Char) missing.push('FFE2');
+    return {ffe1:ffe1Char, ffe2:ffe2Char, missing, ms:Math.round(performance.now()-t0)};
+  }
+
+  // FFE2 就绪后的初始化（notify 订阅）
+  async function setupFfe2(){
+    if(!ffe2Char) return;
+    console.log('[JNB] FFE2 已就绪');
+    if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
+      try{
+        await ffe2Char.startNotifications();
+        ffe2Char.addEventListener('characteristicvaluechanged',onFFE2Changed);
+      }catch(err){
+        console.warn('FFE2 notify 订阅失败:',err);
+      }
+    }
+  }
+
   // ---- Disconnect ----
   btnDisconnect.addEventListener('click', ()=>{
+    userDisconnect=true;
+    showBleNotice(null);
     if(device&&device.gatt.connected) device.gatt.disconnect();
+    else resetConnectionUI(true);
   });
+
+  // 特征发现重试（手动触发，不动 GATT 连接）
+  if(btnRetryDiscover){
+    btnRetryDiscover.addEventListener('click', async ()=>{
+      if(!device || !device.gatt || !device.gatt.connected){
+        showBleNotice('设备未连接，请先点「连接 BLE 设备」。');
+        return;
+      }
+      btnRetryDiscover.disabled=true;
+      showBleNotice('正在重新发现特征…');
+      const result=await discoverAllFeatures(device.gatt);
+      btnRetryDiscover.disabled=false;
+      if(result.missing.length===0){
+        setStatus('connected', device.name||'未知设备');
+        showBleNotice(null);
+        logToPanel('SYS','discover',`重试成功：FFE1/FFE2 均已就绪（${result.ms}ms）`);
+        if(!jnbPaused) await startFFE1Feed();
+      }else{
+        setStatus('partial', device.name||'未知设备');
+        showBleNotice(`仍未发现：${result.missing.join('、')}。可断开后重新连接设备。`);
+      }
+    });
+  }
 
   // ---- Sticky top bar: 滚动时标题缩小并移入顶栏 ----
   function syncTopbar(){
@@ -675,13 +854,40 @@ const Utils = {
   // 初始化：未连接时 FFE1/FFE2 均未发现，先锁定两个面板
   refreshFeatureState();
 
-  function onDisconnected(){
-    resetConnectionUI();
+  // GATT 掉线回调：区分「用户主动断开」与「意外掉线」。意外掉线自动重连一次。
+  function onGattDisconnected(){
+    const wasUser=userDisconnect;
+    userDisconnect=false;
+    resetConnectionUI(wasUser);
+    if(wasUser) return;
+    handleUnexpectedDisconnect();
+  }
+
+  async function handleUnexpectedDisconnect(){
+    if(reconnecting) return;
+    reconnecting=true;
+    try{
+      for(let i=1; i<=RECONNECT_ATTEMPTS; i++){
+        setStatus('connecting','');
+        showBleNotice(`设备连接意外断开，正在自动重连（第 ${i}/${RECONNECT_ATTEMPTS} 次）…`);
+        logToPanel('ERR','connect',`设备掉线，自动重连第 ${i}/${RECONNECT_ATTEMPTS} 次`);
+        await sleep(RECONNECT_DELAY);
+        if(!device || !device.gatt) break;
+        const ok=await connectAndDiscover();
+        if(ok){ logToPanel('SYS','connect','自动重连成功'); return; }
+        if(ffe1Missing) break;   // 设备本身没有 FFE1，重连也没用
+      }
+      showBleNotice('自动重连失败。可点「重试连接」，或断开后重新选择设备。');
+      setStatus('disconnected','');
+    }finally{
+      reconnecting=false;
+      syncConnectButtons();
+    }
   }
 
   // 复位到断开状态（停止轮询/订阅、清空面板、复位按钮与状态徽标）。
-  // 无论设备是否主动掉线，断开后都直接调用，保证 UI 立即回到未连接状态。
-  function resetConnectionUI(){
+  // fromUser=true 表示用户主动断开 → 释放 device 引用，下次连接重新选设备。
+  function resetConnectionUI(fromUser){
     // 停止所有轮询/订阅
     stopFFE1Poll();
     // 复位 GATT Profile 到初始状态（与主动断开保持一致）
@@ -700,26 +906,65 @@ const Utils = {
     // 断开后 FFE1/FFE2 均需重新发现，重新锁定两个面板
     refreshFeatureState();
     setStatus('disconnected','');
-    btnConnect.disabled=false;
-    btnDisconnect.disabled=true;
-    device=null;server=null;
+    server=null;
+    if(fromUser){ device=null; showBleNotice(null); }
+    syncConnectButtons();
   }
 
+  // 连接/断开按钮状态统一在此处理
+  function syncConnectButtons(){
+    const busy=connecting||reconnecting;
+    if(btnConnect){
+      btnConnect.disabled=busy;
+      if(!busy && btnConnect.textContent.indexOf('发现特征中')>=0){
+        btnConnect.textContent='🔗 连接 BLE 设备';
+      }
+    }
+    if(btnDisconnect){
+      const linkOk=!!(device && device.gatt && device.gatt.connected);
+      btnDisconnect.disabled=!linkOk && !busy;
+    }
+  }
+
+  // 特征发现提示条：text 传空/null 即隐藏；showRetry=true 时额外露出「重试发现特征」按钮
+  function showBleNotice(text, showRetry){
+    if(!bleNotice) return;
+    if(!text){ bleNotice.hidden=true; bleNoticeText.textContent=''; return; }
+    bleNoticeText.textContent=text;
+    if(btnRetryDiscover) btnRetryDiscover.hidden=!showRetry;
+    bleNotice.hidden=false;
+  }
+
+  // ---- BLE 连接稳定性参数 ----
+  const DISCOVER_SETTLE_MS=120;
+  const DISCOVER_ATTEMPTS=3;
+  const DISCOVER_RETRY_DELAYS=[200,450];
+  const RECONNECT_ATTEMPTS=2;
+  const RECONNECT_DELAY=350;
+  let connecting=false;
+  let reconnecting=false;
+  let userDisconnect=false;
+  let ffe1Missing=false;   // 本次连接「设备确实没有 FFE1」→ 判定不支持 JNB 协议
+
   function setStatus(state, name){
-    bleStatus.className='status-badge '+state;
-    bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
+    // discovering = 已连接但特征还在发现中；partial = 连上了但特征不全
+    const cls = state==='discovering' ? 'connected discovering' : state;
+    bleStatus.className='status-badge '+cls;
+    const texts={disconnected:'未连接',connecting:'连接中...',connected:'已连接',discovering:'发现特征中...',partial:'已连接(特征不全)'};
+    bleStatusText.textContent=texts[state]||'未连接';
     if(name) bleDeviceName.innerHTML='设备: <strong>'+Utils.escapeHtml(name)+'</strong>';
     else bleDeviceName.innerHTML='';
   }
 
   // 主动断开（立即停止 FFE1 订阅/轮询，断开 GATT 连接，并立即复位 UI 到未连接状态）
   async function forceDisconnect(){
+    userDisconnect=true;
     stopFFE1Poll(); // 立即停掉轮询，避免断开过程中持续报错
     if(device && device.gatt && device.gatt.connected){
       try{ await device.gatt.disconnect(); }
       catch(err){ console.warn('[JNB] 主动断开失败:', err.message); }
     }
-    resetConnectionUI(); // 不依赖 gattserverdisconnected 事件，保证 UI 立即回到断开状态
+    resetConnectionUI(true); // 不依赖 gattserverdisconnected 事件，保证 UI 立即回到断开状态
   }
 
   // 停止 FFE1 的轮询与通知订阅（设备断开/重启前调用，避免断开后仍持续报错）
@@ -785,49 +1030,54 @@ const Utils = {
     }
   }
 
-  // 在设备全部服务/特征中查找指定 UUID 特征（FFE1 / FFE2 共用）。
-  // 部分设备 GATT 连接后首次枚举不全（Web Bluetooth 已知时序坑），加 3 次重试（间隔 300ms），
-  // 覆盖慢设备/冷启动。失败时把枚举到的所有 services/characteristics 详细打到 console 便于诊断。
+  // 在设备全部服务/特征中查找指定 UUID 特征（带重试）。
+  // 主流程已改用 discoverAllFeatures()（一次枚举全部特征后本地匹配，避免重复枚举放大时序抖动），
+  // 此函数保留供按需单特征查找（如 FFE1 补偿发现）。失败时把 GATT 列表打到 console 便于诊断。
   async function discoverChar(srv, uuid){
     const uuidLower=uuid.toLowerCase();
-    const targetShort=uuidLower.slice(0,8);
-    for(let attempt=1; attempt<=3; attempt++){
+    for(let attempt=1; attempt<=DISCOVER_ATTEMPTS; attempt++){
       try{
+        if(!device || !device.gatt.connected) return null;
         const services=await srv.getPrimaryServices();
         for(const svc of services){
-          const chars=await svc.getCharacteristics();
+          const chars=await svc.getCharacteristics().catch(()=>[]);
           const ch=chars.find(c=>c.uuid.toLowerCase()===uuidLower);
           if(ch) return ch;
         }
       }catch(err){
         console.warn('[JNB] 发现服务失败 (尝试 '+attempt+'):',err);
       }
-      if(attempt<3) await new Promise(r=>setTimeout(r,300));
+      if(attempt<DISCOVER_ATTEMPTS) await sleep(DISCOVER_RETRY_DELAYS[attempt-1]||300);
     }
     // 全部尝试失败：最后一次详细诊断，把设备实际广播的 GATT 列出来
     try{
       const services=await srv.getPrimaryServices();
       const list=services.map(s=>'  '+Utils.shortUuid(s.uuid)+' ['+s.uuid+']').join('\n');
-      console.warn('[JNB] FFE1 未找到，目标 UUID:', uuid, '目标 short:', targetShort);
-      console.warn('[JNB] 设备 GATT services 列表 ('+services.length+' 个):\n'+list);
+      console.warn('[JNB] 目标 UUID:', uuid, '未找到；设备 GATT services（'+services.length+' 个）:\n'+list);
     }catch(err){
       console.warn('[JNB] 诊断枚举也失败:', err.message);
     }
     return null;
   }
 
-  // ---- JNB 发现 FFE1（仅探测特征，不订阅） ----
-  async function discoverFFE1(srv){
-    ffe1Char=await discoverChar(srv, FFE1_SERVICE);
-    if(!ffe1Char) logToPanel('ERR', Utils.shortUuid(FFE1_SERVICE), '未找到 FFE1 特征');
-    refreshFeatureState(); // FFE1 发现结果更新面板可用性
-  }
-
   // ---- 启动 FFE1 订阅/轮询（点击“开始更新”时调用） ----
   async function startFFE1Feed(){
     if(ffe1FeedActive) return; // 已在订阅，避免重复
-    if(!ffe1Char && server) await discoverFFE1(server); // 若尚未发现则尝试发现
-    if(!ffe1Char) return;
+    // 补偿发现：FFE1 偶尔在连接时未枚举到，这里再试一次（带重试），并给出明确提示
+    if(!ffe1Char && device && device.gatt && device.gatt.connected){
+      showBleNotice('正在查找 FFE1…');
+      ffe1Char=await discoverChar(device.gatt, FFE1_SERVICE);
+      refreshFeatureState();
+      if(ffe1Char){
+        logToPanel('SYS', Utils.shortUuid(FFE1_SERVICE), 'FFE1 补偿发现成功');
+        if(ffe2Char) showBleNotice(null);
+      }
+    }
+    if(!ffe1Char){
+      showBleNotice('未找到 FFE1 特征，无法开始跟踪。可点「重试发现特征」。');
+      return;
+    }
+    if(bleNotice && !bleNotice.hidden) showBleNotice(null);
     const shortU=Utils.shortUuid(FFE1_SERVICE);
     const target=ffe1Char;
 
@@ -884,24 +1134,6 @@ const Utils = {
 
   // Log read/poll results to the panel with timestamp
   // ---- FFE2 命令交互 ----
-  async function discoverFFE2(srv){
-    ffe2Char=await discoverChar(srv, FFE2_SERVICE);
-    if(ffe2Char){
-      console.log('[JNB] FFE2 已就绪');
-      if(ffe2Char.properties.notify||ffe2Char.properties.indicate){
-        try{
-          await ffe2Char.startNotifications();
-          ffe2Char.addEventListener('characteristicvaluechanged',onFFE2Changed);
-        }catch(err){
-          console.warn('FFE2 notify 订阅失败:',err);
-        }
-      }
-    }else{
-      console.warn('[JNB] 未找到 FFE2');
-    }
-    refreshFeatureState(); // FFE2 发现结果更新命令交互可用性
-  }
-
   function onFFE2Changed(event){
     const dv=event.target.value;
     ffe2ResponseBuffer.push(dv);

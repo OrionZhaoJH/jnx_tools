@@ -109,7 +109,29 @@
   .status-badge.connecting .status-dot{background:var(--warn);animation:pulse 1s infinite;}
   .status-badge.connected{background:#d1fae5;color:#065f46;}
   .status-badge.connected .status-dot{background:var(--success);}
+  /* 「已连接」但特征还在发现中：绿色底但点闪烁，明确区分「链路通了」与「工具就绪」 */
+  .status-badge.connected.discovering .status-dot{background:var(--warn);animation:pulse 1s infinite;}
+  /* 「已连接但特征缺失」：灰色底 + 琥珀点，不误报成功 */
+  .status-badge.partial{background:#f1f5f9;color:#92400e;}
+  .status-badge.partial .status-dot{background:var(--warn);}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  /* 小型 spinner：用于按钮内「发现特征中」的旋转指示 */
+  .spinner{
+    display:inline-block;width:11px;height:11px;vertical-align:-1px;
+    border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  /* 特征重试提示条：只在进行/失败时显示，成功后自动隐藏，不占常驻空间 */
+  .ble-notice{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:0 0 12px;padding:9px 14px;border-radius:10px;
+    font-size:.85rem;line-height:1.5;
+    background:#fffbeb;border:1px solid #fde68a;color:#92400e;
+  }
+  .ble-notice[hidden]{display:none;}
+  .ble-notice .notice-text{flex:1 1 220px;min-width:0;}
+  .ble-notice .btn{flex:none;}
   .device-name{font-size:.875rem;color:var(--text-muted);}
   .device-name strong{color:var(--text);}
 
@@ -216,6 +238,12 @@
     <span class="device-name" id="bleDeviceName"></span>
   </div>
 
+  <!-- 连接/发现过程提示条：仅在进行中或失败时出现，成功后自动隐藏 -->
+  <div class="ble-notice" id="bleNotice" hidden>
+    <span class="notice-text" id="bleNoticeText"></span>
+    <button class="btn btn-sm" id="btnRetryDiscover" type="button">重试发现特征</button>
+  </div>
+
   <div class="ble-grid">
     <!-- Left: GATT Profile -->
     <div class="card">
@@ -294,6 +322,9 @@ const Utils = {
   const btnExportLog=document.getElementById('btnExportLog');
   const nameFilter=document.getElementById('nameFilter');
   const btnClearCache=document.getElementById('btnClearCache');
+  const bleNotice=document.getElementById('bleNotice');
+  const bleNoticeText=document.getElementById('bleNoticeText');
+  const btnRetryDiscover=document.getElementById('btnRetryDiscover');
 
   // State
   let device=null, server=null;
@@ -306,46 +337,205 @@ const Utils = {
   const FFE1_SERVICE='0000ffe1-0000-1000-8000-00805f9b34fb';
   const COMMON_SERVICES=['generic_access','generic_attribute','device_information',FFE1_SERVICE,'0000ffe0-0000-1000-8000-00805f9b34fb'];
 
+  /* ---- 蓝牙连接稳定性参数 ------------------------------------------------
+   * Web Bluetooth 有两个已知的脆弱点，症状分别是：
+   *   ① gatt.connect() 返回成功，但服务树尚未就绪 → getPrimaryServices() 首次枚举不全
+   *      （表现为「连上了却找不到 FFE1/FFE2」）；
+   *   ② 刚连上就立刻触发 gattserverdisconnected（表现为「连上立刻又断开，无事发生」）。
+   * 两者同源：链路刚建立时的时序抖动。对策：
+   *   - 建链与特征发现各自独立重试（不再一次失败就判死刑）；
+   *   - connect() 成功后先 settle 一小会儿再枚举，避开服务树未就绪窗口；
+   *   - 永远只枚举一次服务树再本地匹配，避免"每个特征各枚举一遍"放大抖动；
+   *   - 意外掉线自动重连（保留 device，不重新弹设备选择框）；
+   *   - 全过程用提示条 + 状态徽章显式反馈，杜绝静默失败。
+   * ---------------------------------------------------------------------- */
+  const CONNECT_ATTEMPTS=4;                       // GATT 建链尝试次数
+  const CONNECT_RETRY_DELAYS=[300,700,1200];      // 每次失败后的等待(ms)
+  const DISCOVER_SETTLE_MS=120;                   // 建链成功后等多久再枚举服务树
+  const DISCOVER_ATTEMPTS=3;                      // 特征发现尝试次数
+  const DISCOVER_RETRY_DELAYS=[200,450];          // 每次发现失败后的等待(ms)
+  const RECONNECT_ATTEMPTS=2;                     // 意外掉线自动重连次数
+  const RECONNECT_DELAY=350;                      // 重连间隔(ms)
+  let connecting=false;        // 正在建立连接
+  let reconnecting=false;      // 正在自动重连（区分于用户点击连接）
+  let userDisconnect=false;    // 主动断开标志：只有它才释放 device
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
   // Check support
   if(!navigator.bluetooth){
     bleWarning.classList.add('show');
     btnConnect.disabled=true;
   }
 
+  // ---- 提示条 / 状态 / 按钮 ----
+  function showBleNotice(text, showRetry){
+    if(!text){ bleNotice.hidden=true; bleNoticeText.textContent=''; return; }
+    bleNoticeText.textContent=text;
+    btnRetryDiscover.hidden=!showRetry;
+    bleNotice.hidden=false;
+  }
+  function syncConnectButtons(){
+    const linked=!!(device&&device.gatt&&device.gatt.connected);
+    btnConnect.disabled=connecting||linked;
+    btnDisconnect.disabled=!linked;
+    btnClearCache.disabled=!lastDevice;
+  }
+
   // ---- Connect ----
   btnConnect.addEventListener('click', async ()=>{
+    if(connecting) return;
+    connecting=true;
+    userDisconnect=false;
+    syncConnectButtons();
+    showBleNotice('');
     try{
-      setStatus('connecting','');
       const keyword=nameFilter.value.trim();
-      // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
-      const options={optionalServices:COMMON_SERVICES};
-      if(keyword){
-        options.filters=[{namePrefix:keyword}];
-      }else{
-        options.acceptAllDevices=true;
+      // 首次连接（或上次是主动断开）才弹设备选择框；意外掉线保留 device 以便静默重连
+      if(!device){
+        // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
+        const options={optionalServices:COMMON_SERVICES};
+        if(keyword){
+          options.filters=[{namePrefix:keyword}];
+        }else{
+          options.acceptAllDevices=true;
+        }
+        device=await navigator.bluetooth.requestDevice(options);
+        device.addEventListener('gattserverdisconnected',onGattDisconnected);
       }
-      device=await navigator.bluetooth.requestDevice(options);
       lastDevice=device;
-      device.addEventListener('gattserverdisconnected',onDisconnected);
       setStatus('connecting', device.name||device.id);
-      server=await device.gatt.connect();
-      setStatus('connected', device.name||'未知设备');
-      btnConnect.disabled=true;
-      btnDisconnect.disabled=false;
-      btnClearCache.disabled=false;
-      await discoverGATT(server);
+      await connectAndDiscover();
     }catch(err){
       console.error('BLE connect error:',err);
-      setStatus('disconnected','');
-      if(err.name!=='NotFoundError'){
-        alert('连接失败: '+err.message);
+      if(err&&err.name==='NotFoundError'){
+        // 用户在弹窗里取消了选择，静默回到未连接
+        setStatus('disconnected','');
+      }else{
+        setStatus('disconnected','');
+        showBleNotice('连接失败：'+(err&&err.message||err));
+        logToPanel('Error','connect','连接失败: '+(err&&err.message||err));
       }
+    }finally{
+      connecting=false;
+      syncConnectButtons();
     }
   });
 
+  /**
+   * 建链 + 特征发现的主流程。
+   * 每一步都独立重试，并在中途掉线时自动补一次重连，最后给出明确结论。
+   */
+  async function connectAndDiscover(){
+    const srv=await connectGattWithRetry();
+    if(!srv){
+      setStatus('disconnected','');
+      showBleNotice('连接失败：多次尝试仍未建立 GATT 链路，请确认设备已开机并在范围内。');
+      return false;
+    }
+    server=srv;
+    setStatus('discovering', device.name||'未知设备');
+
+    // 等服务树就绪（这是"连上了却枚举不到服务"的主因）
+    await sleep(DISCOVER_SETTLE_MS);
+
+    let ffe1=null, missing=[];
+    for(let attempt=1; attempt<=DISCOVER_ATTEMPTS; attempt++){
+      if(!device.gatt.connected){
+        // settle 期间掉线：补一次重连后立即再试
+        showBleNotice('链路在发现前掉线，正在重连…');
+        const again=await connectGattWithRetry();
+        if(!again){ break; }
+        server=again;
+        await sleep(DISCOVER_SETTLE_MS);
+      }
+      const t0=Date.now();
+      const res=await discoverGATT(server);
+      ffe1=res.ffe1;
+      missing=res.missing;
+      if(!ffe1 && attempt<DISCOVER_ATTEMPTS){
+        logToPanel('Info','discover',`第 ${attempt} 次未发现 FFE1，${DISCOVER_RETRY_DELAYS[attempt-1]||300}ms 后重试…（用时 ${Date.now()-t0}ms）`);
+        showBleNotice(`未发现 FFE1 特征，正在重试（第 ${attempt+1}/${DISCOVER_ATTEMPTS} 次）…`);
+        await sleep(DISCOVER_RETRY_DELAYS[attempt-1]||300);
+        continue;
+      }
+      break;
+    }
+
+    if(ffe1){
+      setStatus('connected', device.name||'未知设备');
+      showBleNotice('');
+      return true;
+    }
+    // 链路在但关键特征缺失：不谎报"已连接"，也不静默
+    setStatus('partial', device.name||'未知设备');
+    showBleNotice('已连接，但未发现 FFE1 特征'+(missing.length?`（缺失：${missing.join(' / ')}）`:'')+
+      '，可能该设备不走 Nordic UART 协议；可点右侧重试，或到设备端确认服务是否已广播。', true);
+    return false;
+  }
+
+  /**
+   * 带重试的 GATT 建链。
+   * 处理两类抖动：connect() 抛错；connect() 成功但紧接着掉线（返回后立即校验）。
+   * 成功返回 server，失败返回 null。
+   */
+  async function connectGattWithRetry(){
+    for(let attempt=1; attempt<=CONNECT_ATTEMPTS; attempt++){
+      try{
+        if(!device.gatt.connected) await device.gatt.connect();
+        if(device.gatt.connected){
+          return device.gatt;
+        }
+        throw new Error('连接后立即断开');
+      }catch(err){
+        const last=attempt===CONNECT_ATTEMPTS;
+        console.warn(`GATT connect attempt ${attempt} failed:`,err&&err.message||err);
+        logToPanel('Error','connect',`连接尝试 ${attempt}/${CONNECT_ATTEMPTS} 失败: ${err&&err.message||err}`);
+        if(last){
+          return null;
+        }
+        showBleNotice(`连接不稳定，正在重试（第 ${attempt+1}/${CONNECT_ATTEMPTS} 次）…`);
+        await sleep(CONNECT_RETRY_DELAYS[attempt-1]||500);
+      }
+    }
+    return null;
+  }
+
   // ---- Disconnect ----
   btnDisconnect.addEventListener('click', ()=>{
+    userDisconnect=true;
+    showBleNotice('');
     if(device&&device.gatt.connected) device.gatt.disconnect();
+    else onDeviceLost(true);
+  });
+
+  // ---- 手动重试发现特征 ----
+  btnRetryDiscover.addEventListener('click', async ()=>{
+    if(connecting||!device) return;
+    connecting=true;
+    syncConnectButtons();
+    showBleNotice('正在重新发现特征…');
+    try{
+      if(!device.gatt.connected){
+        const srv=await connectGattWithRetry();
+        if(!srv){ setStatus('disconnected',''); showBleNotice('重连失败，请重新连接设备。'); return; }
+        server=srv;
+        await sleep(DISCOVER_SETTLE_MS);
+      }
+      const res=await discoverGATT(server);
+      if(res.ffe1){
+        setStatus('connected', device.name||'未知设备');
+        showBleNotice('');
+      }else{
+        setStatus('partial', device.name||'未知设备');
+        showBleNotice('仍未发现 FFE1 特征'+(res.missing.length?`（缺失：${res.missing.join(' / ')}）`:'')+'。');
+      }
+    }catch(err){
+      setStatus('partial', device.name||'未知设备');
+      showBleNotice('重新发现失败：'+(err&&err.message||err));
+    }finally{
+      connecting=false;
+      syncConnectButtons();
+    }
   });
 
   // ---- Clear GATT cache (force fresh re-discovery next connect) ----
@@ -363,14 +553,73 @@ const Utils = {
       logToPanel('Cache','--','已清除设备缓存，下次连接将重新识别 GATT');
       btnClearCache.disabled=true;
       lastDevice=null;
-      // forget 会触发断开，onDisconnected 已复位 UI；若仍连着则主动断开
+      // forget 会触发断开，onGattDisconnected 已复位 UI；若仍连着则主动断开
+      userDisconnect=true;
       if(device&&device.gatt&&device.gatt.connected) device.gatt.disconnect();
     }catch(err){
       alert('清除缓存失败: '+err.message);
     }
   });
 
-  function onDisconnected(){
+  /**
+   * gattserverdisconnected 事件入口。
+   * 主动断开 → 彻底复位并释放 device；意外掉线 → 尝试自动重连，保留 device。
+   */
+  function onGattDisconnected(){
+    if(userDisconnect){
+      userDisconnect=false;
+      onDeviceLost(true);
+      return;
+    }
+    handleUnexpectedDisconnect();
+  }
+
+  /** 意外掉线：保留 device，尝试静默重连；失败则给出明确反馈 */
+  async function handleUnexpectedDisconnect(){
+    if(reconnecting){ return; }
+    reconnecting=true;
+    try{
+      logToPanel('Info','connect','检测到链路意外断开，尝试自动重连…');
+      for(let attempt=1; attempt<=RECONNECT_ATTEMPTS; attempt++){
+        if(userDisconnect) return;
+        showBleNotice(`连接意外断开，正在自动重连（第 ${attempt}/${RECONNECT_ATTEMPTS} 次）…`);
+        await sleep(RECONNECT_DELAY);
+        if(userDisconnect) return;
+        const srv=await connectGattWithRetry();
+        if(srv){
+          server=srv;
+          await sleep(DISCOVER_SETTLE_MS);
+          setStatus('discovering', device.name||'未知设备');
+          const res=await discoverGATT(server);
+          if(res.ffe1){
+            setStatus('connected', device.name||'未知设备');
+            showBleNotice('');
+            logToPanel('Info','connect','自动重连成功');
+          }else{
+            setStatus('partial', device.name||'未知设备');
+            showBleNotice('已重连，但未发现 FFE1 特征，可点右侧重试。', true);
+          }
+          return;
+        }
+      }
+      // 重连次数用尽：保留 device，但复位为未连接，由用户点击连接静默重试
+      onDeviceLost(false);
+      showBleNotice('连接已断开，自动重连未成功，请点击「连接」重试。');
+    }catch(err){
+      console.error('auto reconnect error:',err);
+      onDeviceLost(false);
+      showBleNotice('连接已断开（'+(err&&err.message||err)+'），请点击「连接」重试。');
+    }finally{
+      reconnecting=false;
+    }
+  }
+
+  /**
+   * 复位连接相关 UI。
+   * @param {boolean} fromUser true=主动断开（释放 device，下次重新选择设备）
+   *                         false=意外掉线（保留 device，下次点击连接可静默重连）
+   */
+  function onDeviceLost(fromUser){
     // 停止所有轮询/订阅
     activePolls.forEach(id=>clearInterval(id));
     activePolls.clear();
@@ -379,23 +628,34 @@ const Utils = {
     // 复位 GATT Profile 到初始状态（与主动断开保持一致）
     gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
     setStatus('disconnected','');
-    btnConnect.disabled=false;
-    btnDisconnect.disabled=true;
-    btnClearCache.disabled=!lastDevice;
-    lastDevice=device;
-    device=null;server=null;
+    if(fromUser){
+      device=null;
+    }else{
+      lastDevice=device;   // 保留引用供 btnClearCache / 静默重连
+    }
+    server=null;
+    syncConnectButtons();
   }
 
   function setStatus(state, name){
-    bleStatus.className='status-badge '+state;
-    bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接'}[state]||'未连接';
+    const cls = state==='discovering' ? 'connected discovering' : state;
+    bleStatus.className='status-badge '+cls;
+    bleStatusText.textContent={disconnected:'未连接',connecting:'连接中...',connected:'已连接',discovering:'发现特征中...',partial:'已连接(特征不全)'}[state]||'未连接';
     if(name) bleDeviceName.innerHTML='设备: <strong>'+Utils.escapeHtml(name)+'</strong>';
     else bleDeviceName.innerHTML='';
   }
 
   // ---- GATT Discovery ----
+  /**
+   * 发现服务与特征。
+   * 一次 getPrimaryServices() + 并发 getCharacteristics() 拿到全部特征后本地匹配，
+   * 避免对同一服务树反复枚举放大时序抖动（这是首次枚举不全的诱因）。
+   * @returns {{ffe1:?object, missing:string[], ms:number}}
+   */
   async function discoverGATT(server){
+    const t0=Date.now();
     gattTree.innerHTML='<div style="color:var(--text-muted);padding:12px;">正在发现服务...</div>';
+    let ffe1Char=null;
     try{
       const services=await server.getPrimaryServices();
       gattTree.innerHTML='';
@@ -413,9 +673,16 @@ const Utils = {
         const body=svcDiv.querySelector('.gatt-service-body');
         svcDiv.querySelector('.gatt-service-header').addEventListener('click',()=>svcDiv.classList.toggle('expanded'));
 
+        let chars=[];
         try{
-          const chars=await svc.getCharacteristics();
+          chars=await svc.getCharacteristics();
+        }catch(err){
+          logToPanel('Error','gatt',`读取服务 ${Utils.shortUuid(svc.uuid)} 的特征失败: ${err&&err.message||err}`);
+          continue;
+        }
+        {
           for(const ch of chars){
+            if(ch.uuid===FFE1_SERVICE) ffe1Char=ch;
             const charDiv=document.createElement('div');
             charDiv.className='gatt-char';
             const props=getPropList(ch);
@@ -549,8 +816,6 @@ const Utils = {
             }
             body.appendChild(charDiv);
           }
-        }catch(err){
-          body.innerHTML='<div style="padding:8px 14px;color:var(--text-light);font-size:.8rem;">无法获取特征值</div>';
         }
         // Auto-expand FFE1
         if(isFFE1||svc.uuid==='0000ffe0-0000-1000-8000-00805f9b34fb') svcDiv.classList.add('expanded');
@@ -559,7 +824,12 @@ const Utils = {
       if(services.length===0) gattTree.innerHTML='<div style="color:var(--text-light);padding:20px;text-align:center;">未发现任何服务</div>';
     }catch(err){
       gattTree.innerHTML='<div style="color:var(--danger);padding:12px;">发现服务失败: '+Utils.escapeHtml(err.message)+'</div>';
+      logToPanel('Error','gatt','发现服务失败: '+(err&&err.message||err));
     }
+    // 关键特征存在性汇总（供上层重试与提示使用）
+    const missing=[];
+    if(!ffe1Char) missing.push('FFE1');
+    return {ffe1:ffe1Char, missing, ms:Date.now()-t0};
   }
 
   function getPropList(ch){
@@ -601,7 +871,7 @@ const Utils = {
   function logCategory(prefix){
     if(prefix==='Req') return 'out';                          // 发送
     if(prefix==='Data'||prefix==='Raw'||prefix==='Notify') return 'in'; // 接收
-    if(prefix==='Req-Err'||prefix==='Err'||prefix==='Timeout'||prefix==='Sub-Err') return 'err'; // 错误
+    if(prefix==='Req-Err'||prefix==='Err'||prefix==='Error'||prefix==='Timeout'||prefix==='Sub-Err') return 'err'; // 错误
     return 'sys';                                            // CMD / Sub / Cache 等系统信息
   }
 
