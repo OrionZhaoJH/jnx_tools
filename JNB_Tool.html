@@ -442,6 +442,19 @@
             </div>
             <div class="cmd-result" id="resultDevice"><div class="cmd-result-empty">等待操作...</div></div>
           </div>
+
+          <!-- 点灯控制 -->
+          <div class="cmd-card">
+            <div class="cmd-card-title"><span>点灯控制</span><span class="toggle-arrow">▾</span></div>
+            <div class="cmd-card-desc">0x07 点灯命令，从指令 0x01 / 0x02 / 0x03 / 0x04 分别点亮 T1 / T2 / T3 / T4。</div>
+            <div class="cmd-card-actions">
+              <button class="btn btn-sm" id="btnLightT1">点亮 T1 灯</button>
+              <button class="btn btn-sm" id="btnLightT2">点亮 T2 灯</button>
+              <button class="btn btn-sm" id="btnLightT3">点亮 T3 灯</button>
+              <button class="btn btn-sm" id="btnLightT4">点亮 T4 灯</button>
+            </div>
+            <div class="cmd-result" id="resultLight"><div class="cmd-result-empty">等待操作...</div></div>
+          </div>
         </div>
 
         <div class="cmd-log" id="cmdLog"></div>
@@ -527,8 +540,13 @@ const Utils = {
   const ffe1Badge=document.getElementById('ffe1Badge');
   const ffe2Badge=document.getElementById('ffe2Badge');
   const resultDevice=document.getElementById('resultDevice');
-  // FFE2 命令交互所有可操作控件（FFE2 发现前全部禁用）：本工具仅保留 重启/关机 两个按钮
-  const ffe2Controls=[btnReboot,btnShutdown];
+  const btnLightT1=document.getElementById('btnLightT1');
+  const btnLightT2=document.getElementById('btnLightT2');
+  const btnLightT3=document.getElementById('btnLightT3');
+  const btnLightT4=document.getElementById('btnLightT4');
+  const resultLight=document.getElementById('resultLight');
+  // FFE2 命令交互所有可操作控件（FFE2 发现前全部禁用）：重启/关机 + 点灯 T1~T4
+  const ffe2Controls=[btnReboot,btnShutdown,btnLightT1,btnLightT2,btnLightT3,btnLightT4];
 
   // State
   let device=null, server=null;
@@ -743,7 +761,7 @@ const Utils = {
     jnbFields.querySelectorAll('.field-value, .field-raw').forEach(el=>el.textContent='--');
     jnbFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
     // 命令卡片结果
-    [resultDevice].forEach(el=>{
+    [resultDevice,resultLight].forEach(el=>{
       if(el) el.innerHTML='<div class="cmd-result-empty">等待操作...</div>';
     });
     // 注意：连接状态由调用方（连接成功设为 connected / 断线事件设为 disconnected）管理，此处不修改
@@ -918,6 +936,51 @@ const Utils = {
     await ffe2Char.writeValue(frame.buffer);
   }
 
+  // 通用发送 + 500ms 后自动读取；返回读取到的 DataView（如无需读取则返回 null）
+  async function writeCmd(frame){
+    try{
+      await writeCmdRaw(frame); // 发送（含日志）统一由 writeCmdRaw 处理
+    }catch(err){
+      logCmd('发送失败', err.message);
+      return null;
+    }
+    setBusy(true);
+    // 发送后 500ms 读取 FFE2 值并打印
+    await sleep(500);
+    if(!ffe2Char||!ffe2Char.properties.read){setBusy(false);return null;}
+    try{
+      const dv=await ffe2Char.readValue();
+      const txt=formatDataView(dv);
+      console.log('[JNB] 回读:', txt);
+      logCmd('接收', txt);
+      setBusy(false);
+      return dv;
+    }catch(err){
+      logCmd('读取失败', err.message);
+      setBusy(false);
+      return null;
+    }
+  }
+
+  // 解析 FFE2 命令响应帧：5B 0D 0A LL MM SS [DATA...] 5D
+  function parseCmdResponse(dv){
+    const bytes=[];
+    for(let i=0;i<dv.byteLength;i++) bytes.push(dv.getUint8(i));
+    // 在缓冲区中查找完整帧
+    for(let i=0;i<=bytes.length-7;i++){
+      if(bytes[i]!==0x5B || bytes[i+1]!==0x0D || bytes[i+2]!==0x0A) continue;
+      const len=bytes[i+3];
+      if(len<7 || i+len>bytes.length) continue;
+      if(bytes[i+len-1]!==0x5D) continue;
+      const main=bytes[i+4];
+      const sub=bytes[i+5];
+      const data=bytes.slice(i+6, i+len-1);
+      const hex=bytes.slice(i, i+len).map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+      return {main, sub, data, hex, len};
+    }
+    return null;
+  }
+
   function setCardResult(el, {type='empty', message='', values=null, raw=''}){
     let html;
     if(type==='values' && values){
@@ -974,6 +1037,15 @@ const Utils = {
       await forceDisconnect();
       setBusy(false);
     }
+  }
+
+  // 点灯：主指令 0x07，从指令 0x01 / 0x02 / 0x03 / 0x04 分别对应 T1 / T2 / T3 / T4
+  async function sendLight(lightId, resultEl, name){
+    setCardResult(resultEl, {type:'info', message:'['+name+'] 命令发送中...'});
+    const dv=await writeCmd(buildFrame(0x07,lightId,[]));
+    if(!dv){setCardResult(resultEl, {type:'err', message:'['+name+'] 无响应'});return;}
+    const parsed=parseCmdResponse(dv);
+    setCardResult(resultEl, {type:'ok', message:'['+name+'] 已发送', raw:parsed?parsed.hex:formatDataView(dv)});
   }
 
   function tsNow(){
@@ -1134,6 +1206,10 @@ const Utils = {
   btnClearCmd.addEventListener('click',()=>{cmdLog.textContent='';});
   btnReboot.addEventListener('click', ()=>sendControlCommand(0x02,'重启设备'));
   btnShutdown.addEventListener('click', ()=>sendControlCommand(0x03,'关闭设备'));
+  btnLightT1.addEventListener('click', ()=>sendLight(0x01, resultLight, '点亮 T1 灯'));
+  btnLightT2.addEventListener('click', ()=>sendLight(0x02, resultLight, '点亮 T2 灯'));
+  btnLightT3.addEventListener('click', ()=>sendLight(0x03, resultLight, '点亮 T3 灯'));
+  btnLightT4.addEventListener('click', ()=>sendLight(0x04, resultLight, '点亮 T4 灯'));
 
   // ---- 命令卡片折叠 / 展开 ----
   document.querySelectorAll('.cmd-card').forEach(card=>{
