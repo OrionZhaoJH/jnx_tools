@@ -1096,6 +1096,8 @@ const Utils = {
     [resultSingleTest,resultCal,resultDetectTime,resultLight,resultDevice].forEach(el=>{
       if(el) el.innerHTML='<div class="cmd-result-empty">等待操作...</div>';
     });
+    // 实时曲线：清空上一台设备的数据，否则新旧曲线会接在同一条线上
+    if(typeof clearRtChartData==='function') clearRtChartData();
     // 注意：连接状态由调用方（连接成功设为 connected / 断线事件设为 disconnected）管理，此处不修改
   }
 
@@ -1780,15 +1782,23 @@ const Utils = {
   if(btnRtChartClear){
     btnRtChartClear.addEventListener('click', (e)=>{
       e.stopPropagation();
-      rtChartData=[[],[],[]];
-      rtChartPacketCount=0;               // 复位计数，清空后重新从第 1 包开始数
-      rtSlotArmed=true;                   // 重新允许未加样期记录
-      rtChartMark=null;                   // 清掉加样分界线
-      rtHover=null;                       // 清掉悬停指示
-      rtTooltip.style.display='none';
-      if(rtChartHint) rtChartHint.textContent='等待数据…';
-      drawRtChart();
+      clearRtChartData();
     });
+  }
+
+  /**
+   * 清空实时曲线数据。
+   * 连接新设备时也会调用 —— 否则新旧设备的数据会接在同一条曲线上，无法区分。
+   */
+  function clearRtChartData(){
+    rtChartData=[[],[],[]];
+    rtChartPacketCount=0;               // 复位计数，清空后重新从第 1 包开始数
+    rtSlotArmed=true;                   // 重新允许未加样期记录
+    rtChartMark=null;                   // 清掉加样分界线
+    rtHover=null;                       // 清掉悬停指示
+    rtTooltip.style.display='none';
+    if(rtChartHint) rtChartHint.textContent='等待数据…';
+    drawRtChart();
   }
 
   // ---- 实时曲线悬停：竖虚线 + 圆点 + 浮层显示该点 C/B/T 坐标 ----

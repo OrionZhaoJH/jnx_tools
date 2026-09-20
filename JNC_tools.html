@@ -1190,6 +1190,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       setStatus('connected', device.name||'未知设备');
       showBleNotice(null);
       logToPanel('CMD','connect',`特征发现完成：FFE1/FFE2/FFE4 均已就绪（${result.ms}ms）`);
+      // 换了设备就清空实时曲线：否则新设备的点会接在上一台设备的数据后面，连成一条线
+      clearRtChartData();
+      logToPanel('CMD','chart','已清空实时曲线（新设备连接）');
       return true;
     }
     // 部分缺失：明确告知缺哪个 + 提供重试，不再静默
@@ -2165,15 +2168,23 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   if(btnRtChartClear){
     btnRtChartClear.addEventListener('click', (e)=>{
       e.stopPropagation();
-      rtChartData=[[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]];
-      rtChartPacketCount=0;                    // 复位帧计数，清空后重新从第 1 包开始数
-      rtSlotArmed=[true,true,true,true];       // 重新允许未加样期记录
-      rtChartMark=[null,null,null,null];       // 清掉加样分界线
-      rtHover=[null,null,null,null];           // 清掉悬停指示
-      rtTooltip.style.display='none';
-      if(rtChartHint) rtChartHint.textContent='等待数据…';
-      drawAllRtCharts();
+      clearRtChartData();
     });
+  }
+
+  /**
+   * 清空实时曲线数据。
+   * 连接新设备时也会调用 —— 否则新旧设备的数据会接在同一条曲线上，无法区分。
+   */
+  function clearRtChartData(){
+    rtChartData=[[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]];
+    rtChartPacketCount=0;                    // 复位帧计数，清空后重新从第 1 包开始数
+    rtSlotArmed=[true,true,true,true];       // 重新允许未加样期记录
+    rtChartMark=[null,null,null,null];       // 清掉加样分界线
+    rtHover=[null,null,null,null];           // 清掉悬停指示
+    rtTooltip.style.display='none';
+    if(rtChartHint) rtChartHint.textContent='等待数据…';
+    drawAllRtCharts();
   }
 
   // ---- 实时曲线悬停：竖虚线 + 圆点 + 浮层显示该点 C/B/T 坐标 ----
