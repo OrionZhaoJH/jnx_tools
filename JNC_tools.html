@@ -1092,27 +1092,45 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       // 改用 services 过滤只列出广播了 FFE0（Nordic UART 串口）服务的设备，挡掉未知/不支持的杂牌 BLE。
       options.filters=[{services:[FFE0_SERVICE]}];
     }
-    // 选设备只做一次：失败/取消后重试连接时不再弹选择框（除非用户主动断开）
+    // 每次点「连接」都重新弹设备选择窗口（用户明确要求：每次都自己选设备）。
+    // 因此这里先无条件清掉旧引用，不使用任何"静默重连"路径。
     try{
-      if(!device){
-        setStatus('connecting','');
-        device=await navigator.bluetooth.requestDevice(options);
-        device.addEventListener('gattserverdisconnected',onGattDisconnected);
+      setStatus('connecting','');
+      showBleNotice('请在弹出的窗口中选择要连接的设备…');
+      if(device){
+        try{ device.removeEventListener('gattserverdisconnected',onGattDisconnected); }catch(e){}
       }
+      device=null;
+      server=null;
+      device=await navigator.bluetooth.requestDevice(options);
+      device.addEventListener('gattserverdisconnected',onGattDisconnected);
     }catch(err){
-      connecting=false;
+      // NotFoundError = 用户取消选择，静默回到未连接
+      device=null; server=null;
       setStatus('disconnected','');
+      showBleNotice(null);
+      if(err && err.name!=='NotFoundError'){
+        showBleNotice('选择设备失败：'+(err.message||err));
+        logToPanel('CMD-Err','connect','选择设备失败：'+(err.message||err));
+      }
+      connecting=false;
       syncConnectButtons();
-      if(err.name!=='NotFoundError') alert('选择设备失败: '+err.message);
       return;
     }
 
-    const ok=await connectAndDiscover();
-    connecting=false;
-    syncConnectButtons();
-    if(!ok && device && device.gatt && !device.gatt.connected){
-      // 建链阶段彻底失败：保留 device 以便一键重试，但提示用户
-      showBleNotice('连接失败，设备无响应。可点「重试连接」，或重新选择设备。');
+    // 建链 + 发现：用 finally 保证 connecting 一定复位，绝不出现"卡在连接中"。
+    let ok=false;
+    try{
+      ok=await connectAndDiscover();
+    }catch(err){
+      console.error('[BLE] 连接流程异常:', err);
+      logToPanel('CMD-Err','connect','连接流程异常：'+(err&&err.message||err));
+    }finally{
+      connecting=false;
+      syncConnectButtons();
+    }
+    if(!ok){
+      showBleNotice('连接失败或特征未就绪。可点「连接 BLE 设备」重新选择设备连接。');
     }
   });
 
@@ -1254,21 +1272,28 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   if(btnRetryDiscover){
     btnRetryDiscover.addEventListener('click', async ()=>{
       if(!device || !device.gatt || !device.gatt.connected){
-        showBleNotice('设备未连接，请先点「连接 BLE 设备」。');
+        // 掉线后 device 已被释放，本按钮无意义 → 直接引导用户去点「连接」
+        showBleNotice('设备未连接，请点「连接 BLE 设备」重新选择设备连接。');
         return;
       }
       btnRetryDiscover.disabled=true;
       showBleNotice('正在重新发现特征…');
-      const result=await discoverAllFeatures(device.gatt);
-      btnRetryDiscover.disabled=false;
-      if(result.missing.length===0){
-        setStatus('connected', device.name||'未知设备');
-        showBleNotice(null);
-        setCmdResult?.(null,null,null);
-        logToPanel('CMD','discover',`重试成功：FFE1/FFE2/FFE4 均已就绪（${result.ms}ms）`);
-      }else{
+      try{
+        const result=await discoverAllFeatures(device.gatt);
+        if(result.missing.length===0){
+          setStatus('connected', device.name||'未知设备');
+          showBleNotice(null);
+          setCmdResult?.(null,null,null);
+          logToPanel('CMD','discover',`重试成功：FFE1/FFE2/FFE4 均已就绪（${result.ms}ms）`);
+        }else{
+          setStatus('partial', device.name||'未知设备');
+          showBleNotice(`仍未发现：${result.missing.join('、')}。可断开后重新连接设备。`, true);
+        }
+      }catch(err){
         setStatus('partial', device.name||'未知设备');
-        showBleNotice(`仍未发现：${result.missing.join('、')}。可断开后重新连接设备。`);
+        showBleNotice('重新发现失败：'+(err&&err.message||err));
+      }finally{
+        btnRetryDiscover.disabled=false;
       }
     });
   }
@@ -1282,21 +1307,22 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     });
   }
 
-  // GATT 掉线回调：区分「用户主动断开」与「意外掉线」。
-  // 意外掉线**不自动重连**（用户明确要求：设备断电后不要一直尝试重连，
-  // 每次都手动点连接）。掉线后立即回到「未连接」，但保留 device 引用，
-  // 这样用户点「连接」时可静默重连、不重复弹设备选择框。
+  // GATT 掉线回调。
+  // 掉线后（无论是用户主动断开还是设备断电）一律**彻底释放 device 引用**，
+  // 使下一次点「连接」必定重新弹出设备选择窗口（用户明确要求：每次都自己选设备）。
+  // 绝不自动重连、也不用保留的 device 静默重连。
   function onGattDisconnected(){
     const wasUser=userDisconnect;
     userDisconnect=false;
-    onDeviceLost(wasUser);
+    // 始终按「彻底释放」处理：fromUser=true 保证 device=null
+    onDeviceLost(true);
     if(!wasUser){
-      showBleNotice('设备连接已断开，请点「连接 BLE 设备」重新连接。');
-      logToPanel('CMD-Err','connect','设备连接已断开（不自动重连，请手动重连）');
+      showBleNotice('设备连接已断开，请点「连接 BLE 设备」重新选择设备连接。');
+      logToPanel('CMD-Err','connect','设备连接已断开（不自动重连，请手动重新选择设备）');
     }
   }
 
-  // 清理本次连接的全部运行时状态（不动 device 变量本身，供重连复用）
+  // 清理本次连接的全部运行时状态。fromUser=true 时彻底释放 device（下次必须重选设备）。
   function onDeviceLost(fromUser){
     // 复位查询状态
     querying=false;

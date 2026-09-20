@@ -388,18 +388,23 @@ const Utils = {
     showBleNotice('');
     try{
       const keyword=nameFilter.value.trim();
-      // 首次连接（或上次是主动断开）才弹设备选择框；意外掉线保留 device 以便静默重连
-      if(!device){
-        // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
-        const options={optionalServices:COMMON_SERVICES};
-        if(keyword){
-          options.filters=[{namePrefix:keyword}];
-        }else{
-          options.acceptAllDevices=true;
-        }
-        device=await navigator.bluetooth.requestDevice(options);
-        device.addEventListener('gattserverdisconnected',onGattDisconnected);
+      // 每次点「连接」都重新弹设备选择窗口（用户明确要求：每次都自己选设备）。
+      // 因此这里先无条件清掉旧引用，不使用任何"静默重连"路径。
+      showBleNotice('请在弹出的窗口中选择要连接的设备…');
+      if(device){
+        try{ device.removeEventListener('gattserverdisconnected',onGattDisconnected); }catch(e){}
       }
+      device=null;
+      server=null;
+      // 使用 namePrefix 过滤：浏览器弹窗只显示名称以关键字开头的设备
+      const options={optionalServices:COMMON_SERVICES};
+      if(keyword){
+        options.filters=[{namePrefix:keyword}];
+      }else{
+        options.acceptAllDevices=true;
+      }
+      device=await navigator.bluetooth.requestDevice(options);
+      device.addEventListener('gattserverdisconnected',onGattDisconnected);
       lastDevice=device;
       setStatus('connecting', device.name||device.id);
       await connectAndDiscover();
@@ -407,7 +412,9 @@ const Utils = {
       console.error('BLE connect error:',err);
       if(err&&err.name==='NotFoundError'){
         // 用户在弹窗里取消了选择，静默回到未连接
+        device=null; server=null;
         setStatus('disconnected','');
+        showBleNotice('');
       }else{
         setStatus('disconnected','');
         showBleNotice('连接失败：'+(err&&err.message||err));
@@ -561,24 +568,20 @@ const Utils = {
 
   /**
    * gattserverdisconnected 事件入口。
-   * 主动断开 → 彻底复位并释放 device；意外掉线 → 复位 UI 但不释放 device。
-   * 注：**不自动重连**（用户明确要求：设备断电后不要一直尝试重连，每次都手动点连接）。
+   * 掉线后（无论主动还是意外）一律**彻底释放 device**，使下一次点「连接」必定重新弹出
+   * 设备选择窗口（用户明确要求：每次都自己选设备）。绝不自动重连。
    */
   function onGattDisconnected(){
-    if(userDisconnect){
-      userDisconnect=false;
-      onDeviceLost(true);
-      return;
-    }
-    onDeviceLost(false);
-    showBleNotice('设备连接已断开，请点击「连接」重新连接。');
-    logToPanel('Error','connect','设备连接已断开（不自动重连，请手动重连）');
+    userDisconnect=false;
+    // 始终按「彻底释放」处理：onDeviceLost(true) 保证 device=null
+    onDeviceLost(true);
+    showBleNotice('设备连接已断开，请点击「连接」重新选择设备连接。');
+    logToPanel('Error','connect','设备连接已断开（不自动重连，请手动重新选择设备）');
   }
 
   /**
-   * 复位连接相关 UI。
-   * @param {boolean} fromUser true=主动断开（释放 device，下次重新选择设备）
-   *                         false=意外掉线（保留 device，下次点击连接可静默重连）
+   * 复位连接相关 UI，并释放 device（下次连接必须重新选择设备）。
+   * @param {boolean} fromUser 保留参数以兼容调用点；两种取值行为一致（均释放 device）
    */
   function onDeviceLost(fromUser){
     // 停止所有轮询/订阅
@@ -589,11 +592,9 @@ const Utils = {
     // 复位 GATT Profile 到初始状态（与主动断开保持一致）
     gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
     setStatus('disconnected','');
-    if(fromUser){
-      device=null;
-    }else{
-      lastDevice=device;   // 保留引用供 btnClearCache / 静默重连
-    }
+    // 掉线一律释放 device（调用方均传 true），下次点「连接」必须重新选设备。
+    // lastDevice 不动 —— 它专供 btnClearCache 使用。
+    device=null;
     server=null;
     syncConnectButtons();
   }
