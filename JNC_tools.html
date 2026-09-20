@@ -1026,6 +1026,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // Query state
   let querying=false;
   let queryReadTimer=null;
+  let activeQueryBtn=null;   // 当前正在测试的按钮（只有它显示"测试中..."，另一个仅禁用）
 
   // 串口状态
   let serialPort=null, serialReader=null, serialKeepReading=false, serialBuf=[];
@@ -2478,10 +2479,12 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       return;
     }
     querying=true;
+    // 只给「被点击的那个按钮」显示"测试中"，另一个仅禁用、文字保持原样，
+    // 否则两个按钮会同时显示"XX测试中..."，无法分辨到底点了哪个。
+    activeQueryBtn = (mode===0x02) ? btnIntegralSphereTest : btnQueryData;
     btnQueryData.disabled=true;
     btnIntegralSphereTest.disabled=true;
-    btnQueryData.textContent='普通测试中...';
-    btnIntegralSphereTest.textContent='积分球测试中...';
+    activeQueryBtn.textContent=(mode===0x02?'积分球':'普通')+'测试中...';
     setCmdResult(resultParse, `${label} 已发送，等待 ${getQueryTimeout()}ms 后回读...`, 'info');
     const waitMs=getQueryTimeout();
     const frame=buildFrame(SINGLE_TEST_MAIN, 0x01, [mode]);
@@ -2531,8 +2534,11 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     querying=false;
     if(queryReadTimer) clearTimeout(queryReadTimer);
     queryReadTimer=null;
+    // 两个按钮文字一律恢复为固定值（而不是只恢复当前按钮），
+    // 即使中途异常导致 activeQueryBtn 状态丢失也能自愈。
     btnQueryData.textContent='普通';
     btnIntegralSphereTest.textContent='积分球';
+    activeQueryBtn=null;
     refreshFeatureState();
   }
 
