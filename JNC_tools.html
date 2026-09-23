@@ -105,6 +105,12 @@
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  /* 大卡片可折叠：点击标题（除按钮外）折叠/展开，仅保留标题 */
+  .card.collapsible > .card-title{cursor:pointer;user-select:none;}
+  .card.collapsible > .card-title .toggle-arrow{transition:transform .2s;color:var(--text-muted);font-size:.85rem;flex:none;margin-right:8px;}
+  .card.collapsible.collapsed > .card-title .toggle-arrow{transform:rotate(-90deg);}
+  .card.collapsible.collapsed > *:not(.card-title){display:none;}
+  .card.collapsible.collapsed{margin-bottom:0;}
   /* 串口区块：后半页容器（串口卡片 + 曲线图）。已取消该区块内部的吸顶工具条 */
   .serial-section{
     background:var(--surface);
@@ -534,9 +540,9 @@
     <!-- Parsed Data + Data Log + Commands -->
     <div class="ble-right" data-page-node-id="tnmZ37bf0NqL4iHynt8BjM">
       <!-- 通道1 (FFE1 跟踪) -->
-      <div class="card" data-page-node-id="nUudOxwOfO44jKrNovIS6x">
+      <div class="card collapsible" data-page-node-id="nUudOxwOfO44jKrNovIS6x">
         <div class="card-title" data-page-node-id="DAH0ZUpDPklHWwwfDVnefi">
-          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">通道1 (FFE1 跟踪)</span>
+          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES"><span class="toggle-arrow">▾</span>通道1 (FFE1 跟踪)</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
           <!-- 收包提示固定在最左：该容器靠右对齐（父级 space-between），最右元素位置恒定，
                提示文字变长时容器整体向左扩展，右侧按钮/徽章不会位移 -->
@@ -648,9 +654,9 @@
 
 
       <!-- 命令交互 (FFE2) -->
-      <div class="card" data-page-node-id="bTa2VPxwAsb6gidsZydE3m">
+      <div class="card collapsible" data-page-node-id="bTa2VPxwAsb6gidsZydE3m">
         <div class="card-title" data-page-node-id="CK8OMHnGpFqUgbLdGDIS2B">
-          <span data-page-node-id="53tRX5Be1IX01C0oEcFMQY">命令交互 (FFE2)</span>
+          <span data-page-node-id="53tRX5Be1IX01C0oEcFMQY"><span class="toggle-arrow">▾</span>命令交互 (FFE2)</span>
           <div style="display:flex;gap:8px;align-items:center;" data-page-node-id="7E9bHSG6AjaU9CkBgcIu53">
             <button class="btn btn-sm" id="btnCmdLogToggle" type="button" data-page-node-id="Qb2CmdLogToggle01">显示日志</button>
             <button class="btn btn-sm" id="btnClearCmd" data-page-node-id="6giMix7NNAFJufZyzSYa9U">清空</button>
@@ -757,15 +763,15 @@
   </div>
 
   <!-- 通道数据查询：大卡片包含 蓝牙(FFE4) + 串口连接 两张小卡片 + 数据曲线图 -->
-  <div class="card query-big-card" data-page-node-id="JcChannelQuerySection001">
+  <div class="card query-big-card collapsible" data-page-node-id="JcChannelQuerySection001">
     <div class="card-title" data-page-node-id="JcChannelQueryBigTitle001">
-      <span data-page-node-id="JcChannelQueryBigTitle002">通道数据查询</span>
+      <span data-page-node-id="JcChannelQueryBigTitle002"><span class="toggle-arrow">▾</span>通道数据查询</span>
     </div>
     <div class="query-grid" data-page-node-id="JcQueryGrid001">
-      <!-- 蓝牙 · 通道数据查询 (FFE4) -->
+      <!-- 蓝牙(FFE4) -->
       <div class="query-subcard" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHd">
         <div class="query-subcard-title" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHe">
-        <span data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHf">蓝牙 · 通道数据查询 (FFE4)</span>
+        <span data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHf">蓝牙(FFE4)</span>
         <span class="ffe4-title-right" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xH0a">
           <button class="btn btn-sm" id="btnFfe4LogToggle" type="button" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xH0c">显示日志</button>
           <span class="feature-badge locked" id="ffe4Badge" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHg">未就绪</span>
@@ -795,10 +801,10 @@
         <div class="cmd-log" id="ffe4Log" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHy"></div>
       </div>
 
-      <!-- 串口连接 (Web Serial) -->
+      <!-- 串口(Serial) -->
       <div class="query-subcard serial-subcard" data-page-node-id="QEs3F5c79JEC7KZja7V6xG">
         <div class="query-subcard-title" data-page-node-id="OEDEY3lfZYI25m3jFti1SH">
-        <span data-page-node-id="JcSerialCardTitle001">串口连接 (Web Serial)</span>
+        <span data-page-node-id="JcSerialCardTitle001">串口(Serial)</span>
         <span class="serial-title-right" data-page-node-id="JcSerialTitleRight001">
           <span class="status-badge disconnected" id="serialStatus" data-page-node-id="JCyA96zOdodSGC5NHXadFH"><span class="status-dot" data-page-node-id="gEOHifa7a3232rbuiT7LNa"></span><span id="serialStatusText" data-page-node-id="U4OAxB9lGDxp04EztZHC1O">未连接</span></span>
           <button class="btn btn-sm" id="btnSerialLogToggle" type="button" data-page-node-id="hNNtuTMLNBoKwHtCKQr2BA">显示日志</button>
@@ -3100,6 +3106,15 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     const title=card.querySelector('.cmd-card-title');
     if(!title) return;
     title.addEventListener('click',()=>{ card.classList.toggle('collapsed'); });
+  });
+  // 大卡片折叠 / 展开：点击标题（标题内按钮除外）切换，箭头旋转指示状态
+  document.querySelectorAll('.card.collapsible').forEach(card=>{
+    const title=card.querySelector(':scope > .card-title');
+    if(!title) return;
+    title.addEventListener('click', e=>{
+      if(e.target.closest('button')) return; // 标题内的按钮（日志/清空等）不触发折叠
+      card.classList.toggle('collapsed');
+    });
   });
   // 设备重启 / 设备关机：发送后立即 readValue，5s 超时；成功 2s 后自动断开 BLE
   // hover 显示发送的 hex 与回读等待时间，方便核对协议与超时设置
