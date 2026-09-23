@@ -107,8 +107,6 @@
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
   /* 大卡片可折叠：点击标题（除按钮外）折叠/展开，仅保留标题 */
   .card.collapsible > .card-title{cursor:pointer;user-select:none;}
-  .card.collapsible > .card-title .toggle-arrow{transition:transform .2s;color:var(--text-muted);font-size:.85rem;flex:none;margin-right:8px;}
-  .card.collapsible.collapsed > .card-title .toggle-arrow{transform:rotate(-90deg);}
   .card.collapsible.collapsed > *:not(.card-title){display:none !important;}
   .card.collapsible.collapsed{margin-bottom:0;}
   /* 串口区块：后半页容器（串口卡片 + 曲线图）。已取消该区块内部的吸顶工具条 */
@@ -542,7 +540,7 @@
       <!-- 通道1 (FFE1 跟踪) -->
       <div class="card collapsible" data-page-node-id="nUudOxwOfO44jKrNovIS6x">
         <div class="card-title" data-page-node-id="DAH0ZUpDPklHWwwfDVnefi">
-          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES"><span class="toggle-arrow">▾</span>通道1 (FFE1 跟踪)</span>
+          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">通道1 (FFE1 跟踪)</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
           <!-- 收包提示固定在最左：该容器靠右对齐（父级 space-between），最右元素位置恒定，
                提示文字变长时容器整体向左扩展，右侧按钮/徽章不会位移 -->
@@ -656,7 +654,7 @@
       <!-- 命令交互 (FFE2) -->
       <div class="card collapsible" data-page-node-id="bTa2VPxwAsb6gidsZydE3m">
         <div class="card-title" data-page-node-id="CK8OMHnGpFqUgbLdGDIS2B">
-          <span data-page-node-id="53tRX5Be1IX01C0oEcFMQY"><span class="toggle-arrow">▾</span>命令交互 (FFE2)</span>
+          <span data-page-node-id="53tRX5Be1IX01C0oEcFMQY">命令交互 (FFE2)</span>
           <div style="display:flex;gap:8px;align-items:center;" data-page-node-id="7E9bHSG6AjaU9CkBgcIu53">
             <button class="btn btn-sm" id="btnCmdLogToggle" type="button" data-page-node-id="Qb2CmdLogToggle01">显示日志</button>
             <button class="btn btn-sm" id="btnClearCmd" data-page-node-id="6giMix7NNAFJufZyzSYa9U">清空</button>
@@ -765,7 +763,7 @@
   <!-- 通道数据查询：大卡片包含 蓝牙(FFE4) + 串口连接 两张小卡片 + 数据曲线图 -->
   <div class="card query-big-card collapsible" data-page-node-id="JcChannelQuerySection001">
     <div class="card-title" data-page-node-id="JcChannelQueryBigTitle001">
-      <span data-page-node-id="JcChannelQueryBigTitle002"><span class="toggle-arrow">▾</span>通道数据查询</span>
+      <span data-page-node-id="JcChannelQueryBigTitle002">通道数据查询</span>
     </div>
     <div class="query-grid" data-page-node-id="JcQueryGrid001">
       <!-- 蓝牙(FFE4) -->
