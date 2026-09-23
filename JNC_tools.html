@@ -660,7 +660,8 @@
               <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest" data-page-node-id="Om0CllRMrlc39LivovapFc">积分球</button>
               <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;" data-page-node-id="QNP1W7bKVoNl1BYnfaRnxt">
                 <option value="table" data-page-node-id="Gjrm8DGDgIaDtzgaha6a1Y">表格(4×3)</option>
-                <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">数值(12×1)</option>
+                <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">一列(12×1)</option>
+                <option value="row" data-page-node-id="JcCopyModeRow0012">一行(1×12)</option>
               </select>
               <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
               <span id="copyDataResult" class="inline-copy-result" data-page-node-id="JcCopyDataResult001"></span>
@@ -3013,7 +3014,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
   queryTimeout.addEventListener('input', updateParseCmdTitles);
   updateParseCmdTitles();
-  btnCopyData.title = '把 12 通道数值按所选格式（表格 4×3 / 数值 12×1）复制为 TSV，可直接粘贴到 Excel';
+  btnCopyData.title = '把 12 通道数值按所选格式（表格 4×3 / 数值 12×1 / 一行 1×12）复制为 TSV，可直接粘贴到 Excel';
   copyMode.addEventListener('change', ()=>{
     btnCopyData.title = '把 12 通道数值按「' + copyMode.options[copyMode.selectedIndex].text +
                         '」复制为 TSV，可直接粘贴到 Excel';
@@ -3031,6 +3032,13 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         col.push(r.cells.C.textContent, r.cells.B.textContent, r.cells.T.textContent);
       }
       text=col.join('\n');
+    }else if(copyMode.value==='row'){
+      // 一行模式：单行列 12 个数据，顺序 C1 B1 T1 ... C4 B4 T4（用 \t 分隔成 12 列）
+      const row=[];
+      for(const r of channelRows){
+        row.push(r.cells.C.textContent, r.cells.B.textContent, r.cells.T.textContent);
+      }
+      text=row.join('\t');
     }else{
       // 表格模式：4 行 × 3 列（C/B/T）
       const rows=[];
