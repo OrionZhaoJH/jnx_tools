@@ -134,8 +134,8 @@
     padding:12px 18px;
   }
   .serial-toolbar .serial-title{font-size:1.05rem;font-weight:600;margin-right:auto;display:inline-flex;align-items:center;gap:6px;}
-  /* 串口卡片：与上方工具条统一 16px 间距 */
-  .serial-card{margin-top:16px;}
+  /* 串口卡片：并排布局内不再单独加顶间距（由 .channel-query-section 的 gap 控制） */
+  .serial-card{margin-top:0;}
   /* 串口日志窗口：默认隐藏，由「显示日志/隐藏日志」按钮开关 */
   #serialLog{display:none;}
   #serialLog.show{display:block;}
@@ -194,8 +194,27 @@
 
   /* ---- BLE page ---- */
   .ble-grid{display:flex;flex-direction:column;gap:20px;margin-top:16px;}
-  /* FFE4 区块在 .ble-grid 之外，需要自己补上与上方「命令交互 (FFE2)」卡片相同的 20px 间距 */
-  .ble-ffe4-section{margin-top:20px;}
+  /* 通道数据查询：大卡片包含 蓝牙(FFE4) + 串口连接 两张小卡片 + 数据曲线图 */
+  .query-big-card{margin-top:20px;}
+  .query-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start;
+  }
+  @media(max-width:600px){ .query-grid{grid-template-columns:1fr;} }
+  /* 小卡片样式参考命令交互 (FFE2) 的 .cmd-card */
+  .query-subcard{
+    background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;
+    transition:border-color .2s,box-shadow .2s;display:flex;flex-direction:column;
+  }
+  .query-subcard:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.08);}
+  .query-subcard-title{
+    font-size:1rem;font-weight:600;margin:0 0 6px;color:var(--text);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:9px 10px;border-radius:8px;transition:background .15s;
+  }
+  .query-subcard-title:hover{background:var(--accent-soft);}
+  .query-big-card .chart-section{margin-top:16px;}
+  /* 串口卡片标题右侧：状态徽章 + 显示日志 整体靠右 */
+  .serial-title-right{margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;}
 
   /* 连接设置行（名称过滤 + 连接状态 + 设备名）：普通行，不吸顶（吸顶由顶部 .topbar 负责，同 JNA_tools） */
   .ble-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
@@ -737,12 +756,16 @@
   </div>
   </div>
 
-  <!-- 通道数据查询 (FFE4)：与串口"读取通道数据"共享同一套 4 包协议与解析，
-       通过 BLE 写命令 + notify 接收，落地到 serialChannelData 后复用曲线图渲染 -->
-  <div class="ble-ffe4-section" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHc">
-    <div class="card" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHd">
-      <div class="card-title" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHe">
-        <span data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHf">通道数据查询 (FFE4)</span>
+  <!-- 通道数据查询：大卡片包含 蓝牙(FFE4) + 串口连接 两张小卡片 + 数据曲线图 -->
+  <div class="card query-big-card" data-page-node-id="JcChannelQuerySection001">
+    <div class="card-title" data-page-node-id="JcChannelQueryBigTitle001">
+      <span data-page-node-id="JcChannelQueryBigTitle002">通道数据查询</span>
+    </div>
+    <div class="query-grid" data-page-node-id="JcQueryGrid001">
+      <!-- 蓝牙 · 通道数据查询 (FFE4) -->
+      <div class="query-subcard" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHd">
+        <div class="query-subcard-title" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHe">
+        <span data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHf">蓝牙 · 通道数据查询 (FFE4)</span>
         <span class="ffe4-title-right" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xH0a">
           <button class="btn btn-sm" id="btnFfe4LogToggle" type="button" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xH0c">显示日志</button>
           <span class="feature-badge locked" id="ffe4Badge" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHg">未就绪</span>
@@ -769,48 +792,51 @@
         <button class="btn btn-warn btn-sm" id="btnFfe4ClearData" disabled title="经 FFE4 通道发送主指令 0xA0 从指令 0x02 清空设备历史数据，写后 500ms 回读 8B 应答帧" data-page-node-id="HuFfe4ClearData001">清除数据</button>
         <span id="ffe4ChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHx"></span>
       </div>
-      <div class="cmd-log" id="ffe4Log" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHy"></div>
-    </div>
-  </div>
+        <div class="cmd-log" id="ffe4Log" data-page-node-id="Zq7M3kF4L2nQ8bR9vT0xHy"></div>
+      </div>
 
-  <!-- 串口连接 (Web Serial)：后半页区块，串口条在整个后半页（串口+曲线）顶置 -->
-  <div class="serial-section" data-page-node-id="6t4Q62rBZ1eMzmTGHSB570">
-    <div class="serial-toolbar" data-page-node-id="DhVJ9SPnRkt7F3B50gthVT">
-      <span class="serial-title" data-page-node-id="OEDEY3lfZYI25m3jFti1SH">串口连接 (Web Serial)</span>
-      <label class="timeout-label" for="serialBaud" data-page-node-id="eqxDjfUlbS7BctHuBfFl0j">波特率</label>
-      <input type="number" id="serialBaud" class="timeout-input" value="115200" min="300" step="300" data-page-node-id="Z42Nc2YZ8Dr6w2laC0HUS0" />
-      <span class="status-badge disconnected" id="serialStatus" data-page-node-id="JCyA96zOdodSGC5NHXadFH"><span class="status-dot" data-page-node-id="gEOHifa7a3232rbuiT7LNa"></span><span id="serialStatusText" data-page-node-id="U4OAxB9lGDxp04EztZHC1O">未连接</span></span>
-      <button class="btn btn-primary btn-sm" id="btnSerialConnect" data-page-node-id="19inTPqWcOP3UgGHXC1ps2">连接串口</button>
-      <button class="btn btn-danger btn-sm" id="btnSerialDisconnect" disabled data-page-node-id="kZ6nmd6dLxKZef37KDuqCg">断开</button>
-      <button class="btn btn-sm" id="btnSerialLogToggle" type="button" data-page-node-id="hNNtuTMLNBoKwHtCKQr2BA">显示日志</button>
+      <!-- 串口连接 (Web Serial) -->
+      <div class="query-subcard serial-subcard" data-page-node-id="QEs3F5c79JEC7KZja7V6xG">
+        <div class="query-subcard-title" data-page-node-id="OEDEY3lfZYI25m3jFti1SH">
+        <span data-page-node-id="JcSerialCardTitle001">串口连接 (Web Serial)</span>
+        <span class="serial-title-right" data-page-node-id="JcSerialTitleRight001">
+          <span class="status-badge disconnected" id="serialStatus" data-page-node-id="JCyA96zOdodSGC5NHXadFH"><span class="status-dot" data-page-node-id="gEOHifa7a3232rbuiT7LNa"></span><span id="serialStatusText" data-page-node-id="U4OAxB9lGDxp04EztZHC1O">未连接</span></span>
+          <button class="btn btn-sm" id="btnSerialLogToggle" type="button" data-page-node-id="hNNtuTMLNBoKwHtCKQr2BA">显示日志</button>
+        </span>
+      </div>
+      <div class="cmd-toolbar" style="align-items:stretch;gap:10px;flex-wrap:wrap;" data-page-node-id="DhVJ9SPnRkt7F3B50gthVT">
+        <label class="timeout-label" for="serialBaud" data-page-node-id="eqxDjfUlbS7BctHuBfFl0j">波特率</label>
+        <input type="number" id="serialBaud" class="timeout-input" value="115200" min="300" step="300" data-page-node-id="Z42Nc2YZ8Dr6w2laC0HUS0" />
+        <button class="btn btn-primary btn-sm" id="btnSerialConnect" data-page-node-id="19inTPqWcOP3UgGHXC1ps2">连接串口</button>
+        <button class="btn btn-danger btn-sm" id="btnSerialDisconnect" disabled data-page-node-id="kZ6nmd6dLxKZef37KDuqCg">断开</button>
+      </div>
+      <div class="cmd-toolbar" style="align-items:stretch;gap:10px;flex-wrap:wrap;" data-page-node-id="uEETtslfEzN1Pe7ED3HXkU">
+        <label class="timeout-label" for="serialChannelSelect" data-page-node-id="2u5sO0XM3qyS9D9VkmzaIb">通道</label>
+        <select id="serialChannelSelect" class="timeout-input" style="min-width:110px;" disabled data-page-node-id="7HQZG0Pb0bgNxhq5Z5PH64">
+          <option value="all" data-page-node-id="Q2CbLEefGBeOghmECVxumo">全部</option>
+          <option value="0x11" data-page-node-id="AZnSuLOltSxrgRRiUB50SP">C1</option>
+          <option value="0x12" data-page-node-id="7UrJ3eBK6yADdHuDAYf6XV">B1</option>
+          <option value="0x13" data-page-node-id="VbeQtLE2sfGx08W2EgVtIv">T1</option>
+          <option value="0x21" data-page-node-id="oiCQQak83owc3WtlY7vX0D">C2</option>
+          <option value="0x22" data-page-node-id="UPoMPga2bIvdYHT8p9Hsbx">B2</option>
+          <option value="0x23" data-page-node-id="0rqF9Caknct2hOgBdVERpC">T2</option>
+          <option value="0x31" data-page-node-id="n39o9cTn6GDd1kOoYn01OB">C3</option>
+          <option value="0x32" data-page-node-id="tABY15dh0h0YkuCsFAmLye">B3</option>
+          <option value="0x33" data-page-node-id="Xo1di6mQ8DkLhptlB81FMX">T3</option>
+          <option value="0x41" data-page-node-id="WmfQaA2JMdcYNWN8tzSYe4">C4</option>
+          <option value="0x42" data-page-node-id="5Qk44wYkLucRaUFz69ijVN">B4</option>
+          <option value="0x43" data-page-node-id="YKb0cnJKXTkdXt3O0fEqQ5">T4</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled data-page-node-id="Hsb495jQEGCoKPRlrUsJL4">获取通道数据</button>
+        <button class="btn btn-warn btn-sm" id="btnSerialClearData" disabled title="发送主指令 0xA0 从指令 0x02 清空设备历史数据" data-page-node-id="S2FNULe2ZZ51QzmQSRll2k">清除数据</button>
+        <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;" data-page-node-id="WIWBShcmKA1IPBYRnjyxDG"></span>
+      </div>
+        <div class="cmd-log" id="serialLog" data-page-node-id="ivTRhjIxtRV5A1LoiYgSOg"></div>
+      </div>
     </div>
-    <div class="card serial-card" data-page-node-id="QEs3F5c79JEC7KZja7V6xG">
-    <div class="cmd-toolbar" style="align-items:stretch;gap:10px;flex-wrap:wrap;" data-page-node-id="uEETtslfEzN1Pe7ED3HXkU">
-      <label class="timeout-label" for="serialChannelSelect" data-page-node-id="2u5sO0XM3qyS9D9VkmzaIb">通道</label>
-      <select id="serialChannelSelect" class="timeout-input" style="min-width:110px;" disabled data-page-node-id="7HQZG0Pb0bgNxhq5Z5PH64">
-        <option value="all" data-page-node-id="Q2CbLEefGBeOghmECVxumo">全部</option>
-        <option value="0x11" data-page-node-id="AZnSuLOltSxrgRRiUB50SP">C1</option>
-        <option value="0x12" data-page-node-id="7UrJ3eBK6yADdHuDAYf6XV">B1</option>
-        <option value="0x13" data-page-node-id="VbeQtLE2sfGx08W2EgVtIv">T1</option>
-        <option value="0x21" data-page-node-id="oiCQQak83owc3WtlY7vX0D">C2</option>
-        <option value="0x22" data-page-node-id="UPoMPga2bIvdYHT8p9Hsbx">B2</option>
-        <option value="0x23" data-page-node-id="0rqF9Caknct2hOgBdVERpC">T2</option>
-        <option value="0x31" data-page-node-id="n39o9cTn6GDd1kOoYn01OB">C3</option>
-        <option value="0x32" data-page-node-id="tABY15dh0h0YkuCsFAmLye">B3</option>
-        <option value="0x33" data-page-node-id="Xo1di6mQ8DkLhptlB81FMX">T3</option>
-        <option value="0x41" data-page-node-id="WmfQaA2JMdcYNWN8tzSYe4">C4</option>
-        <option value="0x42" data-page-node-id="5Qk44wYkLucRaUFz69ijVN">B4</option>
-        <option value="0x43" data-page-node-id="YKb0cnJKXTkdXt3O0fEqQ5">T4</option>
-      </select>
-      <button class="btn btn-primary btn-sm" id="btnSerialQueryChannel" disabled data-page-node-id="Hsb495jQEGCoKPRlrUsJL4">获取通道数据</button>
-      <button class="btn btn-warn btn-sm" id="btnSerialClearData" disabled title="发送主指令 0xA0 从指令 0x02 清空设备历史数据" data-page-node-id="S2FNULe2ZZ51QzmQSRll2k">清除数据</button>
-      <span id="serialChannelResult" style="align-self:center;color:var(--text-light);font-size:.875rem;" data-page-node-id="WIWBShcmKA1IPBYRnjyxDG"></span>
-    </div>
-    <div class="cmd-log" id="serialLog" data-page-node-id="ivTRhjIxtRV5A1LoiYgSOg"></div>
-  </div>
 
-  <!-- 数据曲线图（每 3 通道一组，共 4 张） -->
-  <div class="card chart-section" data-page-node-id="HUvi3BZzE2yQB235egQ0Gb">
+    <!-- 数据曲线图（每 3 通道一组，共 4 张） -->
+    <div class="card chart-section" data-page-node-id="HUvi3BZzE2yQB235egQ0Gb">
     <div class="card-title" data-page-node-id="htDjFTEue4G21be5zjF4av">
       <span data-page-node-id="baRDWckkkwGspFJAfVibXS">数据曲线图 (12×460)</span>
       <span class="chart-title-right" data-page-node-id="HuChartTitleRight001">
@@ -839,10 +865,10 @@
         <div class="chart-card-body" data-page-node-id="KwuolTiwpK2sTZY5DLnX5X"><canvas id="chartCanvas3" data-group="3" data-page-node-id="fF43Qs6fA3e7BeAaGP67gB"></canvas></div>
       </div>
     </div>
+    </div>
   </div>
 
   <footer data-page-node-id="GtnCdnpiRJXvN93OT0Ifyy">JNC 工具 · FFE2 命令查询 · 数据均在本地处理</footer>
-</div>
 </div>
 
 <script>
