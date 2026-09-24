@@ -3380,6 +3380,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
     const val=serialChannelSelect.value;
     if(val==='all'){
+      clearChartData(); // 选择「全部」时先清空曲线图，避免新旧数据叠加
       await queryAllChannels();
       return;
     }
@@ -3800,6 +3801,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     ffe4ChannelResult.textContent='查询中...';
     refreshFeatureState();
     if(val==='all'){
+      clearChartData(); // 选择「全部」时先清空曲线图，避免新旧数据叠加
       await queryAllChannelsViaFfe4();
       refreshFeatureState();
       return;
