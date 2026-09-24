@@ -3463,6 +3463,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }));
   const CHART_COLORS={'C':'#ef4444','B':'#3b82f6','T':'#22c55e'};
   const CHART_PAD={L:46,R:12,T:14,B:26,H:240};
+  const CHART_N=460; // 每条线的采样点总数（横轴固定 460 个点，对应设备一次采样返回的 460 个坐标点）
 
   function chartGeom(cssW, cssH){
     const h=cssH||CHART_PAD.H;
@@ -3471,16 +3472,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   function chartX(i, N, geom){
     return CHART_PAD.L+(N>1? i/(N-1):0)*geom.plotW;
   }
-  // 该通道图横坐标的有效采样点数：C/B/T 三条线最后一个非零点下标的最大值 +1（无有效数据时返回 1）
+  // 该通道图横坐标的采样点总数：固定为 CHART_N（460），与设备一次采样返回的实际坐标点数一致
   function chartEffCount(g){
-    let eff=0;
-    for(let k=0;k<3;k++){
-      const arr=serialChannelData[g*3+k]||[];
-      for(let i=arr.length-1;i>=0;i--){
-        if(arr[i]!==0){ if(i+1>eff) eff=i+1; break; }
-      }
-    }
-    return Math.max(1, eff);
+    return CHART_N;
   }
   function chartY(v, ymin, ymax, geom){
     return CHART_PAD.T+geom.plotH*(1-(v-ymin)/(ymax-ymin));
@@ -3507,7 +3501,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       {name:'T', arr:serialChannelData[g*3+2]||[],   color:CHART_COLORS.T}
     ];
     const geom=chartGeom(cssW, cssH);
-    const N=chartEffCount(g); // 横坐标点数 = 实际有效数据长度（不再保留 460）
+    const N=chartEffCount(g); // 横坐标点数 = 固定 CHART_N（460 个坐标点）
 
     // y 轴范围
     let ymin=Infinity, ymax=-Infinity, anyData=false;
@@ -3649,7 +3643,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       const el=document.getElementById('chartResult'+g);
       if(!el) continue;
       const r=computeChannelResult(g);
-      const hasData=chartEffCount(g)>1; // 该通道图上已有有效曲线
+      const hasData=((serialChannelData[g*3]||[]).length>0 || (serialChannelData[g*3+1]||[]).length>0 || (serialChannelData[g*3+2]||[]).length>0); // 该通道图上已有有效曲线
       if(r==null && !hasData){
         el.textContent='';              // 通道尚无任何数据：不显示
         el.classList.add('hidden');
