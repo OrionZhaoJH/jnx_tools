@@ -1398,17 +1398,17 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
 
   // 连接/断开按钮状态统一在此处理。
-  // 只有「连接流程进行中」才禁用连接按钮；掉线后必须立即恢复可点（不自动重连，由用户手动重连）。
+  // 连接流程进行中或「已连接」时禁用连接按钮；掉线后立即恢复可点（不自动重连，由用户手动重连）。
   function syncConnectButtons(){
     const busy=connecting;
+    const linkOk=!!(device && device.gatt && device.gatt.connected);
     if(btnConnect){
-      btnConnect.disabled=busy;
+      btnConnect.disabled=busy || linkOk;
       if(!busy && btnConnect.textContent.indexOf('发现特征中')>=0){
         btnConnect.textContent='🔗 连接 BLE 设备';
       }
     }
     if(btnDisconnect){
-      const linkOk=!!(device && device.gatt && device.gatt.connected);
       btnDisconnect.disabled=!linkOk || busy;
     }
   }
