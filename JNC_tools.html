@@ -352,6 +352,26 @@
   .inline-copy-result{font-size:.825rem;color:var(--text-muted);white-space:nowrap;align-self:center;}
   .inline-copy-result.ok{color:#16a34a;}
   .inline-copy-result.err{color:#dc2626;}
+  /* 数据曲线图：结果计算参数行（起始点数 / 结尾点数 / 结尾位置滑块） */
+  .chart-calc-params{
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    padding:10px 12px;margin-bottom:14px;
+    background:var(--surface-2,#f8fafc);border:1px solid var(--border);border-radius:10px;
+  }
+  .chart-calc-field{display:flex;align-items:center;gap:6px;}
+  .chart-calc-field label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .chart-calc-field input{
+    width:64px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:.85rem;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  .chart-calc-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .chart-calc-slider{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:220px;}
+  .chart-calc-slider label{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  .chart-calc-slider input[type=range]{flex:1;min-width:120px;accent-color:var(--accent);cursor:pointer;}
+  .chart-calc-slider .chart-end-pos{
+    font-size:.825rem;font-weight:600;color:var(--accent);
+    font-family:'Consolas','Monaco',monospace;white-space:nowrap;min-width:100px;text-align:right;
+  }
   .chart-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:4px;align-items:start;}
   @media(min-width:780px){ .chart-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .chart-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;transition:border-color .2s,box-shadow .2s;}
@@ -850,6 +870,23 @@
         <button class="btn btn-sm" id="btnChartCopyData" disabled data-page-node-id="kjrB6FX7X0h8sbD6kD8RA4">复制 12×460 数据</button>
         <button class="btn btn-warn btn-sm" id="btnChartClearData" type="button" disabled title="清空 4 张图的全部数据（只清网页侧已读取的数据，不影响设备 Flash）">清空</button>
       </span>
+    </div>
+    <!-- 结果计算参数：起始点数 ns / 结尾点数 ne / 结尾位置滑块（公式 R=(tB−tT)/(tB−tC)，t=结尾均值/起始均值） -->
+    <div class="chart-calc-params" data-page-node-id="JcChartCalcParams001">
+      <div class="chart-calc-field">
+        <label for="chartNs">起始点数</label>
+        <input id="chartNs" type="number" min="1" step="1" value="5" title="起始窗均值取前 N 个点">
+      </div>
+      <div class="chart-calc-field">
+        <label for="chartNe">结尾点数</label>
+        <input id="chartNe" type="number" min="1" step="1" value="10" title="结尾窗均值取结尾位置往前 N 个点">
+      </div>
+      <div class="chart-calc-slider">
+        <label for="chartEndSlider">结尾位置</label>
+        <input type="range" id="chartEndSlider" min="0" max="100" value="100" title="拖动调整结尾窗的最后一个点位置">
+        <span class="chart-end-pos" id="chartEndTxt">—</span>
+        <button class="btn btn-sm" id="btnChartEndReset" type="button" title="结尾位置回到最后一个点">回到末尾</button>
+      </div>
     </div>
     <div class="chart-grid" data-page-node-id="CDsELsJTSTSS0EwmbzFTEx">
       <div class="chart-card" data-page-node-id="EPaz3BVdcnsPmemJ65AFBC">
@@ -3451,6 +3488,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   function clearChartData(){
     for(let i=0;i<serialChannelData.length;i++) serialChannelData[i]=[];
     for(const item of chartCanvases) item.hoverIndex=null; // 顺带清掉悬停指示点
+    chartEndIdx=null;                     // 结尾位置回到默认（末尾）
     renderAllCharts();                    // 内含 updateChartResults，会刷掉各通道「收到 N 笔数据」提示
     setChartButtonsEnabled(false);
     setChartCopyResult('已清空', '', 2000);
@@ -3542,6 +3580,25 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       return;
     }
 
+    // 高亮结果计算窗口（与 computeChannelResult 同一组参数，便于直观核对取窗位置）：
+    //   起始窗 = 前 ns 个点（灰蓝）；结尾窗 = 结尾位置往前 ne 个点（橙色）
+    (function drawCalcWindows(){
+      const gn=Math.min(serialChannelData[g*3]?serialChannelData[g*3].length:0,
+                        serialChannelData[g*3+1]?serialChannelData[g*3+1].length:0,
+                        serialChannelData[g*3+2]?serialChannelData[g*3+2].length:0);
+      if(gn<2) return;
+      const wb=chartWindowBounds(gn);
+      const band=(i0,i1,color)=>{
+        i0=Math.max(0, Math.min(N-1, i0)); i1=Math.max(0, Math.min(N-1, i1));
+        if(i1<i0) return;
+        const x0=chartX(i0, N, geom), x1=chartX(i1, N, geom);
+        ctx.fillStyle=color;
+        ctx.fillRect(x0, CHART_PAD.T, Math.max(1.5, x1-x0), geom.plotH);
+      };
+      band(0, wb.ns-1, 'rgba(100,116,139,.16)');          // 起始窗
+      band(wb.start, wb.endIdx, 'rgba(249,115,22,.16)');  // 结尾窗
+    })();
+
     for(const s of series){
       if(!s.arr.length) continue;
       const n=Math.min(s.arr.length, N);
@@ -3597,44 +3654,100 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
   }
 
-  // ---- 按表格公式计算各通道结果 result（JNC数据图表模板.xlsx）----
-  // 模板中每通道为 C/B/T 三行，C 行（第 3/6/9/12 行）的公式：
-  //   startIndex (D列) = 第一个满足 B[i]/B[0] < 0.85 的下标（AGGREGATE(15,6,...)）
-  //   T1 (E列) = C[0]/T[0]；B1 (F列) = C[0]/B[0]
-  //   Cend (I列) = AVERAGE(C[w .. w+2])，w = startIndex + 57
-  //   Tend (G列) = T1 * AVERAGE(T[w .. w+2])
-  //   Bend (H列) = B1 * AVERAGE(B[w .. w+2])
-  //   result (A列) = (Bend - Tend) / (Bend - Cend)
-  // 修正：模板 G/H/I 列的 $D$3 是绝对引用错误 —— 每通道应用【自己 B 线】的 startIndex。
-  // 参考电平取每条线的首个非零值（实测数据首点可能为 0，避免除零/误判）。
-  function firstNonZero(arr){
-    for(const v of arr){ if(v) return v; }
-    return 0;
+  // ---- 按表格公式计算各通道结果 result（JNC数据模板_20260923.xlsx「1」表）----
+  // 每通道 C/B/T 三行（数据列 O..RF 共 460 个点，O=第 0 点）。以通道 1（第 3/4/5 行）为例：
+  //   起始窗均值：Cstart=AVERAGE(O3:T3)、Bstart=AVERAGE(O4:T4)、Tstart=AVERAGE(O5:T5)
+  //   结尾窗均值：Cend  =AVERAGE(QW3:RF3)、Bend=AVERAGE(QW4:RF4)、Tend=AVERAGE(QW5:RF5)
+  //   通道比值：  C1=K3/H3(Cend/Cstart)、B1=L3/I3(Bend/Bstart)、T1=M3/J3(Tend/Tstart)
+  //   结果：      Result = (B1 − T1)/(B1 − C1) = (tB − tT)/(tB − tC)
+  // 起始点数 ns（默认 5）、结尾点数 ne（默认 10）由输入框控制；
+  // 结尾窗最后一个点的位置 endIdx 由滑块控制（默认 = 最后一个点，对应 Excel 的 RF 列）。
+  const CHART_CALC_DEFAULT_NS=5;
+  const CHART_CALC_DEFAULT_NE=10;
+  const chartNs=document.getElementById('chartNs');
+  const chartNe=document.getElementById('chartNe');
+  const chartEndSlider=document.getElementById('chartEndSlider');
+  const chartEndTxt=document.getElementById('chartEndTxt');
+  const btnChartEndReset=document.getElementById('btnChartEndReset');
+  let chartEndIdx=null; // null = 末尾（最后一个点）；否则为 0-based 点下标
+  function chartNsVal(){ const v=parseInt(chartNs?chartNs.value:'',10); return (isFinite(v)&&v>0)?v:CHART_CALC_DEFAULT_NS; }
+  function chartNeVal(){ const v=parseInt(chartNe?chartNe.value:'',10); return (isFinite(v)&&v>0)?v:CHART_CALC_DEFAULT_NE; }
+  // 闭区间 [s,e] 的均值（下标自动收紧到数组范围内；空区间返回 0）
+  function chartMean(arr, s, e){
+    const n=arr.length; if(!n) return 0;
+    s=Math.max(0, s|0); e=Math.min(n-1, e|0);
+    if(e<s) return 0;
+    let sum=0; for(let i=s;i<=e;i++) sum+=arr[i];
+    return sum/(e-s+1);
   }
-  function findStartIndex(b, ref){
-    for(let i=1;i<b.length;i++){
-      if(b[i]/ref<0.85) return i;
+  // 12 条线中最长的一条（即本次读到的点数；无数据时 0）
+  function chartDataLen(){
+    let n=0;
+    for(let i=0;i<serialChannelData.length;i++){
+      const a=serialChannelData[i]; if(a && a.length>n) n=a.length;
     }
-    return 0;
+    return n;
+  }
+  // 结尾窗范围的推导：ns 取起始窗点数、ne 取结尾窗点数、e 为结尾最后一点
+  function chartWindowBounds(n){
+    const ns=Math.min(chartNsVal(), n);
+    const ne=Math.min(chartNeVal(), n);
+    const e=(chartEndIdx==null) ? n-1 : Math.max(0, Math.min(n-1, chartEndIdx));
+    return {ns:ns, ne:ne, endIdx:e, start:Math.max(0, e-ne+1)};
   }
   function computeChannelResult(g){
     const c=serialChannelData[g*3]||[], b=serialChannelData[g*3+1]||[], t=serialChannelData[g*3+2]||[];
     const n=Math.min(c.length,b.length,t.length);
-    if(n<3) return null;
-    const cRef=firstNonZero(c), bRef=firstNonZero(b), tRef=firstNonZero(t);
-    if(!cRef || !bRef || !tRef) return null; // 该通道 C/B/T 没有有效数据
-    let startIndex=findStartIndex(b, bRef);
-    startIndex=Math.min(startIndex, Math.max(0, n-60)); // 窗口必须落在数据范围内
-    const w=startIndex+57;
-    if(w+2>=n) return null;
-    const avg=a=>(a[w]+a[w+1]+a[w+2])/3;
-    const tend=(cRef/tRef)*avg(t);
-    const bend=(cRef/bRef)*avg(b);
-    const cend=avg(c);
-    const denom=bend-cend;
+    if(n<2) return null;
+    const wb=chartWindowBounds(n);
+    const cs=chartMean(c,0,wb.ns-1), bs=chartMean(b,0,wb.ns-1), ts=chartMean(t,0,wb.ns-1);
+    if(!cs || !bs || !ts) return null; // 起始窗均值为 0（无有效数据 / 除零）
+    const ce=chartMean(c,wb.start,wb.endIdx), be=chartMean(b,wb.start,wb.endIdx), te=chartMean(t,wb.start,wb.endIdx);
+    const tC=ce/cs, tB=be/bs, tT=te/ts;
+    const denom=tB-tC;
     if(denom===0 || !isFinite(denom)) return null;
-    const result=(bend-tend)/denom;
+    const result=(tB-tT)/denom;
     return isFinite(result)?result:null;
+  }
+  // 同步滑块范围/位置与「结尾位置」文本（数据长度变化时调用）
+  function syncChartCalcControls(){
+    const n=chartDataLen();
+    if(n>0 && chartEndIdx!=null) chartEndIdx=Math.max(0, Math.min(n-1, chartEndIdx));
+    if(chartEndSlider){
+      if(n>0){
+        const ne=Math.min(chartNeVal(), n);
+        chartEndSlider.min=String(Math.max(0, ne-1));
+        chartEndSlider.max=String(n-1);
+        chartEndSlider.value=String((chartEndIdx==null)? n-1 : chartEndIdx);
+      }else{
+        chartEndSlider.min='0'; chartEndSlider.max='100'; chartEndSlider.value='100';
+      }
+    }
+    if(chartEndTxt){
+      if(n>0){
+        const wb=chartWindowBounds(n);
+        chartEndTxt.textContent='第 '+wb.endIdx+' 点（'+wb.start+'~'+wb.endIdx+'）';
+      }else{
+        chartEndTxt.textContent='—';
+      }
+    }
+  }
+  // 结果计算参数的事件绑定：改起始/结尾点数、拖结尾位置滑块、点「回到末尾」→ 重算结果 + 重绘
+  function onChartCalcChange(){ renderAllCharts(); }
+  if(chartNs) chartNs.addEventListener('input', onChartCalcChange);
+  if(chartNe) chartNe.addEventListener('input', onChartCalcChange);
+  if(chartEndSlider){
+    chartEndSlider.addEventListener('input', ()=>{
+      const n=chartDataLen();
+      chartEndIdx=(n>0) ? parseInt(chartEndSlider.value,10) : null;
+      renderAllCharts();
+    });
+  }
+  if(btnChartEndReset){
+    btnChartEndReset.addEventListener('click', ()=>{
+      chartEndIdx=null;   // 回到最后一个点
+      renderAllCharts();
+    });
   }
 
   // 将各通道计算结果显示在曲线图标题「通道N（CN / BN / TN）」后面
@@ -3658,6 +3771,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
 
   function renderAllCharts(){
+    syncChartCalcControls();
     updateChartResults();
     for(const item of chartCanvases) drawChart(item);
   }
