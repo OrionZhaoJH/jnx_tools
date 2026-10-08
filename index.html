@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JNx 工具箱</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#3b82f6">
+  <meta name="theme-color" content="#3b82f6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -115,6 +116,51 @@
   .btn-refresh:hover{border-color:var(--accent);color:var(--accent);}
   .btn-refresh:disabled{opacity:.5;cursor:not-allowed;}
   .btn-refresh.update-available{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  /* ===================== 暗色模式：跟随系统 / 主机深浅色 ===================== */
+  :root{ color-scheme:light dark; }
+  /* 曲线图画布色板（浅色默认；深色在下方 media 内覆盖；JS 通过 getComputedStyle 读取，保证画布与页面同步） */
+  :root{ --chart-bg:#fbfdff; --chart-grid:#e5e7eb; --chart-axis:#94a3b8; --chart-zero:#cbd5e1; --chart-legend:#475569; --chart-ring:#ffffff; }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f172a; --surface:#1b2536; --surface-2:#141d2e; --border:#334155;
+      --text:#e5e9f0; --text-muted:#94a3b8; --text-light:#64748b;
+      --accent:#60a5fa; --accent-soft:#1e2f52;
+      --ble-soft:#0b3350;
+      --shadow:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.4);
+      --shadow-lg:0 6px 16px rgba(0,0,0,.5),0 2px 4px rgba(0,0,0,.35);
+      --chart-bg:#0b1220; --chart-grid:#2b3a52; --chart-axis:#8fa3ba; --chart-zero:#475569; --chart-legend:#94a3b8; --chart-ring:#0b1220;
+    }
+    /* 主色按钮改用较深蓝，保证白字对比度（链接/徽标文字则用上面的亮蓝 --accent） */
+    .btn-primary,.pwa-install-btn{background:#2563eb;border-color:#2563eb;}
+    .btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8;}
+    /* 状态徽章（原硬编码浅底 → 深底亮字） */
+    .status-badge.disconnected{background:#334155;}
+    .status-badge.partial{background:#334155;color:#fcd34d;}
+    .status-badge.connecting{background:#3f2d0a;color:#fcd34d;}
+    .status-badge.connected{background:#0b3b2e;color:#6ee7b7;}
+    /* 提示条 / 警告框 */
+    .ble-notice{background:#3a2c0b;border-color:#6b4e0e;color:#fbd38d;}
+    .ble-warning{background:#3a2c0b;border-color:#6b4e0e;color:#fbd38d;}
+    /* 特征属性徽标 */
+    .char-prop.read{background:#0e2a47;color:#93c5fd;}
+    .char-prop.write{background:#3a2c0b;color:#fbd38d;}
+    .char-prop.indicate{background:#1e1b4b;color:#a5b4fc;}
+    .char-prop.notify{background:#0b3b2e;color:#6ee7b7;}
+    .char-prop.other{background:#334155;}
+    /* 复制结果提示 / 通道状态文字：原深绿、深红在深底上偏暗，改用亮色 */
+    .inline-copy-result.ok,.chart-copy-result.ok,.slot-card.status-2 .slot-status{color:#4ade80;}
+    .inline-copy-result.err,.chart-copy-result.err,.slot-card.status-4 .slot-status{color:#f87171;}
+    /* 浅底容器 → 深色面板 */
+    .qr-result-text,.cmd-result,.cmd-result-item{background:var(--surface-2);}
+    /* 日志 / 提示浮层：深色块与深色页面之间补边框层次 */
+    .raw-log,.cmd-log,.chart-tooltip{border:1px solid #334155;}
+    /* 曲线图画布外框 */
+    .chart-card canvas{background:var(--chart-bg);}
+    /* 首页工具卡图标底：内联的浅色 accentSoft 在暗色下刺眼，改为 accent 低透明度色块 */
+    .tool-icon{background:rgba(148,163,184,.14);background:color-mix(in srgb,var(--card-accent,var(--accent)) 22%,transparent);}
+    /* 吸顶条滚动后的毛玻璃底色（原硬编码浅色 rgba(245,247,250,.88) → 深色，避免置顶时发白） */
+    .topbar.scrolled{background:rgba(20,29,46,.88);box-shadow:0 1px 0 rgba(0,0,0,.5);}
+  }
 </style>
 </head>
 <body>
