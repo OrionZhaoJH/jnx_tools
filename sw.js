@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'jnx-tools-';
-const CACHE_NAME = 'jnx-tools-v2-85';
+const CACHE_NAME = 'jnx-tools-v2-86';
 const ASSETS = [
   './',
   './index.html',
@@ -56,6 +56,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(event.request);
+    // ⚠ 必须在这里「立刻」克隆出比对专用副本。
+    // 有缓存时 `cached` 会在下面被直接 return 交给页面消费，body 随即变为 used 状态；
+    // 而 revalidate 是后台异步执行的，等它再对 `cached` 调 clone() 就会抛
+    // "Failed to execute 'clone' on 'Response': Response body is already used"。
+    const cachedForCompare = cached ? cached.clone() : null;
 
     const revalidate = (async () => {
       const resp = await fetch(event.request, { cache: 'no-cache' }).catch(() => null);
@@ -63,9 +68,9 @@ self.addEventListener('fetch', (event) => {
       if (cached && resp.status === 304) return resp; // 服务器确认一致，不下载内容
       if (resp.status !== 200) return resp;
       // 200：按字节比较，避免 PNG 等二进制文件经文本解码后出现误判。
-      if (cached) {
+      if (cachedForCompare) {
         const newBody = new Uint8Array(await resp.clone().arrayBuffer());
-        const oldBody = new Uint8Array(await cached.clone().arrayBuffer());
+        const oldBody = new Uint8Array(await cachedForCompare.arrayBuffer());
         if (oldBody.length === newBody.length && oldBody.every((byte, i) => byte === newBody[i])) {
           return resp; // 内容一致，不更新缓存、不提示
         }
@@ -78,7 +83,7 @@ self.addEventListener('fetch', (event) => {
         await cache.put(event.request, resp.clone());
       }
       return resp;
-    })();
+    })().catch(() => null);            // 后台校验/比对失败不应让页面请求失败
 
     if (cached) {
       event.waitUntil(revalidate.then(() => { })); // 立即用缓存，后台校验
