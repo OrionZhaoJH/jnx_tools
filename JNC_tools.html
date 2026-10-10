@@ -182,6 +182,8 @@
   .cmd-card.collapsed .cmd-card-desc,
   .cmd-card.collapsed .cmd-card-actions,
   .cmd-card.collapsed .cmd-card-body,
+  .cmd-card.collapsed .led-grid,
+  .cmd-card.collapsed .led-off-row,
   .cmd-card.collapsed .cmd-result{display:none;}
   .cmd-card-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;}
   .cmd-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
@@ -195,6 +197,12 @@
   .cmd-result-status.info{color:var(--accent);}
   .cmd-result-status.ok{color:var(--success);}
   .cmd-result-status.err{color:var(--danger);}
+  /* 控制点灯：4 通道 × C/B/T 的按钮网格（左列为通道名，后 3 列为 C/B/T 按钮） */
+  .led-grid{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:12px;}
+  .led-grid .led-ch{font-size:.78rem;color:var(--text-muted);white-space:nowrap;padding-right:2px;}
+  .led-grid .led-btn{padding:5px 0;font-size:.78rem;}
+  /* 关闭所有灯：与上方点亮网格分隔，单独一行 */
+  .led-off-row{padding-top:12px;border-top:1px dashed var(--border);margin-bottom:12px;}
   @media(max-width:600px){ .cmd-grid{grid-template-columns:1fr;} }
 
   /* ---- BLE page ---- */
@@ -738,39 +746,6 @@
             <div class="cmd-result" id="resultDevice" data-page-node-id="JcDevCtrlCard0007"><div class="cmd-result-empty" data-page-node-id="JcDevCtrlCard0008">等待操作...</div></div>
           </div>
 
-          <!-- 单次测试（原独立「解析数据 (FFE2 查询响应)」卡片，现已合并为本卡片） -->
-          <div class="cmd-card collapsed" data-page-node-id="JcParseCard0001">
-            <div class="cmd-card-title" data-page-node-id="JcParseCard0002"><span data-page-node-id="JcParseCard0003">单次测试</span><span class="toggle-arrow" data-page-node-id="JcParseCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcParseCard0005">通过 FFE2 发送测试命令（主 0xA4 / 从 0x01，数据 0x01 普通 / 0x02 积分球），等待指定时间后回读响应并解析 12 通道数值。</div>
-            <div class="cmd-card-actions" data-page-node-id="JcParseCard0006">
-              <label class="timeout-label" for="queryTimeout" data-page-node-id="QkrmsnIK7UR6oJw79oakXn">等待(ms)</label>
-              <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" data-page-node-id="c3PHSBqyHu8HannWm3AvRK" />
-              <button class="btn btn-primary btn-sm" id="btnQueryData" data-page-node-id="KtDoWufH6YBBugn3lGtdMb">普通</button>
-              <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest" data-page-node-id="Om0CllRMrlc39LivovapFc">积分球</button>
-              <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;" data-page-node-id="QNP1W7bKVoNl1BYnfaRnxt">
-                <option value="table" data-page-node-id="Gjrm8DGDgIaDtzgaha6a1Y">表格(4×3)</option>
-                <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">一列(12×1)</option>
-                <option value="row" data-page-node-id="JcCopyModeRow0012">一行(1×12)</option>
-              </select>
-              <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
-              <span id="copyDataResult" class="inline-copy-result" data-page-node-id="JcCopyDataResult001"></span>
-            </div>
-            <div class="cmd-card-body" data-page-node-id="JcParseCard0009">
-              <div id="jncTableWrap" style="display:none;" data-page-node-id="sISxN6622get3ne0qPpCTw">
-                <table class="channel-table" data-page-node-id="koLfgMU0Qkc0MlGDrvml9u">
-                  <thead data-page-node-id="seXcGvRv82ZFUch7UAfTrc">
-                    <tr data-page-node-id="jGm7XeZ9ciBwnuUVFjUZva"><th data-page-node-id="HUGjMK8Q7tEREcvTJ3Ybph">通道</th><th data-page-node-id="gW6FoE7Xmq4M5nf5OT81FI">C线</th><th data-page-node-id="obQY8b45QgCm9Em2WMSAt0">B线</th><th data-page-node-id="NtPclvVFwCXaOdlCBl2WJi">T线</th></tr>
-                  </thead>
-                  <tbody id="jncTableBody" data-page-node-id="k0ivSUJeHEOBgnQBMLjYLF"></tbody>
-                </table>
-              </div>
-              <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:18px 0;font-size:.85rem;" data-page-node-id="OpMXyDBb70IXo9bR1BZHYe">
-                点击「普通」或「积分球」后将显示 12 通道解析结果
-              </div>
-            </div>
-            <div class="cmd-result" id="resultParse" data-page-node-id="JcParseCard000A"><div class="cmd-result-empty" data-page-node-id="JcParseCard000B">等待测试...</div></div>
-          </div>
-
           <!-- 读取结果 -->
           <div class="cmd-card collapsed" data-page-node-id="JcReadResCard0001">
             <div class="cmd-card-title" data-page-node-id="JcReadResCard0002"><span data-page-node-id="JcReadResCard0003">读取结果</span><span class="toggle-arrow" data-page-node-id="JcReadResCard0004">▾</span></div>
@@ -818,6 +793,78 @@
               <span id="snCopyResult" class="inline-copy-result" data-page-node-id="JcReadSnCard0009"></span>
             </div>
             <div class="cmd-result" id="resultSn" data-page-node-id="JcReadSnCard000A"><div class="cmd-result-empty" data-page-node-id="JcReadSnCard000B">等待操作...</div></div>
+          </div>
+
+          <!-- 单次测试（原独立「解析数据 (FFE2 查询响应)」卡片，现已合并为本卡片） -->
+          <div class="cmd-card collapsed" data-page-node-id="JcParseCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcParseCard0002"><span data-page-node-id="JcParseCard0003">单次测试</span><span class="toggle-arrow" data-page-node-id="JcParseCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcParseCard0005">通过 FFE2 发送测试命令（主 0xA4 / 从 0x01，数据 0x01 普通 / 0x02 积分球），等待指定时间后回读响应并解析 12 通道数值。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcParseCard0006">
+              <label class="timeout-label" for="queryTimeout" data-page-node-id="QkrmsnIK7UR6oJw79oakXn">等待(ms)</label>
+              <input type="number" id="queryTimeout" class="timeout-input" value="900" min="50" step="50" data-page-node-id="c3PHSBqyHu8HannWm3AvRK" />
+              <button class="btn btn-primary btn-sm" id="btnQueryData" data-page-node-id="KtDoWufH6YBBugn3lGtdMb">普通</button>
+              <button class="btn btn-primary btn-sm" id="btnIntegralSphereTest" data-page-node-id="Om0CllRMrlc39LivovapFc">积分球</button>
+              <select id="copyMode" style="padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:.825rem;outline:none;" data-page-node-id="QNP1W7bKVoNl1BYnfaRnxt">
+                <option value="table" data-page-node-id="Gjrm8DGDgIaDtzgaha6a1Y">表格(4×3)</option>
+                <option value="column" data-page-node-id="cCYnwlVq1zCOMm8cZmLpbi">一列(12×1)</option>
+                <option value="row" data-page-node-id="JcCopyModeRow0012">一行(1×12)</option>
+              </select>
+              <button class="btn btn-sm" id="btnCopyData" disabled data-page-node-id="7M11tre4TtCvPVr1u5ZZFp">复制数据</button>
+              <span id="copyDataResult" class="inline-copy-result" data-page-node-id="JcCopyDataResult001"></span>
+            </div>
+            <div class="cmd-card-body" data-page-node-id="JcParseCard0009">
+              <div id="jncTableWrap" style="display:none;" data-page-node-id="sISxN6622get3ne0qPpCTw">
+                <table class="channel-table" data-page-node-id="koLfgMU0Qkc0MlGDrvml9u">
+                  <thead data-page-node-id="seXcGvRv82ZFUch7UAfTrc">
+                    <tr data-page-node-id="jGm7XeZ9ciBwnuUVFjUZva"><th data-page-node-id="HUGjMK8Q7tEREcvTJ3Ybph">通道</th><th data-page-node-id="gW6FoE7Xmq4M5nf5OT81FI">C线</th><th data-page-node-id="obQY8b45QgCm9Em2WMSAt0">B线</th><th data-page-node-id="NtPclvVFwCXaOdlCBl2WJi">T线</th></tr>
+                  </thead>
+                  <tbody id="jncTableBody" data-page-node-id="k0ivSUJeHEOBgnQBMLjYLF"></tbody>
+                </table>
+              </div>
+              <div id="jncFieldsEmpty" style="color:var(--text-light);text-align:center;padding:18px 0;font-size:.85rem;" data-page-node-id="OpMXyDBb70IXo9bR1BZHYe">
+                点击「普通」或「积分球」后将显示 12 通道解析结果
+              </div>
+            </div>
+            <div class="cmd-result" id="resultParse" data-page-node-id="JcParseCard000A"><div class="cmd-result-empty" data-page-node-id="JcParseCard000B">等待测试...</div></div>
+          </div>
+
+          <!-- 亮度计模式（主 0xA5 / 从 0x02） -->
+          <div class="cmd-card collapsed" data-page-node-id="JcLumMeterCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcLumMeterCard0002"><span data-page-node-id="JcLumMeterCard0003">亮度计模式</span><span class="toggle-arrow" data-page-node-id="JcLumMeterCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcLumMeterCard0005">通过 FFE2 发送主 0xA5 / 从 0x02，切换亮度计模式（数据 0x01 进入 / 0x02 退出；进入后每个灯 500ms 循环点亮）。写后立即回读应答：01 成功 / 02 失败。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcLumMeterCard0006">
+              <button class="btn btn-primary btn-sm" id="btnLumMeterEnter" data-page-node-id="JcLumMeterCard0007">进入亮度计模式</button>
+              <button class="btn btn-sm" id="btnLumMeterExit" data-page-node-id="JcLumMeterCard0008">退出亮度计模式</button>
+            </div>
+            <div class="cmd-result" id="resultLumMeter" data-page-node-id="JcLumMeterCard0009"><div class="cmd-result-empty" data-page-node-id="JcLumMeterCard000A">等待操作...</div></div>
+          </div>
+
+          <!-- 控制点灯（主 0xA6 / 从 0x02） -->
+          <div class="cmd-card collapsed" data-page-node-id="JcLedCtrlCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcLedCtrlCard0002"><span data-page-node-id="JcLedCtrlCard0003">控制点灯</span><span class="toggle-arrow" data-page-node-id="JcLedCtrlCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcLedCtrlCard0005">通过 FFE2 发送主 0xA6 / 从 0x02，点亮指定通道的 C/B/T 灯。数据字节：0x11~0x13=通道1 的 C/B/T，0x21~0x23=通道2，0x31~0x33=通道3，0x41~0x43=通道4。写后立即回读应答：01 成功 / 02 失败。</div>
+            <div class="led-grid" data-page-node-id="JcLedCtrlCard0006">
+              <span class="led-ch" data-page-node-id="JcLedCtrlCh1001">通道1</span>
+              <button class="btn btn-sm led-btn" data-led="0x11" data-page-node-id="JcLedCtrlBtn0011">C</button>
+              <button class="btn btn-sm led-btn" data-led="0x12" data-page-node-id="JcLedCtrlBtn0012">B</button>
+              <button class="btn btn-sm led-btn" data-led="0x13" data-page-node-id="JcLedCtrlBtn0013">T</button>
+              <span class="led-ch" data-page-node-id="JcLedCtrlCh2001">通道2</span>
+              <button class="btn btn-sm led-btn" data-led="0x21" data-page-node-id="JcLedCtrlBtn0021">C</button>
+              <button class="btn btn-sm led-btn" data-led="0x22" data-page-node-id="JcLedCtrlBtn0022">B</button>
+              <button class="btn btn-sm led-btn" data-led="0x23" data-page-node-id="JcLedCtrlBtn0023">T</button>
+              <span class="led-ch" data-page-node-id="JcLedCtrlCh3001">通道3</span>
+              <button class="btn btn-sm led-btn" data-led="0x31" data-page-node-id="JcLedCtrlBtn0031">C</button>
+              <button class="btn btn-sm led-btn" data-led="0x32" data-page-node-id="JcLedCtrlBtn0032">B</button>
+              <button class="btn btn-sm led-btn" data-led="0x33" data-page-node-id="JcLedCtrlBtn0033">T</button>
+              <span class="led-ch" data-page-node-id="JcLedCtrlCh4001">通道4</span>
+              <button class="btn btn-sm led-btn" data-led="0x41" data-page-node-id="JcLedCtrlBtn0041">C</button>
+              <button class="btn btn-sm led-btn" data-led="0x42" data-page-node-id="JcLedCtrlBtn0042">B</button>
+              <button class="btn btn-sm led-btn" data-led="0x43" data-page-node-id="JcLedCtrlBtn0043">T</button>
+            </div>
+            <div class="led-off-row" data-page-node-id="JcLedCtrlCard0007">
+              <button class="btn btn-danger btn-sm" id="btnLedAllOff" data-page-node-id="JcLedCtrlCard0008">关闭所有灯</button>
+            </div>
+            <div class="cmd-result" id="resultLedCtrl" data-page-node-id="JcLedCtrlCard0009"><div class="cmd-result-empty" data-page-node-id="JcLedCtrlCard000A">等待操作...</div></div>
           </div>
         </div>
         <div class="cmd-log" id="cmdLog" data-page-node-id="Zk824QzA3ff314kR3DlPc6"></div>
@@ -1014,6 +1061,12 @@ const Utils = {
   const resultParse=document.getElementById('resultParse');   // 「解析数据」命令卡片的结果区
   const btnReboot=document.getElementById('btnReboot');
   const btnShutdown=document.getElementById('btnShutdown');
+  const resultLumMeter=document.getElementById('resultLumMeter'); // 「亮度计模式」命令卡片的结果区
+  const btnLumMeterEnter=document.getElementById('btnLumMeterEnter');
+  const btnLumMeterExit=document.getElementById('btnLumMeterExit');
+  const resultLedCtrl=document.getElementById('resultLedCtrl'); // 「控制点灯」命令卡片的结果区
+  const btnLedAllOff=document.getElementById('btnLedAllOff');  // 关闭所有灯（单独放置）
+  const ledButtons=[...document.querySelectorAll('.led-btn')]; // 12 个点亮按钮（4 通道 × C/B/T）
   const btnReadMac=document.getElementById('btnReadMac');
   const btnCopyMac=document.getElementById('btnCopyMac');
   const macCopyResult=document.getElementById('macCopyResult'); // 复制结果提示（按钮右侧）
@@ -1076,7 +1129,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnReadMac,btnReadSn,btnReadResult];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,...ledButtons,btnLedAllOff,btnReadMac,btnReadSn,btnReadResult];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -2849,6 +2902,120 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     await sendDeviceCmd(buildFrame(0x03, 0x02, [0x00]), '设备关机', resultDevice);
   }
 
+  // ---- FFE2 命令：亮度计模式（主 0xA5 / 从 0x02）----
+  // 协议（JNC 命令交互表格）：
+  //   发送：5B 0D 0A 08 A5 02 01 5D（进入亮度计模式，每个灯会 500ms 循环点亮）
+  //         5B 0D 0A 08 A5 02 02 5D（退出亮度计模式）
+  //   应答：5B 0D 0A 08 A5 12 [RESULT] 5D（RESULT：01 成功 / 02 失败）
+  // 注意：本命令只切换模式，**不像设备控制那样自动断开 BLE**，所以不复用 sendDeviceCmd()。
+  //       帧尾按「帧头偏移 +7」校验（FFE2 特征值 31B，帧后为 0x00 填充，不能用最后一个字节判尾）。
+  async function sendLumMeterCmd(enter, label){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', `${label}：FFE2 未就绪`);
+      setCmdResult(resultLumMeter, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    const frame=buildFrame(0xA5, 0x02, [enter ? 0x01 : 0x02]);
+    logCmd('发送', `${label}：${frameToHex(frame)}`);
+    setCmdResult(resultLumMeter, `${label} 命令已发送，等待应答...`, 'info');
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+    }catch(err){
+      logCmd('发送失败', err.message);
+      setCmdResult(resultLumMeter, `发送失败：${err.message}`, 'err');
+      return;
+    }
+    const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+    if(!dv){ setCmdResult(resultLumMeter, `读取失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+    const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+    logCmd('读取', `(${bytes.length}B) ${frameToHex(bytes)}`);
+    // 解析 8 字节应答：5B [X] 0A 08 A5 12 [RESULT] 5D
+    let result=null;
+    for(let i=0; i<=bytes.length-8; i++){
+      if(bytes[i]===0x5B && bytes[i+2]===0x0A && bytes[i+3]===0x08 &&
+         bytes[i+4]===0xA5 && bytes[i+5]===0x12 && bytes[i+7]===0x5D){
+        result=bytes[i+6];
+        break;
+      }
+    }
+    if(result===0x01){
+      logCmd('成功', `${label} 成功（设备返回 01）`);
+      setCmdResult(resultLumMeter, `${label} 成功（01）`, 'ok');
+    }else if(result===0x02){
+      logCmd('失败', `${label} 失败（设备返回 02）`);
+      setCmdResult(resultLumMeter, `${label} 失败：设备返回 02`, 'err');
+    }else if(result!==null){
+      const hex=result.toString(16).padStart(2,'0').toUpperCase();
+      logCmd('异常', `${label} 应答字节=${hex}`);
+      setCmdResult(resultLumMeter, `${label} 异常：未知应答 ${hex}`, 'err');
+    }else{
+      logCmd('异常', `应答格式不符：${frameToHex(bytes)}`);
+      setCmdResult(resultLumMeter, `应答格式不符（${bytes.length}B）`, 'err');
+    }
+  }
+
+  async function enterLumMeterMode(){ await sendLumMeterCmd(true, '进入亮度计模式'); }
+  async function exitLumMeterMode(){ await sendLumMeterCmd(false, '退出亮度计模式'); }
+
+  // ---- FFE2 命令：控制点灯（主 0xA6 / 从 0x02）----
+  // 协议（JNC 命令交互表格）：
+  //   发送：5B 0D 0A 08 A6 02 [LED代码] 5D
+  //     LED 代码：0x11~0x13 = 通道1 的 C/B/T；0x21~0x23 = 通道2；0x31~0x33 = 通道3；0x41~0x43 = 通道4；
+  //               0x00 = 关闭所有 LED
+  //   应答：5B 0D 0A 08 A6 12 [RESULT] 5D（RESULT：01 成功 / 02 失败）
+  // 注意：只切换点灯状态，成功不断开 BLE；帧尾按「帧头偏移 +7」校验（FFE2 特征值 31B，帧后为 0x00 填充）。
+  const LED_LINES=['C','B','T']; // 数据字节低 4 位：1=C / 2=B / 3=T
+  function ledCodeLabel(code){
+    if(code===0x00) return '关闭所有灯';
+    const ch=code>>4, line=LED_LINES[(code&0x0F)-1]||'?';
+    return `点亮 通道${ch}-${line}`;
+  }
+  async function sendLedCmd(code){
+    const label=ledCodeLabel(code);
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', `${label}：FFE2 未就绪`);
+      setCmdResult(resultLedCtrl, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    const frame=buildFrame(0xA6, 0x02, [code]);
+    logCmd('发送', `${label}：${frameToHex(frame)}`);
+    setCmdResult(resultLedCtrl, `${label} 命令已发送，等待应答...`, 'info');
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+    }catch(err){
+      logCmd('发送失败', err.message);
+      setCmdResult(resultLedCtrl, `发送失败：${err.message}`, 'err');
+      return;
+    }
+    const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+    if(!dv){ setCmdResult(resultLedCtrl, `读取失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+    const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+    logCmd('读取', `(${bytes.length}B) ${frameToHex(bytes)}`);
+    // 解析 8 字节应答：5B [X] 0A 08 A6 12 [RESULT] 5D
+    let result=null;
+    for(let i=0; i<=bytes.length-8; i++){
+      if(bytes[i]===0x5B && bytes[i+2]===0x0A && bytes[i+3]===0x08 &&
+         bytes[i+4]===0xA6 && bytes[i+5]===0x12 && bytes[i+7]===0x5D){
+        result=bytes[i+6];
+        break;
+      }
+    }
+    if(result===0x01){
+      logCmd('成功', `${label} 成功（设备返回 01）`);
+      setCmdResult(resultLedCtrl, `${label} 成功（01）`, 'ok');
+    }else if(result===0x02){
+      logCmd('失败', `${label} 失败（设备返回 02）`);
+      setCmdResult(resultLedCtrl, `${label} 失败：设备返回 02`, 'err');
+    }else if(result!==null){
+      const hex=result.toString(16).padStart(2,'0').toUpperCase();
+      logCmd('异常', `${label} 应答字节=${hex}`);
+      setCmdResult(resultLedCtrl, `${label} 异常：未知应答 ${hex}`, 'err');
+    }else{
+      logCmd('异常', `应答格式不符：${frameToHex(bytes)}`);
+      setCmdResult(resultLedCtrl, `应答格式不符（${bytes.length}B）`, 'err');
+    }
+  }
+
   // ---- FFE2 命令：读取 MAC 地址 ----
   // 协议（JNC 命令交互表格）：
   //   发送：5B 0D 0A 08 A1 01 00 5D（主 0xA1 / 从 0x01，data 字节固定 00 占位）
@@ -3223,6 +3390,25 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
                       '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；成功 2s 后断开 BLE';
   btnReboot.addEventListener('click', sendReboot);
   btnShutdown.addEventListener('click', sendShutdown);
+  // 亮度计模式：进入 / 退出（主 0xA5 / 从 0x02，数据 01 进入 / 02 退出）；成功不断开 BLE
+  btnLumMeterEnter.title = '发送: ' + frameToHex(buildFrame(0xA5, 0x02, [0x01])) +
+                           '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
+                           '应答: 5B 0D 0A 08 A5 12 [01 成功 / 02 失败] 5D';
+  btnLumMeterExit.title = '发送: ' + frameToHex(buildFrame(0xA5, 0x02, [0x02])) +
+                          '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
+                          '应答: 5B 0D 0A 08 A5 12 [01 成功 / 02 失败] 5D';
+  btnLumMeterEnter.addEventListener('click', enterLumMeterMode);
+  btnLumMeterExit.addEventListener('click', exitLumMeterMode);
+  // 控制点灯：12 个点亮按钮（data-led 指定 LED 代码）+ 关闭所有灯（0x00，单独放置）；成功不断开 BLE
+  ledButtons.forEach(b=>{
+    const code=parseInt(b.dataset.led,16);
+    b.title='发送: '+frameToHex(buildFrame(0xA6,0x02,[code]))+
+            '\n写后立即回读，'+(DEVICE_CMD_READ_TIMEOUT_MS/1000)+'s 超时；应答: 5B 0D 0A 08 A6 12 [01 成功 / 02 失败] 5D';
+    b.addEventListener('click',()=>sendLedCmd(code));
+  });
+  btnLedAllOff.title='发送: '+frameToHex(buildFrame(0xA6,0x02,[0x00]))+
+                     '\n写后立即回读，'+(DEVICE_CMD_READ_TIMEOUT_MS/1000)+'s 超时；应答: 5B 0D 0A 08 A6 12 [01 成功 / 02 失败] 5D';
+  btnLedAllOff.addEventListener('click',()=>sendLedCmd(0x00));
   // 读取 MAC：hover 显示发送的 hex 与应答帧格式，方便核对协议
   btnReadMac.title = '发送: ' + frameToHex(buildFrame(0xA1, 0x01, [0x00])) +
                      '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
