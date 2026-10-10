@@ -200,7 +200,15 @@
   /* 控制点灯：4 通道 × C/B/T 的按钮网格（左列为通道名，后 3 列为 C/B/T 按钮） */
   .led-grid{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:12px;}
   .led-grid .led-ch{font-size:.78rem;color:var(--text-muted);white-space:nowrap;padding-right:2px;}
-  .led-grid .led-btn{padding:5px 0;font-size:.78rem;}
+  .led-grid .led-btn{padding:5px 0;font-size:.78rem;font-weight:600;justify-content:center;color:#fff;}
+  /* 按钮配色：C/B/T 通道标准色（红/蓝/绿），与曲线图例一致 */
+  .led-grid .led-btn.led-c{background:#ef4444;border-color:#ef4444;}
+  .led-grid .led-btn.led-b{background:#3b82f6;border-color:#3b82f6;}
+  .led-grid .led-btn.led-t{background:#22c55e;border-color:#22c55e;}
+  .led-grid .led-btn.led-c:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
+  .led-grid .led-btn.led-b:hover{background:#2563eb;border-color:#2563eb;color:#fff;}
+  .led-grid .led-btn.led-t:hover{background:#16a34a;border-color:#16a34a;color:#fff;}
+  .led-grid .led-btn:disabled:hover{color:#fff;}
   /* 关闭所有灯：与上方点亮网格分隔，单独一行 */
   .led-off-row{padding-top:12px;border-top:1px dashed var(--border);margin-bottom:12px;}
   @media(max-width:600px){ .cmd-grid{grid-template-columns:1fr;} }
@@ -456,9 +464,10 @@
   .channel-table td{
     font-family:'Consolas','Monaco',monospace;font-weight:600;
   }
-  .channel-table td.lin-c{color:#0891b2;}
-  .channel-table td.lin-b{color:#7c3aed;}
-  .channel-table td.lin-t{color:#ea580c;}
+  /* C/B/T 通道标准色（红/蓝/绿），与曲线图例、控制点灯按钮保持一致 */
+  .channel-table td.lin-c{color:#ef4444;}
+  .channel-table td.lin-b{color:#3b82f6;}
+  .channel-table td.lin-t{color:#22c55e;}
   .channel-table tr:last-child td{border-bottom:none;}
 
   /* 移动端：解析数据一行两个 */
@@ -845,21 +854,21 @@
             <div class="cmd-card-desc" data-page-node-id="JcLedCtrlCard0005">通过 FFE2 发送主 0xA6 / 从 0x02，点亮指定通道的 C/B/T 灯。数据字节：0x11~0x13=通道1 的 C/B/T，0x21~0x23=通道2，0x31~0x33=通道3，0x41~0x43=通道4。写后立即回读应答：01 成功 / 02 失败。</div>
             <div class="led-grid" data-page-node-id="JcLedCtrlCard0006">
               <span class="led-ch" data-page-node-id="JcLedCtrlCh1001">通道1</span>
-              <button class="btn btn-sm led-btn" data-led="0x11" data-page-node-id="JcLedCtrlBtn0011">C</button>
-              <button class="btn btn-sm led-btn" data-led="0x12" data-page-node-id="JcLedCtrlBtn0012">B</button>
-              <button class="btn btn-sm led-btn" data-led="0x13" data-page-node-id="JcLedCtrlBtn0013">T</button>
+              <button class="btn btn-sm led-btn led-c" data-led="0x11" data-page-node-id="JcLedCtrlBtn0011">C</button>
+              <button class="btn btn-sm led-btn led-b" data-led="0x12" data-page-node-id="JcLedCtrlBtn0012">B</button>
+              <button class="btn btn-sm led-btn led-t" data-led="0x13" data-page-node-id="JcLedCtrlBtn0013">T</button>
               <span class="led-ch" data-page-node-id="JcLedCtrlCh2001">通道2</span>
-              <button class="btn btn-sm led-btn" data-led="0x21" data-page-node-id="JcLedCtrlBtn0021">C</button>
-              <button class="btn btn-sm led-btn" data-led="0x22" data-page-node-id="JcLedCtrlBtn0022">B</button>
-              <button class="btn btn-sm led-btn" data-led="0x23" data-page-node-id="JcLedCtrlBtn0023">T</button>
+              <button class="btn btn-sm led-btn led-c" data-led="0x21" data-page-node-id="JcLedCtrlBtn0021">C</button>
+              <button class="btn btn-sm led-btn led-b" data-led="0x22" data-page-node-id="JcLedCtrlBtn0022">B</button>
+              <button class="btn btn-sm led-btn led-t" data-led="0x23" data-page-node-id="JcLedCtrlBtn0023">T</button>
               <span class="led-ch" data-page-node-id="JcLedCtrlCh3001">通道3</span>
-              <button class="btn btn-sm led-btn" data-led="0x31" data-page-node-id="JcLedCtrlBtn0031">C</button>
-              <button class="btn btn-sm led-btn" data-led="0x32" data-page-node-id="JcLedCtrlBtn0032">B</button>
-              <button class="btn btn-sm led-btn" data-led="0x33" data-page-node-id="JcLedCtrlBtn0033">T</button>
+              <button class="btn btn-sm led-btn led-c" data-led="0x31" data-page-node-id="JcLedCtrlBtn0031">C</button>
+              <button class="btn btn-sm led-btn led-b" data-led="0x32" data-page-node-id="JcLedCtrlBtn0032">B</button>
+              <button class="btn btn-sm led-btn led-t" data-led="0x33" data-page-node-id="JcLedCtrlBtn0033">T</button>
               <span class="led-ch" data-page-node-id="JcLedCtrlCh4001">通道4</span>
-              <button class="btn btn-sm led-btn" data-led="0x41" data-page-node-id="JcLedCtrlBtn0041">C</button>
-              <button class="btn btn-sm led-btn" data-led="0x42" data-page-node-id="JcLedCtrlBtn0042">B</button>
-              <button class="btn btn-sm led-btn" data-led="0x43" data-page-node-id="JcLedCtrlBtn0043">T</button>
+              <button class="btn btn-sm led-btn led-c" data-led="0x41" data-page-node-id="JcLedCtrlBtn0041">C</button>
+              <button class="btn btn-sm led-btn led-b" data-led="0x42" data-page-node-id="JcLedCtrlBtn0042">B</button>
+              <button class="btn btn-sm led-btn led-t" data-led="0x43" data-page-node-id="JcLedCtrlBtn0043">T</button>
             </div>
             <div class="led-off-row" data-page-node-id="JcLedCtrlCard0007">
               <button class="btn btn-danger btn-sm" id="btnLedAllOff" data-page-node-id="JcLedCtrlCard0008">关闭所有灯</button>
