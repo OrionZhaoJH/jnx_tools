@@ -804,6 +804,32 @@
             <div class="cmd-result" id="resultSn" data-page-node-id="JcReadSnCard000A"><div class="cmd-result-empty" data-page-node-id="JcReadSnCard000B">等待操作...</div></div>
           </div>
 
+          <!-- 查询校准值（主 0xA3 / 从 0x01） -->
+          <div class="cmd-card collapsed" data-page-node-id="JcQueryCalCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcQueryCalCard0002"><span data-page-node-id="JcQueryCalCard0003">查询校准值</span><span class="toggle-arrow" data-page-node-id="JcQueryCalCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcQueryCalCard0005">通过 FFE2 发送主 0xA3 / 从 0x01。数据字节：<b>01</b>=本次开机的初始值，<b>02</b>=烧录 MAC 时的初始值。应答 24 字节 = 4 通道 × C/B/T，每值 2 字节（高八位在前）。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcQueryCalCard0006">
+              <button class="btn btn-primary btn-sm" id="btnQueryCalBoot" data-page-node-id="JcQueryCalCard0007">本次开机初始值</button>
+              <button class="btn btn-primary btn-sm" id="btnQueryCalMac" data-page-node-id="JcQueryCalCard0008">烧录MAC初始值</button>
+              <button class="btn btn-sm" id="btnCopyCal" disabled data-page-node-id="JcQueryCalCard0009">复制</button>
+              <span id="calCopyResult" class="inline-copy-result" data-page-node-id="JcQueryCalCard000A"></span>
+            </div>
+            <div class="cmd-card-body" data-page-node-id="JcQueryCalCard000B">
+              <div id="calTableWrap" style="display:none;" data-page-node-id="JcQueryCalCard000C">
+                <table class="channel-table" data-page-node-id="JcQueryCalCard000D">
+                  <thead data-page-node-id="JcQueryCalCard000E">
+                    <tr data-page-node-id="JcQueryCalCard000F"><th data-page-node-id="JcQueryCalCard0010">通道</th><th data-page-node-id="JcQueryCalCard0011">C线</th><th data-page-node-id="JcQueryCalCard0012">B线</th><th data-page-node-id="JcQueryCalCard0013">T线</th></tr>
+                  </thead>
+                  <tbody id="calTableBody" data-page-node-id="JcQueryCalCard0014"></tbody>
+                </table>
+              </div>
+              <div id="calFieldsEmpty" style="color:var(--text-light);text-align:center;padding:18px 0;font-size:.85rem;" data-page-node-id="JcQueryCalCard0015">
+                点击上方按钮查询后显示 12 路校准值
+              </div>
+            </div>
+            <div class="cmd-result" id="resultCal" data-page-node-id="JcQueryCalCard0016"><div class="cmd-result-empty" data-page-node-id="JcQueryCalCard0017">等待操作...</div></div>
+          </div>
+
           <!-- 单次测试（原独立「解析数据 (FFE2 查询响应)」卡片，现已合并为本卡片） -->
           <div class="cmd-card collapsed" data-page-node-id="JcParseCard0001">
             <div class="cmd-card-title" data-page-node-id="JcParseCard0002"><span data-page-node-id="JcParseCard0003">单次测试</span><span class="toggle-arrow" data-page-node-id="JcParseCard0004">▾</span></div>
@@ -1086,6 +1112,16 @@ const Utils = {
   const snCopyResult=document.getElementById('snCopyResult');   // 复制结果提示（按钮右侧）
   const resultSn=document.getElementById('resultSn');           // 「读取 SN」命令卡片的结果区
   let lastSnStr='';                                             // 最近一次读到的 SN（供复制使用）
+  // 「查询校准值」卡片（主 0xA3 / 从 0x01）
+  const btnQueryCalBoot=document.getElementById('btnQueryCalBoot');
+  const btnQueryCalMac=document.getElementById('btnQueryCalMac');
+  const btnCopyCal=document.getElementById('btnCopyCal');
+  const calCopyResult=document.getElementById('calCopyResult');
+  const calTableBody=document.getElementById('calTableBody');
+  const calTableWrap=document.getElementById('calTableWrap');
+  const calFieldsEmpty=document.getElementById('calFieldsEmpty');
+  const resultCal=document.getElementById('resultCal');
+  const calRows=[];                                             // 4 行 × C/B/T 单元格（供读取与复制）
   const btnReadResult=document.getElementById('btnReadResult');
   const btnCopyResult=document.getElementById('btnCopyResult');
   const resultCopyHint=document.getElementById('resultCopyHint'); // 复制结果提示（按钮右侧）
@@ -1138,7 +1174,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,...ledButtons,btnLedAllOff,btnReadMac,btnReadSn,btnReadResult];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,...ledButtons,btnLedAllOff,btnReadMac,btnReadSn,btnReadResult,btnQueryCalBoot,btnQueryCalMac];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -1160,6 +1196,25 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
     jncTableBody.appendChild(tr);
     channelRows.push({ch, tr, cells});
+  }
+
+  // 「查询校准值」结果表格：同样 4 行 × C/B/T，复用 .channel-table 与 lin-c/b/t 配色
+  for(let ch=1; ch<=CHANNELS; ch++){
+    const tr=document.createElement('tr');
+    const th=document.createElement('td');
+    th.textContent='通道 '+ch;
+    th.style.fontWeight='700';
+    tr.appendChild(th);
+    const cells={};
+    for(const line of LINES){
+      const td=document.createElement('td');
+      td.className='lin-'+line.toLowerCase();
+      td.textContent='--';
+      tr.appendChild(td);
+      cells[line]=td;
+    }
+    calTableBody.appendChild(tr);
+    calRows.push({ch, tr, cells});
   }
 
   // State
@@ -1502,6 +1557,13 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     lastSnStr='';
     btnCopySn.disabled=true;
     if(typeof setCmdResult==='function') setCmdResult(resultSn,'等待操作...','');
+    // 复位「查询校准值」卡片：断开后旧校准值失效
+    lastCalStr='';
+    btnCopyCal.disabled=true;
+    calRows.forEach(r=>{ for(const line of LINES) r.cells[line].textContent='--'; });
+    calTableWrap.style.display='none';
+    calFieldsEmpty.style.display='block';
+    if(typeof setCmdResult==='function') setCmdResult(resultCal,'等待操作...','');
     // 复位「读取结果」卡片：断开后旧结果失效
     lastResultStr='';
     btnCopyResult.disabled=true;
@@ -3155,6 +3217,62 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }
   }
 
+  // ---- FFE2 命令：查询校准值 ----
+  // 协议（JNC 命令交互表格）：
+  //   发送：5B 0D 0A 08 A3 01 [SRC] 5D（主 0xA3 / 从 0x01；SRC 01=本次开机的初始值，02=烧录 MAC 时的初始值）
+  //   应答：5B 0D 0A 1F A3 11 [DATA×24] 5D（LL=0x1F=31 字节）
+  // DATA 24 字节 = 12 个 16-bit 值（大端，高八位在前），顺序按通道交替：
+  //   通道1C, 通道1B, 通道1T, 通道2C, … 通道4B, 通道4T
+  // 长度同样以帧内 LL 为准（findFfe2Reply），不按收到长度推断、不硬编码表格数字。
+  let lastCalStr='';                                            // 最近一次校准值（TSV，供复制）
+  async function queryCalibValue(src){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', '查询校准值：FFE2 未就绪');
+      setCmdResult(resultCal, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    const label = (src===0x02) ? '烧录MAC初始值' : '本次开机初始值';
+    const frame=buildFrame(0xA3, 0x01, [src]);
+    btnQueryCalBoot.disabled=true;
+    btnQueryCalMac.disabled=true;
+    logCmd('发送', `查询校准值(${label})：`+frameToHex(frame));
+    setCmdResult(resultCal, `校准值（${label}）查询命令已发送，等待应答...`, 'info');
+    const tWriteDone=performance.now();
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+      const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+      if(!dv){ setCmdResult(resultCal, `查询失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+      const tReadDone=performance.now();
+      const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+      logCmd('读取', `(${bytes.length}B · 用时 ${Math.round(tReadDone-tWriteDone)}ms) ${frameToHex(bytes)}`);
+      const reply=findFfe2Reply(bytes, 0xA3, 0x11);
+      if(!reply || reply.data.length<24){
+        logCmd('异常', '应答格式不符：'+frameToHex(bytes));
+        setCmdResult(resultCal, `应答格式不符（${bytes.length}B，未匹配 A3 11 帧或数据域不足 24B）`, 'err');
+        return;
+      }
+      // 解析 12 个 uint16（大端）
+      const vals=[];
+      for(let i=0;i<12;i++) vals.push((reply.data[i*2]<<8)|reply.data[i*2+1]);
+      let k=0;
+      for(const r of calRows){ for(const line of LINES) r.cells[line].textContent=String(vals[k++]); }
+      calTableWrap.style.display='';
+      calFieldsEmpty.style.display='none';
+      const rows=[];
+      for(const r of calRows) rows.push([r.cells.C.textContent, r.cells.B.textContent, r.cells.T.textContent].join('\t'));
+      lastCalStr=rows.join('\n');
+      btnCopyCal.disabled=false;
+      logCmd('成功', `校准值(${label})：${vals.join(', ')}（帧长 ${reply.frameLen}B / 数据域 ${reply.data.length}B）`);
+      setCmdResult(resultCal, `校准值（${label}）读取成功：12 路已解析`, 'ok');
+    }catch(err){
+      logCmd('失败', '查询校准值失败：'+err.message);
+      setCmdResult(resultCal, '查询失败：'+err.message, 'err');
+    }finally{
+      refreshFeatureState(); // 统一恢复禁用状态（含两个查询按钮），避免按钮卡死
+    }
+  }
+  function copyCalValue(){ copyTextWithHint(lastCalStr, calCopyResult); }
+
   // ---- FFE2 命令：读取结果 ----
   // 协议（JNC 命令交互表格）：
   //   发送：5B 0D 0A 08 05 01 00 5D（主 0x05 / 从 0x01，data 字节固定 00 占位）
@@ -3430,6 +3548,15 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
                     '应答: 5B 0D 0A [LL] A2 11 [SN] ... 5D（LL 由设备给出；尾部 0x00 裁掉）';
   btnReadSn.addEventListener('click', readDeviceSn);
   btnCopySn.addEventListener('click', copySnAddr);
+
+  // 查询校准值：hover 显示发送 hex 与应答帧格式（两个按钮只差数据字节 01/02）
+  const CAL_REPLY_TIP = '\n应答: 5B 0D 0A 1F A3 11 [DATA(24)] 5D（12×uint16 大端，顺序 通道1C/B/T … 通道4C/B/T）';
+  btnQueryCalBoot.title = '发送: ' + frameToHex(buildFrame(0xA3, 0x01, [0x01])) + CAL_REPLY_TIP;
+  btnQueryCalMac.title  = '发送: ' + frameToHex(buildFrame(0xA3, 0x01, [0x02])) + CAL_REPLY_TIP;
+  btnCopyCal.title = '把 12 路校准值按 4×3 表格（TSV）复制，可直接粘贴到 Excel';
+  btnQueryCalBoot.addEventListener('click', ()=>queryCalibValue(0x01));
+  btnQueryCalMac.addEventListener('click', ()=>queryCalibValue(0x02));
+  btnCopyCal.addEventListener('click', copyCalValue);
   // 读取结果：hover 显示发送的 hex 与应答帧格式
   btnReadResult.title = '发送: ' + frameToHex(buildFrame(0x05, 0x01, [0x00])) +
                         '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
