@@ -809,12 +809,15 @@ const Utils = {
                 }
                 if(bytes.length===0){ logToPanel('Req-Err',shortU,'发送内容为空'); return; }
                 sendGo.textContent='...'; sendGo.disabled=true;
+                const shown = asciiChk.checked ? ('ASCII: '+raw)
+                  : (bytes.length<=64 ? Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join(' ') : (bytes.length+' 字节'));
+                /* 先记「发起发送」再 await 写完成：writeValue 的 Promise 要等 GATT 写响应
+                 * 才 resolve（约一个连接间隔 ~120ms），设备往往已在该间隔内回了 notify；
+                 * 若把 Req 日志放在 await 之后，就会让 Notify 抢先落盘、看起来顺序颠倒。 */
+                logToPanel('Req', shortU, shown);
                 try{
                   if(ch.properties.write) await ch.writeValue(bytes);
                   else if(ch.properties.writeWithoutResponse) await ch.writeValueWithoutResponse(bytes);
-                  const shown = asciiChk.checked ? ('ASCII: '+raw)
-                    : (bytes.length<=64 ? Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join(' ') : (bytes.length+' 字节'));
-                  logToPanel('Req', shortU, shown);
                 }catch(err){
                   logToPanel('Req-Err',shortU,err.message);
                 }finally{
