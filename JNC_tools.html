@@ -192,6 +192,17 @@
    * 宽度用 flex:1 自适应当前行的剩余空间（固定 260px 会把「写入/复制」挤到第二行）；
    * min-width 保证至少放得下 12 个等宽字符。等宽字体便于核对 hex，文字居中。 */
   .timeout-input.mac-input{flex:1 1 150px;min-width:150px;width:auto;text-align:center;font-family:ui-monospace,Consolas,'Courier New',monospace;letter-spacing:.5px;}
+  /* ---- QR 扫码（与 JNA/JNB 同款）---- */
+  .qr-overlay{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;}
+  .qr-overlay video{max-width:92vw;max-height:60vh;border-radius:12px;background:#000;width:100%;height:auto;object-fit:contain;}
+  .qr-overlay .qr-hint{color:#e2e8f0;font-size:.9rem;}
+  .qr-overlay .qr-close{position:absolute;top:14px;right:20px;color:#fff;font-size:1.8rem;cursor:pointer;line-height:1;user-select:none;}
+  .qr-overlay .qr-close:hover{color:#cbd5e1;}
+  .qr-overlay .qr-err{color:#fca5a5;font-size:.85rem;max-width:80vw;text-align:center;}
+  .qr-result{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2100;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:16px 20px;width:min(420px,88vw);}
+  .qr-result-title{font-weight:600;color:var(--text-muted);font-size:.85rem;margin-bottom:8px;}
+  .qr-result-text{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Consolas',monospace;font-size:.9rem;color:var(--text);word-break:break-all;white-space:pre-wrap;max-height:38vh;overflow:auto;}
+  .qr-result-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap;}
   .cmd-card-body{margin-bottom:4px;overflow-x:auto;} /* 卡片变窄时表格可横向滚动 */
   .cmd-result{
     background:var(--surface-2, #f8fafc);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
@@ -575,6 +586,8 @@
 </style>
 </head>
 <body data-page-node-id="Dn6QaxQgYWkTGFholkvdAj">
+<!-- jsQR：二维码解码兜底库（纯 JS，全浏览器可用） -->
+<script src="./jsqr.js"></script>
 <div class="container" data-page-node-id="Qb1d4NvLw7ql0i0uxwCChN">
   <!-- 顶部吸顶条（参考 JNA_tools）：左「返回首页」+ 滚动后出现的标题，右「连接 BLE 设备 / 断开 / 安装 / 刷新缓存」 -->
   <div class="topbar" id="topbar" data-page-node-id="ZeOmOCtZnNrf3DkqEPWcvC">
@@ -587,6 +600,7 @@
       <button class="btn btn-danger" id="btnDisconnect" disabled data-page-node-id="2FifV1hD5uG3PHCGEdQMZm"><span data-page-node-id="3gy0h4WzZGyqeD39x02eaD">⏏️</span> 断开</button>
       <button class="pwa-install-btn" id="pwaInstallBtn" type="button" data-page-node-id="Kp70Px5Gn9rzLtwE4qg3Xt">＋ 安装到桌面</button>
       <button class="btn btn-sm" id="btnRefreshCache" type="button" style="display:none;" data-page-node-id="s1UuiFERG2UKdEIvL5oYpX">🔄 刷新缓存</button>
+      <button class="btn btn-sm" id="btnQrScan" type="button" data-page-node-id="JncQrScanBtn0001">📷 扫码</button>
     </div>
   </div>
 
@@ -1042,6 +1056,26 @@
         <div class="chart-card-body" data-page-node-id="KwuolTiwpK2sTZY5DLnX5X"><canvas id="chartCanvas3" data-group="3" data-page-node-id="fF43Qs6fA3e7BeAaGP67gB"></canvas></div>
       </div>
     </div>
+    </div>
+  </div>
+
+  <!-- 扫码摄像头弹层 -->
+  <div class="qr-overlay" id="qrOverlay" style="display:none;">
+    <span class="qr-close" id="qrClose">✕</span>
+    <video id="qrVideo" playsinline muted></video>
+    <div class="qr-hint" id="qrHint">将二维码对准摄像头</div>
+    <div class="qr-err" id="qrErr"></div>
+    <div class="qr-debug" id="qrDebug" style="margin-top:6px;color:#94a3b8;font-size:.72rem;text-align:center;white-space:pre-wrap;"></div>
+    <button class="btn btn-sm" id="qrSnapBtn" type="button" style="margin-top:10px;">📸 对准后拍照识别</button>
+  </div>
+
+  <!-- 扫码结果弹窗（识别到 JNC MAC 时直接用输入框承载，这里只在格式不符时展示原始内容） -->
+  <div class="qr-result" id="qrResult" style="display:none;">
+    <div class="qr-result-title">📷 扫码结果</div>
+    <div class="qr-result-text" id="qrResultText"></div>
+    <div class="qr-result-actions">
+      <button class="btn btn-sm" id="qrResultCopy" type="button">复制</button>
+      <button class="btn btn-sm" id="qrResultClose" type="button">关闭</button>
     </div>
   </div>
 
@@ -3261,6 +3295,232 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
   function copyMacAddr(){ copyTextWithHint(lastMacStr, macCopyResult); }
   function copySnAddr(){ copyTextWithHint(lastSnStr, snCopyResult); }
+
+  // ---- 扫码（QR 二维码）：识别 JNC 标签并填入 MAC 输入框 ----
+  // 二维码内容形如 JNC4BAE12A71454,JNC2510700000：
+  //   第一段 JNC 之后的 12 个字符即 MAC（4BAE12A71454）；第二段是 SN/批次等其它信息，忽略。
+  // 解码双通道：优先 BarcodeDetector（Chrome/Edge/安卓），不可用或未命中时用页面引入的 jsQR 兜底。
+  const btnQrScan=document.getElementById('btnQrScan');
+  const qrOverlay=document.getElementById('qrOverlay');
+  const qrVideo=document.getElementById('qrVideo');
+  const qrHint=document.getElementById('qrHint');
+  const qrErr=document.getElementById('qrErr');
+  const qrResult=document.getElementById('qrResult');
+  const qrResultText=document.getElementById('qrResultText');
+  const qrDebug=document.getElementById('qrDebug');
+  let qrDetector=null;
+  if('BarcodeDetector' in window){
+    try{ qrDetector=new BarcodeDetector({formats:['qr_code']}); }catch(e){ qrDetector=null; }
+  }
+  if(qrDebug){
+    qrDebug.textContent='BarcodeDetector: '+(qrDetector?'可用':'不可用')
+      +'\njsQR 已加载: '+(typeof window.jsQR==='function'?'是':'否');
+  }
+  let qrActive=false, qrStream=null, qrCanvas=null, qrCtx=null, qrCanvas2=null, qrCtx2=null, qrCanvas3=null, qrCtx3=null, qrOpenAt=0, qrFramesSeen=0, qrBdRuns=0, qrJsRuns=0, qrJsErrors=0;
+
+  // 从二维码文本中提取 MAC：第一个 JNC 之后紧跟的 12 位 hex（后面不能再接 hex，避免误配更长串）
+  function parseJncQr(text){
+    const m=/JNC([0-9A-Fa-f]{12})(?![0-9A-Fa-f])/i.exec(String(text||''));
+    return m ? m[1].toUpperCase() : null;
+  }
+
+  // 展开 MAC 卡片（连同外层可折叠卡片）并滚动到输入框
+  function revealMacInput(){
+    const card=resultMac ? resultMac.closest('.cmd-card') : null;
+    if(card) card.classList.remove('collapsed');
+    let p=card ? card.parentElement : null;
+    while(p){
+      if(p.classList && p.classList.contains('card') && p.classList.contains('collapsible')) p.classList.remove('collapsed');
+      p=p.parentElement;
+    }
+    if(macInput){
+      try{ macInput.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){ macInput.scrollIntoView(); }
+    }
+  }
+
+  function finalizeQr(text){
+    closeQrScanner();
+    logCmd('扫码', '📷 '+text);
+    const mac=parseJncQr(text);
+    if(mac){
+      if(macInput) macInput.value=mac;   // 识别成功：直接填入共用输入框
+      revealMacInput();
+      setCmdResult(resultMac, '已识别 MAC：'+mac+'（确认无误后点「写入」）', 'ok');
+    }else{
+      // 不是 JNC 格式：弹窗展示原始内容，便于人工判断
+      qrResultText.textContent=text;
+      qrResult.style.display='block';
+      setCmdResult(resultMac, '扫到的内容不是「JNC + 12 位 MAC」格式（原始内容见弹窗）', 'err');
+    }
+  }
+
+  function openQrScanner(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      qrErr.textContent='当前浏览器不支持摄像头访问（需 HTTPS 或 localhost）。';
+      qrOverlay.style.display='flex';
+      return;
+    }
+    qrErr.textContent='';
+    qrHint.textContent='将二维码对准摄像头';
+    qrOverlay.style.display='flex';
+    qrOpenAt=Date.now(); qrFramesSeen=0;
+    // 先尝试后置（environment）摄像头；无后摄/环境模式不支持时回退默认摄像头
+    const tryStart=(mode)=>{
+      const video= mode? Object.assign({facingMode:mode},{width:{ideal:1280},height:{ideal:720}}) : {width:{ideal:1280},height:{ideal:720}};
+      return navigator.mediaDevices.getUserMedia({video,audio:false})
+        .then((stream)=>{ startQrStream(stream); return true; })
+        .catch(()=>false);
+    };
+    tryStart('environment').then((ok)=>{
+      if(ok) return true;
+      return tryStart(undefined);
+    }).then((ok)=>{
+      if(!ok) qrErr.textContent='无法打开摄像头 —— 请在浏览器地址栏允许摄像头权限后重试。';
+    });
+  }
+  function startQrStream(stream){
+    qrStream=stream;
+    qrVideo.srcObject=stream;
+    qrVideo.muted=true;
+    qrVideo.setAttribute('playsinline','');
+    qrVideo.setAttribute('muted','');
+    qrActive=true;
+    const playPromise=qrVideo.play();
+    if(playPromise&&playPromise.catch) playPromise.catch(()=>{});
+    requestAnimationFrame(qrTick);
+  }
+  function closeQrScanner(){
+    qrActive=false;
+    if(qrStream){ qrStream.getTracks().forEach(t=>t.stop()); qrStream=null; }
+    qrVideo.srcObject=null;
+    qrOverlay.style.display='none';
+  }
+  async function qrTick(){
+    if(!qrActive) return;
+    if(qrVideo.readyState>=2&&qrVideo.videoWidth>0){
+      qrFramesSeen++;
+      try{
+        const w=qrVideo.videoWidth, h=qrVideo.videoHeight;
+        if(!qrCanvas){ qrCanvas=document.createElement('canvas'); qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true}); }
+        if(qrCanvas.width!==w||qrCanvas.height!==h){ qrCanvas.width=w; qrCanvas.height=h; }
+        qrCtx.drawImage(qrVideo,0,0,w,h);
+        let text=null;
+        // BarcodeDetector 多尺度尝试（快）
+        if(qrDetector&&!text){
+          qrBdRuns++;
+          const candidates=[{cw:w,ch:h},{cw:640,ch:Math.round(640*h/w)},{cw:1280,ch:Math.round(1280*h/w)}];
+          for(const c of candidates){
+            if(text) break;
+            if(!qrCanvas2||qrCanvas2.width!==c.cw||qrCanvas2.height!==c.ch){
+              qrCanvas2=document.createElement('canvas'); qrCanvas2.width=c.cw; qrCanvas2.height=c.ch;
+              qrCtx2=qrCanvas2.getContext('2d',{willReadFrequently:true});
+            }
+            qrCtx2.imageSmoothingEnabled=true; qrCtx2.imageSmoothingQuality='high';
+            qrCtx2.drawImage(qrVideo,0,0,c.cw,c.ch);
+            try{
+              const rs=await qrDetector.detect(qrCanvas2);
+              if(rs&&rs.length&&rs[0].rawValue && String(rs[0].rawValue).trim()){
+                text=rs[0].rawValue; break;
+              }
+            }catch(e){ /* 该尺度识别失败，试下一个 */ }
+          }
+        }
+        // jsQR 兜底：多尺度尝试（对过大帧易受噪声/模糊影响，下采样往往更鲁棒）
+        if(!text && typeof window.jsQR==='function'){
+          qrJsRuns++;
+          const src=qrCtx.getImageData(0,0,w,h);
+          const scales=[
+            {dw:w, dh:h},
+            {dw:Math.min(w,480), dh:Math.round(Math.min(w,480)*h/w)},
+            {dw:Math.min(w,320), dh:Math.round(Math.min(w,320)*h/w)}
+          ];
+          for(const sc of scales){
+            if(text) break;
+            let data=src.data;
+            if(sc.dw!==w||sc.dh!==h){
+              if(!qrCanvas3||qrCanvas3.width!==sc.dw||qrCanvas3.height!==sc.dh){
+                qrCanvas3=document.createElement('canvas'); qrCanvas3.width=sc.dw; qrCanvas3.height=sc.dh;
+                qrCtx3=qrCanvas3.getContext('2d',{willReadFrequently:true});
+              }
+              qrCtx3.imageSmoothingEnabled=true; qrCtx3.imageSmoothingQuality='high';
+              qrCtx3.clearRect(0,0,sc.dw,sc.dh);
+              qrCtx3.drawImage(qrVideo,0,0,sc.dw,sc.dh);
+              data=qrCtx3.getImageData(0,0,sc.dw,sc.dh).data;
+            }
+            try{
+              const r=window.jsQR(data,sc.dw,sc.dh);
+              if(r&&r.data&&String(r.data).trim()){ text=r.data; break; }
+            }catch(e){ qrJsErrors++; }
+          }
+        }
+        if(qrDebug && (qrFramesSeen%10===0)){
+          qrDebug.textContent='BarcodeDetector: '+(qrDetector?'可用':'不可用')
+            +'  jsQR: '+((typeof window.jsQR==='function')?'已加载':'未加载')
+            +'\n帧:'+qrFramesSeen+'  Barcode次数:'+qrBdRuns+'  jsQR次数:'+qrJsRuns+'  jsQR异常:'+qrJsErrors
+            +'\n画面:'+w+'×'+h;
+        }
+        if(text){ finalizeQr(text); return; }
+      }catch(e){ /* 单帧失败，继续 */ }
+    }else if(Date.now()-qrOpenAt>4000 && qrFramesSeen===0){
+      qrHint.textContent='正在唤醒摄像头…';
+      if(qrStream&&qrStream.getVideoTracks().length>0){
+        qrErr.textContent='摄像头已启动但未获得画面帧。若无画面，请关闭重试，或改用另一款浏览器（Chrome/Edge）。';
+      }
+    }
+    requestAnimationFrame(qrTick);
+  }
+  // 手动拍照识别：自动扫描一直失败时，对准后点此按钮，抓当前清晰帧一次解码
+  function snapDecode(){
+    const b=document.getElementById('qrSnapBtn');
+    b.disabled=true; b.textContent='识别中…';
+    setTimeout(()=>{
+      let done=false;
+      const attempt=()=>{
+        if(done) return;
+        const w=qrVideo.videoWidth, h=qrVideo.videoHeight;
+        if(!(w>0&&h>0)||qrVideo.readyState<2){ setTimeout(attempt,120); return; }
+        try{
+          const cvs=document.createElement('canvas'); cvs.width=w; cvs.height=h;
+          const cx=cvs.getContext('2d',{willReadFrequently:true});
+          cx.drawImage(qrVideo,0,0,w,h);
+          const img=cx.getImageData(0,0,w,h);
+          if(typeof window.jsQR==='function'){
+            const r=window.jsQR(img.data,w,h);
+            if(r&&r.data&&String(r.data).trim()){ done=true; bdResetQr(b); finalizeQr(r.data); return; }
+          }
+          if(qrDetector){
+            qrDetector.detect(cvs).then((rs)=>{
+              if(rs&&rs.length&&rs[0].rawValue&&String(rs[0].rawValue).trim()){ done=true; bdResetQr(b); finalizeQr(rs[0].rawValue); return; }
+              bdResetQr(b);
+            }).catch(()=>bdResetQr(b));
+          }else{
+            bdResetQr(b);
+          }
+        }catch(e){ bdResetQr(b); }
+      };
+      attempt();
+    },350);
+  }
+  function bdResetQr(btn){ btn.disabled=false; btn.textContent='📸 对准后拍照识别'; }
+  if(btnQrScan) btnQrScan.addEventListener('click',openQrScanner);
+  if(qrOverlay){
+    document.getElementById('qrClose').addEventListener('click',closeQrScanner);
+    qrOverlay.addEventListener('click',(e)=>{ if(e.target===qrOverlay) closeQrScanner(); });
+  }
+  if(document.getElementById('qrSnapBtn')){
+    document.getElementById('qrSnapBtn').addEventListener('click',snapDecode);
+  }
+  if(document.getElementById('qrResultCopy')){
+    document.getElementById('qrResultCopy').addEventListener('click',()=>{
+      const b=document.getElementById('qrResultCopy');
+      navigator.clipboard.writeText(qrResultText.textContent).then(()=>{
+        const old=b.textContent; b.textContent='已复制'; setTimeout(()=>{ b.textContent=old; },1200);
+      }).catch(()=>{});
+    });
+  }
+  if(document.getElementById('qrResultClose')){
+    document.getElementById('qrResultClose').addEventListener('click',()=>{ qrResult.style.display='none'; });
+  }
 
   // ---- FFE2 命令：读取 SN ----
   // 协议（JNC 命令交互表格）：
