@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'jnx-tools-';
-const CACHE_NAME = 'jnx-tools-v2-87';
+const CACHE_NAME = 'jnx-tools-v2-92';
 const ASSETS = [
   './',
   './index.html',

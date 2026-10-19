@@ -187,6 +187,11 @@
   .cmd-card.collapsed .cmd-result{display:none;}
   .cmd-card-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;}
   .cmd-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  /* MAC 读写共用输入框：必须用 .timeout-input.mac-input 双类选择器——
+   * 单类 .mac-input 与 .timeout-input 同优先级，而后者定义在后会把 width 覆盖回 72px。
+   * 宽度用 flex:1 自适应当前行的剩余空间（固定 260px 会把「写入/复制」挤到第二行）；
+   * min-width 保证至少放得下 12 个等宽字符。等宽字体便于核对 hex，文字居中。 */
+  .timeout-input.mac-input{flex:1 1 150px;min-width:150px;width:auto;text-align:center;font-family:ui-monospace,Consolas,'Courier New',monospace;letter-spacing:.5px;}
   .cmd-card-body{margin-bottom:4px;overflow-x:auto;} /* 卡片变窄时表格可横向滚动 */
   .cmd-result{
     background:var(--surface-2, #f8fafc);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
@@ -253,6 +258,7 @@
     font-size:.825rem;color:var(--text);width:72px;transition:all .2s;outline:none;
   }
   .timeout-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .timeout-input:disabled{opacity:.55;cursor:not-allowed;}
   .timeout-input::-webkit-outer-spin-button,.timeout-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .status-badge{
     display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
@@ -780,12 +786,14 @@
             <div class="cmd-result" id="resultRead" data-page-node-id="JcReadResCard0014"><div class="cmd-result-empty" data-page-node-id="JcReadResCard0015">等待操作...</div></div>
           </div>
 
-          <!-- 读取 MAC -->
+          <!-- MAC（读 / 写，共用输入框） -->
           <div class="cmd-card collapsed" data-page-node-id="JcReadMacCard0001">
-            <div class="cmd-card-title" data-page-node-id="JcReadMacCard0002"><span data-page-node-id="JcReadMacCard0003">读取 MAC</span><span class="toggle-arrow" data-page-node-id="JcReadMacCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcReadMacCard0005">通过 FFE2 发送主 0xA1 / 从 0x01，读取设备 MAC 地址（6 字节，高位在前）。发送后立即读取。</div>
+            <div class="cmd-card-title" data-page-node-id="JcReadMacCard0002"><span data-page-node-id="JcReadMacCard0003">MAC</span><span class="toggle-arrow" data-page-node-id="JcReadMacCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcReadMacCard0005">读：主 0xA1 / 从 0x01，应答为 6 字节 MAC（高位在前）。写：主 0xA1 / 从 0x02 + 6 字节 MAC。输入框支持 <b>84C2E4030049</b> 或 <b>84:C2:E4:03:00:49</b>（空格、连字符分隔亦可）。</div>
             <div class="cmd-card-actions" data-page-node-id="JcReadMacCard0006">
-              <button class="btn btn-primary btn-sm" id="btnReadMac" data-page-node-id="JcReadMacCard0007">读取 MAC 地址</button>
+              <input type="text" id="macInput" class="timeout-input mac-input" placeholder="84C2E4030049" maxlength="23" spellcheck="false" autocomplete="off" data-page-node-id="JcMacInput0001" />
+              <button class="btn btn-primary btn-sm" id="btnReadMac" data-page-node-id="JcReadMacCard0007">读取</button>
+              <button class="btn btn-sm btn-danger" id="btnWriteMac" data-page-node-id="JcWriteMac0001">写入</button>
               <button class="btn btn-sm" id="btnCopyMac" disabled data-page-node-id="JcReadMacCard0008">复制</button>
               <span id="macCopyResult" class="inline-copy-result" data-page-node-id="JcReadMacCard0009"></span>
             </div>
@@ -1103,9 +1111,11 @@ const Utils = {
   const btnLedAllOff=document.getElementById('btnLedAllOff');  // 关闭所有灯（单独放置）
   const ledButtons=[...document.querySelectorAll('.led-btn')]; // 12 个点亮按钮（4 通道 × C/B/T）
   const btnReadMac=document.getElementById('btnReadMac');
+  const btnWriteMac=document.getElementById('btnWriteMac');     // 写入 MAC
+  const macInput=document.getElementById('macInput');            // MAC 读/写共用输入框
   const btnCopyMac=document.getElementById('btnCopyMac');
   const macCopyResult=document.getElementById('macCopyResult'); // 复制结果提示（按钮右侧）
-  const resultMac=document.getElementById('resultMac');         // 「读取 MAC」命令卡片的结果区
+  const resultMac=document.getElementById('resultMac');         // 「MAC」命令卡片的结果区
   let lastMacStr='';                                            // 最近一次读到的 MAC（供复制使用）
   const btnReadSn=document.getElementById('btnReadSn');
   const btnCopySn=document.getElementById('btnCopySn');
@@ -1174,7 +1184,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,...ledButtons,btnLedAllOff,btnReadMac,btnReadSn,btnReadResult,btnQueryCalBoot,btnQueryCalMac];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,...ledButtons,btnLedAllOff,btnReadMac,btnWriteMac,macInput,btnReadSn,btnReadResult,btnQueryCalBoot,btnQueryCalMac];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -1549,9 +1559,11 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     jncTableWrap.style.display='none';
     jncFieldsEmpty.style.display='block';
     btnCopyData.disabled=true;
-    // 复位「读取 MAC」卡片：断开后旧 MAC 失效
+    // 复位「MAC」卡片：断开后旧 MAC 失效
     lastMacStr='';
     btnCopyMac.disabled=true;
+    // 同时清空共用输入框：避免把上一台设备的 MAC 误写入新连接的设备
+    if(macInput) macInput.value='';
     if(typeof setCmdResult==='function') setCmdResult(resultMac,'等待操作...','');
     // 复位「读取 SN」卡片：断开后旧 SN 失效
     lastSnStr='';
@@ -3124,6 +3136,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       }
       const mac=reply.data.slice(0, MAC_DATA_LEN);
       lastMacStr=Array.from(mac,b=>b.toString(16).padStart(2,'0').toUpperCase()).join(':');
+      // 输入框用「不带冒号」的紧凑格式（带冒号的版本已显示在下方结果区，避免重复）
+      if(macInput) macInput.value=Array.from(mac,b=>b.toString(16).padStart(2,'0').toUpperCase()).join('');
       btnCopyMac.disabled=false;
       logCmd('成功', `MAC 地址：${lastMacStr}（帧长 ${reply.frameLen}B / 数据域 ${reply.data.length}B）`);
       setCmdResult(resultMac, 'MAC 地址：'+lastMacStr, 'ok');
@@ -3131,8 +3145,91 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       logCmd('失败', '读取 MAC 失败：'+err.message);
       setCmdResult(resultMac, '读取失败：'+err.message, 'err');
     }finally{
-      btnReadMac.textContent='读取 MAC 地址';
+      btnReadMac.textContent='读取';
       refreshFeatureState(); // 统一恢复禁用状态（含 btnReadMac），避免按钮卡死
+    }
+  }
+
+  // ---- FFE2 命令：写入 MAC 地址 ----
+  // 协议：发送 5B 0D 0A 0D A1 02 [MAC×6] 5D（主 0xA1 / 从 0x02，LL=0x0D=13 字节）
+  //   例：写入 84C2E4030049 → 5B 0D 0A 0D A1 02 84 C2 E4 03 00 49 5D
+  //   应答：[主 0xA1] 0x12 [01=成功 / 02=失败]（与读 MAC 共用主指令 0xA1，用从指令区分读/写）
+  // 输入校验：支持 12 个 hex 字符，或 84:C2:E4:03:00:49 / 84-C2-... / 84 C2 ... 分隔格式。
+  function parseMacInput(raw){
+    const s=(raw||'').trim();
+    if(!s) return {err:'请输入 MAC 地址'};
+    const hex=s.replace(/[\s:\-]/g,'');           // 去掉空格、冒号、连字符
+    if(/[^0-9a-fA-F]/.test(hex)) return {err:'含非法字符（只允许 0-9 / A-F 及分隔符 : - 空格）'};
+    if(hex.length!==12) return {err:`需要 12 个 hex 字符（当前 ${hex.length} 个）`};
+    const bytes=[];
+    for(let i=0;i<6;i++) bytes.push(parseInt(hex.substr(i*2,2),16));
+    return {bytes, hex:hex.toUpperCase(),
+            pretty:bytes.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(':')};
+  }
+
+  async function writeDeviceMac(){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', '写入 MAC：FFE2 未就绪');
+      setCmdResult(resultMac, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    // 1) 写入前校验
+    const p=parseMacInput(macInput ? macInput.value : '');
+    if(p.err){
+      logCmd('失败', '写入 MAC 校验不通过：'+p.err);
+      setCmdResult(resultMac, 'MAC 格式错误：'+p.err, 'err');
+      if(macInput) macInput.focus();
+      return;
+    }
+    const frame=buildFrame(0xA1, 0x02, p.bytes);
+    // 2) 弹窗确认（改设备 MAC 属不可逆操作，必须人工确认）
+    const ok=window.confirm(
+      '确认写入设备 MAC 地址？\n\n'+
+      '  MAC：'+p.pretty+'\n'+
+      '  帧：'+frameToHex(frame)+'\n\n'+
+      '写入后设备地址将被永久修改，可能需重新上电/重连才能生效。'
+    );
+    if(!ok){ setCmdResult(resultMac, '已取消写入（'+p.pretty+'）', 'info'); return; }
+
+    btnWriteMac.disabled=true;
+    btnWriteMac.textContent='写入中...';
+    logCmd('发送', '写入 MAC：'+frameToHex(frame));
+    setCmdResult(resultMac, '写入命令已发送，等待应答...', 'info');
+    const tWriteDone=performance.now();
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+      const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+      if(!dv){ setCmdResult(resultMac, `写入失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+      const tReadDone=performance.now();
+      const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+      logCmd('读取', `(${bytes.length}B · 用时 ${Math.round(tReadDone-tWriteDone)}ms) ${frameToHex(bytes)}`);
+      // 应答：帧内按 LL 定位，主 0xA1 / 从 0x12，数据域首字节 01=成功 02=失败
+      const reply=findFfe2Reply(bytes, 0xA1, 0x12);
+      if(!reply || reply.data.length<1){
+        logCmd('异常', '写入 MAC 应答格式不符：'+frameToHex(bytes));
+        setCmdResult(resultMac, `应答格式不符（${bytes.length}B，未匹配 A1 12 帧），无法确认是否写入成功`, 'err');
+        return;
+      }
+      const code=reply.data[0];
+      if(code===0x01){
+        logCmd('成功', '写入 MAC 成功：'+p.pretty);
+        setCmdResult(resultMac, '写入成功 ✓　MAC：'+p.pretty, 'ok');
+        lastMacStr=p.pretty;
+        if(macInput) macInput.value=p.hex; // 规范为不带冒号（与读取回填一致）
+        btnCopyMac.disabled=false;
+      }else if(code===0x02){
+        logCmd('失败', '写入 MAC 失败（设备返回 02）');
+        setCmdResult(resultMac, '写入失败（设备返回 02）', 'err');
+      }else{
+        logCmd('异常', `写入 MAC 应答值异常：0x${code.toString(16)}`);
+        setCmdResult(resultMac, `应答值异常（0x${code.toString(16)}，期望 01/02）`, 'err');
+      }
+    }catch(err){
+      logCmd('失败', '写入 MAC 失败：'+err.message);
+      setCmdResult(resultMac, '写入失败：'+err.message, 'err');
+    }finally{
+      btnWriteMac.textContent='写入';
+      refreshFeatureState(); // 统一恢复禁用状态（含 btnWriteMac）
     }
   }
 
@@ -3541,6 +3638,19 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
                      '\n写后立即回读，' + (DEVICE_CMD_READ_TIMEOUT_MS/1000) + 's 超时；' +
                      '应答: 5B 0D 0A [LL] A1 11 [MAC×6] ... 5D（LL 由设备给出，实测 0x0F=15B；MAC 高位在前）';
   btnReadMac.addEventListener('click', readDeviceMac);
+  btnWriteMac.title = '写入框内 MAC（12 个 hex 字符，支持 : / - / 空格分隔）\n' +
+                      '发送: 5B 0D 0A 0D A1 02 [MAC×6] 5D\n' +
+                      '例: 84C2E4030049 → 5B 0D 0A 0D A1 02 84 C2 E4 03 00 49 5D\n' +
+                      '应答: 5B 0D 0A 08 A1 12 [01=成功 / 02=失败] 5D\n' +
+                      '写入前会校验格式并弹窗二次确认';
+  btnWriteMac.addEventListener('click', writeDeviceMac);
+  if(macInput){
+    macInput.placeholder='84C2E4030049';
+    // 回车 = 点「写入」（仍会先校验 + 弹窗确认）
+    macInput.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ e.preventDefault(); writeDeviceMac(); }
+    });
+  }
   btnCopyMac.addEventListener('click', copyMacAddr);
   // 读取 SN：hover 显示发送的 hex 与应答帧格式
   btnReadSn.title = '发送: ' + frameToHex(buildFrame(0xA2, 0x01, [0x00])) +
