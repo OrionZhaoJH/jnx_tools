@@ -187,6 +187,11 @@
   .cmd-card.collapsed .cmd-result{display:none;}
   .cmd-card-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;}
   .cmd-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  /* 设置检测时间：三档互斥选择（仅 5/10/15 分钟，与固件取值一一对应） */
+  .time-seg{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .time-seg .btn.seg-btn{min-width:76px;justify-content:center;}
+  .time-seg .btn.seg-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600;}
+  .time-seg .btn.seg-btn.active:hover{color:var(--accent);}
   /* MAC 读写共用输入框：必须用 .timeout-input.mac-input 双类选择器——
    * 单类 .mac-input 与 .timeout-input 同优先级，而后者定义在后会把 width 覆盖回 72px。
    * 宽度用 flex:1 自适应当前行的剩余空间（固定 260px 会把「写入/复制」挤到第二行）；
@@ -764,6 +769,21 @@
           </div>
         </div>
         <div class="cmd-grid" data-page-node-id="rE7saAHnFKp6n5unGmc9hL">
+          <!-- 设置检测时间（主 0x01 / 从 0x02，数据仅 05 / 0A / 0F 三档；只能由长改短） -->
+          <div class="cmd-card collapsed" data-page-node-id="JcSetTimeCard0001">
+            <div class="cmd-card-title" data-page-node-id="JcSetTimeCard0002"><span data-page-node-id="JcSetTimeCard0003">设置检测时间</span><span class="toggle-arrow" data-page-node-id="JcSetTimeCard0004">▾</span></div>
+            <div class="cmd-card-desc" data-page-node-id="JcSetTimeCard0005">通过 FFE2 发送主 0x01 / 从 0x02，数据字节为检测时长：<b>0x05</b>=5 分钟、<b>0x0A</b>=10 分钟、<b>0x0F</b>=15 分钟（固件仅开放这三档）。<br>⚠ <b>设备默认 15 分钟，只能由长改短，不能由短改长</b> —— 设成 5 分钟后就无法再改回 10 / 15 分钟，设备会返回 <b>02</b> 失败（建议先确认档位再下发）。</div>
+            <div class="cmd-card-actions" data-page-node-id="JcSetTimeCard0006">
+              <div class="time-seg" data-page-node-id="JcSetTimeCard0007">
+                <button class="btn btn-sm seg-btn" type="button" data-time="5" data-page-node-id="JcSetTimeBtn0005">5 分钟</button>
+                <button class="btn btn-sm seg-btn" type="button" data-time="10" data-page-node-id="JcSetTimeBtn0010">10 分钟</button>
+                <button class="btn btn-sm seg-btn active" type="button" data-time="15" data-page-node-id="JcSetTimeBtn0015">15 分钟</button>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnApplyTime" data-page-node-id="JcSetTimeCard0008">设置</button>
+            </div>
+            <div class="cmd-result" id="resultSetTime" data-page-node-id="JcSetTimeCard0009"><div class="cmd-result-empty" data-page-node-id="JcSetTimeCard000A">等待操作...</div></div>
+          </div>
+
           <!-- 设备控制 -->
           <div class="cmd-card collapsed" data-page-node-id="JcDevCtrlCard0001">
             <div class="cmd-card-title" data-page-node-id="JcDevCtrlCard0002"><span data-page-node-id="JcDevCtrlCard0003">设备控制</span><span class="toggle-arrow" data-page-node-id="JcDevCtrlCard0004">▾</span></div>
@@ -1141,6 +1161,9 @@ const Utils = {
   const resultLumMeter=document.getElementById('resultLumMeter'); // 「亮度计模式」命令卡片的结果区
   const btnLumMeterEnter=document.getElementById('btnLumMeterEnter');
   const btnLumMeterExit=document.getElementById('btnLumMeterExit');
+  const resultSetTime=document.getElementById('resultSetTime'); // 「设置检测时间」命令卡片的结果区
+  const btnApplyTime=document.getElementById('btnApplyTime');
+  const timeSegBtns=[...document.querySelectorAll('.time-seg .seg-btn')]; // 5/10/15 分钟三个档位按钮
   const resultLedCtrl=document.getElementById('resultLedCtrl'); // 「控制点灯」命令卡片的结果区
   const btnLedAllOff=document.getElementById('btnLedAllOff');  // 关闭所有灯（单独放置）
   const ledButtons=[...document.querySelectorAll('.led-btn')]; // 12 个点亮按钮（4 通道 × C/B/T）
@@ -1218,7 +1241,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const fte1Empty=document.getElementById('fte1Empty');
 
   // FFE2 相关的所有可操作控件（FFE2 未发现前全部禁用）
-  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,...ledButtons,btnLedAllOff,btnReadMac,btnWriteMac,macInput,btnReadSn,btnReadResult,btnQueryCalBoot,btnQueryCalMac];
+  const ffe2Controls=[queryTimeout,btnQueryData,btnIntegralSphereTest,btnReboot,btnShutdown,btnLumMeterEnter,btnLumMeterExit,btnApplyTime,...timeSegBtns,...ledButtons,btnLedAllOff,btnReadMac,btnWriteMac,macInput,btnReadSn,btnReadResult,btnQueryCalBoot,btnQueryCalMac];
 
   // Init table rows (4 channels × 3 lines)
   const CHANNELS=4;
@@ -1450,7 +1473,9 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       logToPanel('CMD','connect',`特征发现完成：FFE1/FFE2/FFE4 均已就绪（${result.ms}ms）`);
       // 换了设备就清空实时曲线：否则新设备的点会接在上一台设备的数据后面，连成一条线
       clearRtChartData();
-      logToPanel('CMD','chart','已清空实时曲线（新设备连接）');
+      // 通道1（FFE1 跟踪）的槽位/附带字段/收包计数同样清空，避免残留上一台设备的数据
+      resetFfe1TrackUi();
+      logToPanel('CMD','chart','已清空实时曲线与通道1槽位数据（新设备连接）');
       return true;
     }
     // 部分缺失：明确告知缺哪个 + 提供重试，不再静默
@@ -1642,6 +1667,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     ffe4ChannelResult.textContent='';
     // 复位 FFE1
     stopFfe1Feed();
+    // 断开后上一台设备的槽位数据不再有效，一并清空（连接新设备时也会再清一次）
+    resetFfe1TrackUi();
     ffe1Char=null;
     refreshFeatureState();
     setStatus('disconnected','');
@@ -2059,6 +2086,34 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     }else{
       logToPanel('CMD-Err', shortU, 'FFE1 不支持 notify/read，无法跟踪');
     }
+  }
+
+  // 清空「通道1 (FFE1 跟踪)」的展示数据：4 槽位各行、附带字段（计时/版本号）、收包计数，
+  // 并退回未收到数据时的占位状态。连接新设备时调用 —— 否则上一台设备的槽位值会残留在页面上，
+  // 看起来像是新设备的实时状态（这些值只在收到 FFE1 包时才会被覆盖，不主动清就一直挂着）。
+  function resetFfe1TrackUi(){
+    for(let i=0;i<4;i++){
+      const card=document.getElementById('fte1Slot'+i);
+      if(!card) continue;
+      card.className='slot-card';
+      card.querySelectorAll('.slot-status, .slot-row .val').forEach(el=>{
+        el.textContent='--';
+        const row=el.closest('.slot-row');
+        if(row) row.classList.remove('flash');
+      });
+    }
+    document.querySelectorAll('#fte1Extras .field-box').forEach(box=>{
+      box.classList.remove('flash');
+      const raw=box.querySelector('.field-raw'); if(raw) raw.textContent='--';
+      const val=box.querySelector('.field-value'); if(val) val.textContent='--';
+    });
+    if(fte1Slots) fte1Slots.style.display='none';
+    if(fte1Extras) fte1Extras.style.display='none';
+    if(fte1Empty) fte1Empty.style.display='block';
+    ffe1PktTotal=0;
+    if(ffe1PktCount) ffe1PktCount.textContent='已收 0 包';
+    fte1LastSlots=[null,null,null,null];
+    fte1LastExtras={};
   }
 
   function stopFfe1Feed(){
@@ -3074,6 +3129,71 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   async function enterLumMeterMode(){ await sendLumMeterCmd(true, '进入亮度计模式'); }
   async function exitLumMeterMode(){ await sendLumMeterCmd(false, '退出亮度计模式'); }
 
+  // ---- FFE2 命令：设置检测时间（主 0x01 / 从 0x02）----
+  // 协议（JNC 命令交互表格「01 设置检测时间」）：
+  //   发送：5B 0D 0A 08 01 02 [TIME] 5D
+  //     TIME：0x05 = 5min / 0x0A = 10min / 0x0F = 15min —— 固件目前只开放这三档，其它取值无效
+  //   应答：5B 0D 0A 08 01 12 [RESULT] 5D（RESULT：01 成功 / 02 失败）
+  // ⚠ 设备默认 15 分钟，且**只能由长改短、不能由短改长**：设短之后再下发更长的档位，设备回 02。
+  // 注意：主指令就是 0x01（表格原始定义，示例帧 5B 0D 0A 08 01 02 0A 5D 已逐字节核对），
+  //       与 MAC 命令的 0xA1 是两条不同主指令，不要混用。
+  const TIME_OPTIONS=[{min:5,byte:0x05},{min:10,byte:0x0A},{min:15,byte:0x0F}];
+  let pendingTimeMin=15;  // 当前选中的档位（默认 15 分钟，与设备出厂默认值一致）
+
+  // 选档位只改本地状态，不下发——避免误触直接把设备检测时长改掉
+  function selectTimeOption(min){
+    if(!TIME_OPTIONS.some(o=>o.min===min)) return;
+    pendingTimeMin=min;
+    timeSegBtns.forEach(b=>b.classList.toggle('active', Number(b.dataset.time)===min));
+    setCmdResult(resultSetTime, `已选择 ${min} 分钟，点「设置」下发到设备`, 'info');
+  }
+
+  async function applyTimeSetting(){
+    if(!ffe2Char || !device || !device.gatt.connected){
+      logCmd('失败', '设置检测时间：FFE2 未就绪');
+      setCmdResult(resultSetTime, 'FFE2 未就绪，请先连接设备', 'err');
+      return;
+    }
+    const opt=TIME_OPTIONS.find(o=>o.min===pendingTimeMin) || TIME_OPTIONS[0];
+    const frame=buildFrame(0x01, 0x02, [opt.byte]);
+    btnApplyTime.disabled=true;
+    btnApplyTime.textContent='设置中...';
+    logCmd('发送', `设置检测时间 ${opt.min}min：${frameToHex(frame)}`);
+    setCmdResult(resultSetTime, `正在下发 ${opt.min} 分钟...`, 'info');
+    try{
+      await ffe2Char.writeValue(frame.buffer);
+      const dv=await readFfe2WithTimeout(DEVICE_CMD_READ_TIMEOUT_MS);
+      if(!dv){ setCmdResult(resultSetTime, `设置失败（${DEVICE_CMD_READ_TIMEOUT_MS/1000}s 内无应答）`, 'err'); return; }
+      const bytes=new Uint8Array(dv.buffer.slice(dv.byteOffset, dv.byteOffset+dv.byteLength));
+      logCmd('读取', `(${bytes.length}B) ${frameToHex(bytes)}`);
+      // 应答帧按帧内 LL 定位（读到的字节里可能同时含请求回显，0x12 从指令可区分）
+      const reply=findFfe2Reply(bytes, 0x01, 0x12);
+      if(!reply || reply.data.length===0){
+        logCmd('异常', '应答格式不符：'+frameToHex(bytes));
+        setCmdResult(resultSetTime, `应答格式不符（${bytes.length}B，未匹配 01 12 帧）`, 'err');
+        return;
+      }
+      const r=reply.data[0];
+      if(r===0x01){
+        logCmd('成功', `检测时间已设为 ${opt.min} 分钟`);
+        setCmdResult(resultSetTime, `设置成功：检测时间 = ${opt.min} 分钟（01）`, 'ok');
+      }else if(r===0x02){
+        logCmd('失败', `设置检测时间失败（设备返回 02，当前 ${opt.min}min 不合规）`);
+        setCmdResult(resultSetTime, `设置失败：设备返回 02（只能由长改短，请选比当前更短的档位）`, 'err');
+      }else{
+        const hex=r.toString(16).padStart(2,'0').toUpperCase();
+        logCmd('异常', `设置检测时间应答字节=${hex}`);
+        setCmdResult(resultSetTime, `设置异常：未知应答 ${hex}`, 'err');
+      }
+    }catch(err){
+      logCmd('发送失败', err.message);
+      setCmdResult(resultSetTime, `发送失败：${err.message}`, 'err');
+    }finally{
+      btnApplyTime.disabled=false;
+      btnApplyTime.textContent='设置';
+    }
+  }
+
   // ---- FFE2 命令：控制点灯（主 0xA6 / 从 0x02）----
   // 协议（JNC 命令交互表格）：
   //   发送：5B 0D 0A 08 A6 02 [LED代码] 5D
@@ -3883,6 +4003,18 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
                           '应答: 5B 0D 0A 08 A5 12 [01 成功 / 02 失败] 5D';
   btnLumMeterEnter.addEventListener('click', enterLumMeterMode);
   btnLumMeterExit.addEventListener('click', exitLumMeterMode);
+  // 设置检测时间：三档单选（data-time=分钟）→「设置」下发；主 0x01 / 从 0x02
+  timeSegBtns.forEach(b=>{
+    const min=Number(b.dataset.time);
+    const opt=TIME_OPTIONS.find(o=>o.min===min);
+    if(opt) b.title='选中后点「设置」下发: '+frameToHex(buildFrame(0x01,0x02,[opt.byte]))+
+                    '\n应答: 5B 0D 0A 08 01 12 [01 成功 / 02 失败] 5D';
+    b.addEventListener('click',()=>selectTimeOption(min));
+  });
+  btnApplyTime.title='下发当前选中档位: '+TIME_OPTIONS.map(o=>`${o.min}min=${frameToHex(buildFrame(0x01,0x02,[o.byte]))}`).join('\n')+
+                     '\n写后立即回读，'+(DEVICE_CMD_READ_TIMEOUT_MS/1000)+'s 超时；固件仅支持 5/10/15 三档'+
+                     '\n设备默认 15 分钟，只能由长改短（改短后再设更长会返回 02）';
+  btnApplyTime.addEventListener('click', applyTimeSetting);
   // 控制点灯：12 个点亮按钮（data-led 指定 LED 代码）+ 关闭所有灯（0x00，单独放置）；成功不断开 BLE
   ledButtons.forEach(b=>{
     const code=parseInt(b.dataset.led,16);
