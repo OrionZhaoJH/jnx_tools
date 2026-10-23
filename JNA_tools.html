@@ -1016,24 +1016,19 @@ const Utils = {
     // 掉线一律彻底释放 device（fromUser=true），使下一次点「连接」必定重新弹出设备选择窗口
     resetConnectionUI(true);
     if(!wasUser){
-      showBleNotice('设备连接已断开，请点「连接 BLE 设备」重新选择设备连接。');
-      logToPanel('ERR','connect','设备连接已断开（不自动重连，请手动重新选择设备）');
+      showBleNotice('设备连接已断开（已保留当前数据），点「连接 BLE 设备」重新选择设备。');
+      logToPanel('ERR','connect','设备连接已断开（不自动重连；数据已保留，点「连接」时才会清空）');
     }
   }
 
-  // 复位到断开状态（停止轮询/订阅、清空面板、复位按钮与状态徽标）。
+  // 复位到断开状态：**只做连接层清理**（停轮询/订阅、清特征引用、复位按钮与状态徽标）。
+  // ⚠ GATT 树、解析数据面板、日志等一律保留 —— 掉线后还能回看上一台设备的现场；
+  //    真正的数据清空只在点「连接」的流程里做（见 resetSessionState）。
   // fromUser=true 表示用户主动断开 → 释放 device 引用，下次连接重新选设备。
   function resetConnectionUI(fromUser){
     // 停止所有轮询/订阅
     stopFFE1Poll();
-    // 复位 GATT Profile 到初始状态（与主动断开保持一致）
-    gattTree.innerHTML='<div style="color:var(--text-light);text-align:center;padding:40px 0;font-size:.875rem;">连接设备后将显示 GATT 服务与特征值</div>';
-    // 复位解析数据面板
-    jnaFields.style.display='none';
-    jnaFieldsEmpty.style.display='block';
-    jnaFields.querySelectorAll('.field-value, .field-raw').forEach(el=>el.textContent='--');
-    jnaFields.querySelectorAll('.field-box').forEach(el=>el.classList.remove('flash'));
-    // 复位 FFE2 命令状态（保留命令日志）
+    // 复位 FFE2 命令状态（特征引用必须清，数据与日志保留）
     ffe2Char=null;
     // 复位暂停状态（默认暂停，需手动点击“开始更新”才解析）
     jnaPaused=true;

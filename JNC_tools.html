@@ -1467,15 +1467,15 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     const result=await discoverAllFeatures(server);
     if(btnConnect) btnConnect.textContent='🔗 连接 BLE 设备';
 
+    // 新设备连上（含特征不全的情况）：清空上一会话的数据与日志。
+    // 这是页面上唯一清数据的地方 —— 断开/掉线一律保留现场，方便回看结果。
+    resetSessionState();
+
     if(result.missing.length===0){
       setStatus('connected', device.name||'未知设备');
       showBleNotice(null);
       logToPanel('CMD','connect',`特征发现完成：FFE1/FFE2/FFE4 均已就绪（${result.ms}ms）`);
-      // 换了设备就清空实时曲线：否则新设备的点会接在上一台设备的数据后面，连成一条线
-      clearRtChartData();
-      // 通道1（FFE1 跟踪）的槽位/附带字段/收包计数同样清空，避免残留上一台设备的数据
-      resetFfe1TrackUi();
-      logToPanel('CMD','chart','已清空实时曲线与通道1槽位数据（新设备连接）');
+      logToPanel('CMD','chart','已清空上一台设备的数据与日志（新设备连接）');
       return true;
     }
     // 部分缺失：明确告知缺哪个 + 提供重试，不再静默
@@ -1603,52 +1603,20 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     // 始终按「彻底释放」处理：fromUser=true 保证 device=null
     onDeviceLost(true);
     if(!wasUser){
-      showBleNotice('设备连接已断开，请点「连接 BLE 设备」重新选择设备连接。');
-      logToPanel('CMD-Err','connect','设备连接已断开（不自动重连，请手动重新选择设备）');
+      showBleNotice('设备连接已断开（已保留当前数据），点「连接 BLE 设备」重新选择设备。');
+      logToPanel('CMD-Err','connect','设备连接已断开（不自动重连；数据已保留，点「连接」时才会清空）');
     }
   }
 
-  // 清理本次连接的全部运行时状态。fromUser=true 时彻底释放 device（下次必须重选设备）。
+  // 断开/掉线时的清理：**只做「连接层」的事**（停订阅、清特征引用、复位按钮与状态徽标）。
+  // ⚠ 数据一律保留 —— 解析表格、命令卡片结果、通道1 槽位、实时曲线、日志、复制按钮全部留着，
+  //    方便掉线后回看刚测到的结果。真正的数据清空只在「点连接 BLE 设备」的流程里做，
+  //    见 resetSessionState()（用户要求：断开不清数据，只有连接新设备才清，日志也算数据）。
   function onDeviceLost(fromUser){
-    // 复位查询状态
+    // 复位查询状态（进行中的等待必须掐掉，否则断开后还会去读已失效的特征）
     querying=false;
     if(queryReadTimer) clearTimeout(queryReadTimer);
     queryReadTimer=null;
-    // 复位解析数据卡片（已合并进「命令交互 (FFE2)」）
-    jncTableWrap.style.display='none';
-    jncFieldsEmpty.style.display='block';
-    btnCopyData.disabled=true;
-    // 复位「MAC」卡片：断开后旧 MAC 失效
-    lastMacStr='';
-    btnCopyMac.disabled=true;
-    // 同时清空共用输入框：避免把上一台设备的 MAC 误写入新连接的设备
-    if(macInput) macInput.value='';
-    if(typeof setCmdResult==='function') setCmdResult(resultMac,'等待操作...','');
-    // 复位「读取 SN」卡片：断开后旧 SN 失效
-    lastSnStr='';
-    btnCopySn.disabled=true;
-    if(typeof setCmdResult==='function') setCmdResult(resultSn,'等待操作...','');
-    // 复位「查询校准值」卡片：断开后旧校准值失效
-    lastCalStr='';
-    btnCopyCal.disabled=true;
-    calRows.forEach(r=>{ for(const line of LINES) r.cells[line].textContent='--'; });
-    calTableWrap.style.display='none';
-    calFieldsEmpty.style.display='block';
-    if(typeof setCmdResult==='function') setCmdResult(resultCal,'等待操作...','');
-    // 复位「读取结果」卡片：断开后旧结果失效
-    lastResultStr='';
-    btnCopyResult.disabled=true;
-    resultTableBody.innerHTML='';
-    resultTableWrap.style.display='none';
-    resultTableEmpty.style.display='block';
-    if(typeof setCmdResult==='function') setCmdResult(resultRead,'等待操作...','');
-    if(typeof setCmdResult==='function') setCmdResult(resultParse,'等待测试...','');
-    channelRows.forEach(r=>{
-      for(const line of LINES){
-        r.cells[line].classList.remove('flash');
-        r.cells[line].textContent='--';
-      }
-    });
     // 复位 FFE2
     if(ffe2Char){
       try{ ffe2Char.removeEventListener('characteristicvaluechanged', onFFE2Changed); }catch(e){}
@@ -1664,11 +1632,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     // BLE FFE4 查询是独立的（不依赖 channelPendingQuery），这里无需特别处理；
     // 但若查询正在进行中（bleFfe4QueryBusy=true），刷新状态让按钮正确禁用
     refreshFeatureState();
-    ffe4ChannelResult.textContent='';
-    // 复位 FFE1
+    // 复位 FFE1（只停订阅，不动槽位数据）
     stopFfe1Feed();
-    // 断开后上一台设备的槽位数据不再有效，一并清空（连接新设备时也会再清一次）
-    resetFfe1TrackUi();
     ffe1Char=null;
     refreshFeatureState();
     setStatus('disconnected','');
@@ -1676,6 +1641,66 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     // 用户主动断开：彻底释放设备引用，下次连接重新选设备
     if(fromUser){ device=null; showBleNotice(null); }
     syncConnectButtons();
+  }
+
+  // 连接新设备时清空上一会话的全部数据与日志（只在「点连接」的流程里调用）。
+  // 与 onDeviceLost 的分工：那个管连接，这个管数据。
+  function resetSessionState(){
+    // 分析日志（通道1 原始包日志）
+    bleRawLines=[];
+    rawLog.innerHTML='';
+    logLineCount.textContent='0';
+    btnExportLog.disabled=true;
+    // 命令收发日志（FFE2）
+    cmdLog.innerHTML='';
+    // FFE4 通道数据日志
+    ffe4Log.innerHTML='';
+    ffe4ChannelResult.textContent='';
+    // 解析数据卡片（已合并进「命令交互 (FFE2)」）
+    jncTableWrap.style.display='none';
+    jncFieldsEmpty.style.display='block';
+    btnCopyData.disabled=true;
+    channelRows.forEach(r=>{
+      for(const line of LINES){
+        r.cells[line].classList.remove('flash');
+        r.cells[line].textContent='--';
+      }
+    });
+    // 「MAC」卡片
+    lastMacStr='';
+    btnCopyMac.disabled=true;
+    // 清空共用输入框：避免把上一台设备的 MAC 误写入新连接的设备
+    if(macInput) macInput.value='';
+    if(typeof setCmdResult==='function') setCmdResult(resultMac,'等待操作...','');
+    // 「读取 SN」卡片
+    lastSnStr='';
+    btnCopySn.disabled=true;
+    if(typeof setCmdResult==='function') setCmdResult(resultSn,'等待操作...','');
+    // 「查询校准值」卡片
+    lastCalStr='';
+    btnCopyCal.disabled=true;
+    calRows.forEach(r=>{ for(const line of LINES) r.cells[line].textContent='--'; });
+    calTableWrap.style.display='none';
+    calFieldsEmpty.style.display='block';
+    if(typeof setCmdResult==='function') setCmdResult(resultCal,'等待操作...','');
+    // 「读取结果」卡片
+    lastResultStr='';
+    btnCopyResult.disabled=true;
+    resultTableBody.innerHTML='';
+    resultTableWrap.style.display='none';
+    resultTableEmpty.style.display='block';
+    if(typeof setCmdResult==='function') setCmdResult(resultRead,'等待操作...','');
+    // 其余命令卡片的结果区回到占位文案
+    if(typeof setCmdResult==='function'){
+      setCmdResult(resultParse,'等待测试...','');
+      setCmdResult(resultDevice,'等待操作...','');
+      setCmdResult(resultSetTime,'等待操作...','');
+      setCmdResult(resultLumMeter,'等待操作...','');
+      setCmdResult(resultLedCtrl,'等待操作...','');
+    }
+    // 通道1：槽位卡片 + 实时曲线
+    resetFfe1TrackUi();
+    clearRtChartData();
   }
 
   // 连接/断开按钮状态统一在此处理。
