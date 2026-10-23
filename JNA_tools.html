@@ -104,7 +104,11 @@
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
   .card-title{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
   /* 特征发现状态徽标 */
-  #btnPauseJna{margin-left:auto;}
+  /* 自动更新勾选框：靠右推到「开始更新」左侧，两者成组显示 */
+  .auto-update{display:inline-flex;align-items:center;gap:5px;margin-left:auto;font-size:.8rem;font-weight:500;color:var(--text-muted);cursor:pointer;user-select:none;}
+  .auto-update:hover{color:var(--text);}
+  .auto-update input{width:14px;height:14px;margin:0;accent-color:var(--accent);cursor:pointer;}
+  #btnPauseJna{margin-left:0;}
   .feature-badge{font-size:.72rem;font-weight:600;padding:2px 9px;border-radius:999px;margin-left:6px;vertical-align:middle;line-height:1.6;transition:background .3s,color .3s;}
   .feature-badge.ready{background:rgba(22,163,74,.18);color:#4ade80;}
   .feature-badge.locked{background:rgba(148,163,184,.18);color:#94a3b8;}
@@ -475,7 +479,10 @@
       <!-- 解析数据面板 -->
       <div class="card">
         <div class="card-title">
-          <span>解析数据 (FFE1)</span>
+          <span>解析数据(FFE1)</span>
+          <label class="auto-update" title="勾选后：连接设备并发现 FFE1 时自动开始更新，此时「开始更新」按钮不可点">
+            <input type="checkbox" id="ffe1AutoUpdate" checked>自动更新
+          </label>
           <button class="btn btn-sm btn-warn" id="btnPauseJna" disabled>开始更新</button>
           <span class="feature-badge locked" id="ffe1Badge">未就绪</span>
         </div>
@@ -711,6 +718,7 @@ const Utils = {
   const btnLightB=document.getElementById('btnLightB');
   const btnLightT=document.getElementById('btnLightT');
   const btnPauseJna=document.getElementById('btnPauseJna');
+  const chkFfe1Auto=document.getElementById('ffe1AutoUpdate');  // 自动更新勾选框（默认勾选）
   const ffe1Badge=document.getElementById('ffe1Badge');
   const ffe2Badge=document.getElementById('ffe2Badge');
   // 新命令卡片
@@ -906,7 +914,8 @@ const Utils = {
       setStatus('connected', device.name||'未知设备');
       showBleNotice(null);
       logToPanel('SYS','discover',`特征发现完成：FFE1/FFE2 均已就绪（${result.ms}ms）`);
-      if(!jnaPaused) await startFFE1Feed();
+      // 自动更新勾选时由 applyFfe1Auto() 负责启动；否则沿用原「未暂停则启动」逻辑
+      if(!await applyFfe1Auto() && !jnaPaused) await startFFE1Feed();
       return true;
     }
     setStatus('partial', device.name||'未知设备');
@@ -986,7 +995,8 @@ const Utils = {
         setStatus('connected', device.name||'未知设备');
         showBleNotice(null);
         logToPanel('SYS','discover',`重试成功：FFE1/FFE2 均已就绪（${result.ms}ms）`);
-        if(!jnaPaused) await startFFE1Feed();
+        // 重试发现成功后同样按「自动更新 / 手动」决定是否启动
+        if(!await applyFfe1Auto() && !jnaPaused) await startFFE1Feed();
       }else{
         setStatus('partial', device.name||'未知设备');
         showBleNotice(`仍未发现：${result.missing.join('、')}。可断开后重新连接设备。`, true);
@@ -1145,10 +1155,26 @@ const Utils = {
   }
 
   // ---- 根据 FFE1/FFE2 是否已发现，刷新两个面板的可用状态 ----
+  // ---- 自动更新：勾选时「开始更新」按钮不可点，连接并发现 FFE1 后自动开始订阅 ----
+  // 语义：勾上 = 全自动（页面上不需要手动操作）；取消 = 回到原来的手动模式。
+  function isFfe1Auto(){ return !!(chkFfe1Auto && chkFfe1Auto.checked); }
+  async function applyFfe1Auto(){
+    if(!isFfe1Auto()) return false;
+    // 自动模式等价于「未暂停」：按钮文案与状态保持一致（按钮此时是禁用的）
+    jnaPaused=false;
+    if(btnPauseJna){
+      btnPauseJna.textContent='暂停更新';
+      btnPauseJna.classList.remove('btn-warn');
+    }
+    refreshFeatureState();
+    if(ffe1Char) await startFFE1Feed();   // 已在订阅时该函数会直接返回
+    return true;
+  }
+
   function refreshFeatureState(){
-    // 解析数据 (FFE1)：FFE1 发现前禁用“开始更新”
+    // 解析数据 (FFE1)：FFE1 发现前禁用“开始更新”；勾了「自动更新」时始终禁用（交给自动流程）
     const ffe1Ready=!!ffe1Char;
-    if(btnPauseJna) btnPauseJna.disabled=!ffe1Ready;
+    if(btnPauseJna) btnPauseJna.disabled = isFfe1Auto() ? true : !ffe1Ready;
     if(ffe1Badge){
       ffe1Badge.className='feature-badge '+(ffe1Ready?'ready':'locked');
       ffe1Badge.textContent=ffe1Ready?'已就绪':'未就绪';
@@ -1928,6 +1954,18 @@ const Utils = {
   logCardToggle.addEventListener('click',()=>{ logCard.classList.toggle('collapsed'); });
 
   // ---- Pause/Resume JNA parsing ----
+  // 自动更新开关：勾上 → 立刻按自动模式启动（并在后续每次连接时自动启动）；取消 → 交回手动按钮
+  if(chkFfe1Auto){
+    chkFfe1Auto.addEventListener('change', async ()=>{
+      if(isFfe1Auto()){
+        logToPanel('SYS','FFE1','已开启自动更新：连接设备并发现 FFE1 后自动开始');
+        await applyFfe1Auto();
+      }else{
+        logToPanel('SYS','FFE1','已关闭自动更新：可手动点「开始更新」');
+        refreshFeatureState();
+      }
+    });
+  }
   btnPauseJna.addEventListener('click', async ()=>{
     jnaPaused=!jnaPaused;
     btnPauseJna.textContent=jnaPaused?'开始更新':'暂停更新';

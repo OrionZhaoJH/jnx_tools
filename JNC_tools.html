@@ -158,6 +158,10 @@
   #ffe1LogWrap.show{display:block;}
   /* FFE1 收包计数：日志隐藏时也能看出「在收数 / 停了」 */
   .ffe1-pkt-count{font-size:.825rem;color:var(--text-muted);white-space:nowrap;}
+  /* 自动更新勾选框（解析数据 FFE1 卡片内，位于「开始更新」左侧） */
+  .auto-update{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:500;color:var(--text-muted);cursor:pointer;user-select:none;white-space:nowrap;}
+  .auto-update:hover{color:var(--text);}
+  .auto-update input{width:14px;height:14px;margin:0;accent-color:var(--accent);cursor:pointer;}
   .log-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
   /* 命令卡片（与 JNA_tools 同款）：网格排布 + 标题点击折叠/展开 */
   .cmd-grid{
@@ -645,14 +649,17 @@
   <div class="ble-grid" data-page-node-id="XBszsKVZy8As2pqCbOBVeh">
     <!-- Parsed Data + Data Log + Commands -->
     <div class="ble-right" data-page-node-id="tnmZ37bf0NqL4iHynt8BjM">
-      <!-- 通道1 (FFE1 跟踪) -->
+      <!-- 解析数据 (FFE1)：4 槽位跟踪 + 实时曲线，勾选「自动更新」后连接即自动订阅 -->
       <div class="card collapsible" data-page-node-id="nUudOxwOfO44jKrNovIS6x">
         <div class="card-title" data-page-node-id="DAH0ZUpDPklHWwwfDVnefi">
-          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">通道1 (FFE1 跟踪)</span>
+          <span data-page-node-id="qw7QXv9JpbdJVe2DsHD2ES">解析数据(FFE1)</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="gBC1pSHlVGuUGlvxmQxUMX">
           <!-- 收包提示固定在最左：该容器靠右对齐（父级 space-between），最右元素位置恒定，
                提示文字变长时容器整体向左扩展，右侧按钮/徽章不会位移 -->
           <span id="ffe1PktCount" class="ffe1-pkt-count" data-page-node-id="Qb2Ffe1PktCount01">已收 0 包</span>
+          <label class="auto-update" title="勾选后：连接设备并发现 FFE1 时自动开始更新，此时「开始更新」按钮不可点">
+            <input type="checkbox" id="ffe1AutoUpdate" checked data-page-node-id="JcFfe1AutoChk001">自动更新
+          </label>
           <button class="btn btn-sm btn-warn" id="btnFfe1Track" disabled data-page-node-id="40n34YLtfBClQQwMYuiGBb">开始更新</button>
           <button class="btn btn-sm" id="btnFfe1LogToggle" type="button" data-page-node-id="Qb2Ffe1LogToggle01">显示日志</button>
           <span class="feature-badge locked" id="ffe1Badge" data-page-node-id="qm1YphzFL0HLuSGMZpiWZs">未就绪</span>
@@ -1229,9 +1236,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   // 与卡片所在通道保持一致（此前走 FFE2，与按钮位置不符，已按用户要求改为 FFE4）。
   const btnFfe4ClearData=document.getElementById('btnFfe4ClearData');
   const ffe4Controls=[ffe4ChannelSelect,btnFfe4QueryChannel,btnFfe4ClearData];
-  // 通道1 (FFE1 跟踪)
+  // 解析数据 (FFE1)
   const btnFfe1Track=document.getElementById('btnFfe1Track');
   const ffe1Badge=document.getElementById('ffe1Badge');
+  const chkFfe1Auto=document.getElementById('ffe1AutoUpdate');  // 自动更新勾选框（默认勾选）
   const fte1Slots=document.getElementById('fte1Slots');
   const fte1Extras=document.getElementById('fte1Extras');
   const ffe1LogWrap=document.getElementById('ffe1LogWrap');
@@ -1476,6 +1484,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       showBleNotice(null);
       logToPanel('CMD','connect',`特征发现完成：FFE1/FFE2/FFE4 均已就绪（${result.ms}ms）`);
       logToPanel('CMD','chart','已清空上一台设备的数据与日志（新设备连接）');
+      // 勾了「自动更新」：连上就自动开始订阅 FFE1（否则等用户点「开始更新」）
+      if(isFfe1Auto()) await startFFE1Feed();
       return true;
     }
     // 部分缺失：明确告知缺哪个 + 提供重试，不再静默
@@ -1585,11 +1595,23 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   }
 
 
-  // 通道1 (FFE1) 跟踪：开始更新/暂停 切换
+  // 解析数据 (FFE1)：开始更新/暂停 切换（勾了「自动更新」时按钮禁用，不会走到这里）
   if(btnFfe1Track){
     btnFfe1Track.addEventListener('click', ()=>{
       if(ffe1FeedActive) stopFfe1Feed();
       else startFFE1Feed();
+    });
+  }
+  // 自动更新开关：勾上 → 立刻按自动模式启动（并在后续每次连接时自动启动）；取消 → 交回手动按钮
+  if(chkFfe1Auto){
+    chkFfe1Auto.addEventListener('change', async ()=>{
+      if(isFfe1Auto()){
+        logToPanel('CMD', Utils.shortUuid(FFE1_SERVICE), '已开启自动更新：连接设备并发现 FFE1 后自动开始');
+        await applyFfe1Auto();
+      }else{
+        logToPanel('CMD', Utils.shortUuid(FFE1_SERVICE), '已关闭自动更新：可手动点「开始更新」');
+        refreshFeatureState();
+      }
     });
   }
 
@@ -1750,6 +1772,16 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   //     意外掉线时保留 device 引用，用户点「连接」即可静默重连（不重复弹设备选择框）。
 
   // 根据 FFE1/FFE2 就绪状态启用/禁用所有相关控件
+  // ---- 自动更新：勾选时「开始更新」按钮不可点，连接并发现 FFE1 后自动开始订阅 ----
+  // 语义：勾上 = 全自动（页面上不需要手动操作）；取消 = 回到原来的手动模式。
+  function isFfe1Auto(){ return !!(chkFfe1Auto && chkFfe1Auto.checked); }
+  async function applyFfe1Auto(){
+    if(!isFfe1Auto()) return false;
+    refreshFeatureState();
+    if(ffe1Char) await startFFE1Feed();   // 已在订阅时该函数会直接返回
+    return true;
+  }
+
   function refreshFeatureState(){
     const ready=!!(ffe2Char && device && device.gatt.connected);
     ffe2Controls.forEach(el=>{
@@ -1759,9 +1791,10 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         el.disabled=!ready;
       }
     });
-    // FFE1 跟踪按钮：FFE1 发现即可点（不强制 connected，因为可能短暂抖动后仍在订阅）
+    // FFE1 跟踪按钮：FFE1 发现即可点（不强制 connected，因为可能短暂抖动后仍在订阅）；
+    // 勾了「自动更新」时始终禁用，交给自动流程
     const ffe1Ready=!!ffe1Char;
-    if(btnFfe1Track) btnFfe1Track.disabled=!ffe1Ready;
+    if(btnFfe1Track) btnFfe1Track.disabled = isFfe1Auto() ? true : !ffe1Ready;
     if(ffe1Badge){
       ffe1Badge.className='feature-badge '+(ffe1Ready?'ready':'locked');
       ffe1Badge.textContent=ffe1Ready?'已就绪':'未就绪';
