@@ -226,13 +226,13 @@
   .led-grid{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:12px;}
   .led-grid .led-ch{font-size:.78rem;color:var(--text-muted);white-space:nowrap;padding-right:2px;}
   .led-grid .led-btn{padding:5px 0;font-size:.78rem;font-weight:600;justify-content:center;color:#fff;}
-  /* 按钮配色：C/B/T 通道标准色（红/蓝/绿），与曲线图例一致 */
-  .led-grid .led-btn.led-c{background:#ef4444;border-color:#ef4444;}
-  .led-grid .led-btn.led-b{background:#3b82f6;border-color:#3b82f6;}
-  .led-grid .led-btn.led-t{background:#22c55e;border-color:#22c55e;}
-  .led-grid .led-btn.led-c:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
-  .led-grid .led-btn.led-b:hover{background:#2563eb;border-color:#2563eb;color:#fff;}
-  .led-grid .led-btn.led-t:hover{background:#16a34a;border-color:#16a34a;color:#fff;}
+  /* 按钮配色：C/B/T 通道标准色（C 蓝 / B 青 / T 珊瑚红），与曲线图例一致 */
+  .led-grid .led-btn.led-c{background:#5585D9;border-color:#5585D9;}
+  .led-grid .led-btn.led-b{background:#50CCC0;border-color:#50CCC0;}
+  .led-grid .led-btn.led-t{background:#FC6C71;border-color:#FC6C71;}
+  .led-grid .led-btn.led-c:hover{background:#4470BD;border-color:#4470BD;color:#fff;}
+  .led-grid .led-btn.led-b:hover{background:#3FB3A9;border-color:#3FB3A9;color:#fff;}
+  .led-grid .led-btn.led-t:hover{background:#F0505A;border-color:#F0505A;color:#fff;}
   .led-grid .led-btn:disabled:hover{color:#fff;}
   /* 关闭所有灯：与上方点亮网格分隔，单独一行 */
   .led-off-row{padding-top:12px;border-top:1px dashed var(--border);margin-bottom:12px;}
@@ -490,10 +490,10 @@
   .channel-table td{
     font-family:'Consolas','Monaco',monospace;font-weight:600;
   }
-  /* C/B/T 通道标准色（红/蓝/绿），与曲线图例、控制点灯按钮保持一致 */
-  .channel-table td.lin-c{color:#ef4444;}
-  .channel-table td.lin-b{color:#3b82f6;}
-  .channel-table td.lin-t{color:#22c55e;}
+  /* C/B/T 通道标准色（C 蓝 / B 青 / T 珊瑚红），与曲线图例、控制点灯按钮保持一致 */
+  .channel-table td.lin-c{color:#5585D9;}
+  .channel-table td.lin-b{color:#50CCC0;}
+  .channel-table td.lin-t{color:#FC6C71;}
   .channel-table tr:last-child td{border-bottom:none;}
 
   /* 移动端：解析数据一行两个 */
@@ -729,19 +729,19 @@
           </div>
           <div class="rt-chart-grid" id="rtChartGrid" data-page-node-id="RtChartGrid0001">
             <div class="rt-chart-card" data-page-node-id="RtChartCard0">
-              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl0"><span data-page-node-id="RtChartCardName0">通道1</span><span class="rt-legend" data-page-node-id="RtLegend0"><span data-page-node-id="RtLegC0"><i style="background:#ef4444" data-page-node-id="RtLegCI0"></i>C</span><span data-page-node-id="RtLegB0"><i style="background:#3b82f6" data-page-node-id="RtLegBI0"></i>B</span><span data-page-node-id="RtLegT0"><i style="background:#22c55e" data-page-node-id="RtLegTI0"></i>T</span></span></div>
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl0"><span data-page-node-id="RtChartCardName0">通道1</span><span class="rt-legend" data-page-node-id="RtLegend0"><span data-page-node-id="RtLegC0"><i style="background:#5585D9" data-page-node-id="RtLegCI0"></i>C</span><span data-page-node-id="RtLegB0"><i style="background:#50CCC0" data-page-node-id="RtLegBI0"></i>B</span><span data-page-node-id="RtLegT0"><i style="background:#FC6C71" data-page-node-id="RtLegTI0"></i>T</span></span></div>
               <div class="rt-chart-card-body" data-page-node-id="RtChartBody0"><canvas id="rtChartCanvas0" data-slot="0" data-page-node-id="RtCanvas0"></canvas></div>
             </div>
             <div class="rt-chart-card" data-page-node-id="RtChartCard1">
-              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl1"><span data-page-node-id="RtChartCardName1">通道2</span><span class="rt-legend" data-page-node-id="RtLegend1"><span data-page-node-id="RtLegC1"><i style="background:#ef4444" data-page-node-id="RtLegCI1"></i>C</span><span data-page-node-id="RtLegB1"><i style="background:#3b82f6" data-page-node-id="RtLegBI1"></i>B</span><span data-page-node-id="RtLegT1"><i style="background:#22c55e" data-page-node-id="RtLegTI1"></i>T</span></span></div>
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl1"><span data-page-node-id="RtChartCardName1">通道2</span><span class="rt-legend" data-page-node-id="RtLegend1"><span data-page-node-id="RtLegC1"><i style="background:#5585D9" data-page-node-id="RtLegCI1"></i>C</span><span data-page-node-id="RtLegB1"><i style="background:#50CCC0" data-page-node-id="RtLegBI1"></i>B</span><span data-page-node-id="RtLegT1"><i style="background:#FC6C71" data-page-node-id="RtLegTI1"></i>T</span></span></div>
               <div class="rt-chart-card-body" data-page-node-id="RtChartBody1"><canvas id="rtChartCanvas1" data-slot="1" data-page-node-id="RtCanvas1"></canvas></div>
             </div>
             <div class="rt-chart-card" data-page-node-id="RtChartCard2">
-              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl2"><span data-page-node-id="RtChartCardName2">通道3</span><span class="rt-legend" data-page-node-id="RtLegend2"><span data-page-node-id="RtLegC2"><i style="background:#ef4444" data-page-node-id="RtLegCI2"></i>C</span><span data-page-node-id="RtLegB2"><i style="background:#3b82f6" data-page-node-id="RtLegBI2"></i>B</span><span data-page-node-id="RtLegT2"><i style="background:#22c55e" data-page-node-id="RtLegTI2"></i>T</span></span></div>
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl2"><span data-page-node-id="RtChartCardName2">通道3</span><span class="rt-legend" data-page-node-id="RtLegend2"><span data-page-node-id="RtLegC2"><i style="background:#5585D9" data-page-node-id="RtLegCI2"></i>C</span><span data-page-node-id="RtLegB2"><i style="background:#50CCC0" data-page-node-id="RtLegBI2"></i>B</span><span data-page-node-id="RtLegT2"><i style="background:#FC6C71" data-page-node-id="RtLegTI2"></i>T</span></span></div>
               <div class="rt-chart-card-body" data-page-node-id="RtChartBody2"><canvas id="rtChartCanvas2" data-slot="2" data-page-node-id="RtCanvas2"></canvas></div>
             </div>
             <div class="rt-chart-card" data-page-node-id="RtChartCard3">
-              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl3"><span data-page-node-id="RtChartCardName3">通道4</span><span class="rt-legend" data-page-node-id="RtLegend3"><span data-page-node-id="RtLegC3"><i style="background:#ef4444" data-page-node-id="RtLegCI3"></i>C</span><span data-page-node-id="RtLegB3"><i style="background:#3b82f6" data-page-node-id="RtLegBI3"></i>B</span><span data-page-node-id="RtLegT3"><i style="background:#22c55e" data-page-node-id="RtLegTI3"></i>T</span></span></div>
+              <div class="rt-chart-card-title" data-page-node-id="RtChartCardTtl3"><span data-page-node-id="RtChartCardName3">通道4</span><span class="rt-legend" data-page-node-id="RtLegend3"><span data-page-node-id="RtLegC3"><i style="background:#5585D9" data-page-node-id="RtLegCI3"></i>C</span><span data-page-node-id="RtLegB3"><i style="background:#50CCC0" data-page-node-id="RtLegBI3"></i>B</span><span data-page-node-id="RtLegT3"><i style="background:#FC6C71" data-page-node-id="RtLegTI3"></i>T</span></span></div>
               <div class="rt-chart-card-body" data-page-node-id="RtChartBody3"><canvas id="rtChartCanvas3" data-slot="3" data-page-node-id="RtCanvas3"></canvas></div>
             </div>
           </div>
@@ -2335,7 +2335,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const RT_ST_IDLE=0x00;                                    // 未启动（即「未加样」）
   const RT_ST_DETECTING=0x01;                               // 正在检测
   const RT_SERIES_NAMES=['C','B','T'];
-  const RT_SERIES_COLORS=['#ef4444','#3b82f6','#22c55e'];   // 与「数据曲线图 (12×460)」配色一致
+  const RT_SERIES_COLORS=['#5585D9','#50CCC0','#FC6C71'];   // 与「数据曲线图 (12×460)」配色一致
   const rtChartSection=document.getElementById('rtChartSection');
   const rtChartHead=document.getElementById('rtChartHead');
   const rtChartHint=document.getElementById('rtChartHint');
@@ -4465,7 +4465,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   const chartCanvases=[...document.querySelectorAll('.chart-card canvas')].map(c=>({
     canvas:c, group:parseInt(c.dataset.group,10), hoverIndex:null
   }));
-  const CHART_COLORS={'C':'#ef4444','B':'#3b82f6','T':'#22c55e'};
+  const CHART_COLORS={'C':'#5585D9','B':'#50CCC0','T':'#FC6C71'};
   const CHART_PAD={L:46,R:12,T:14,B:26,H:240};
   const CHART_N=460; // 每条线的采样点总数（横轴固定 460 个点，对应设备一次采样返回的 460 个坐标点）
 
