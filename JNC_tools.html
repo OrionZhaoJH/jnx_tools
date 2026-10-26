@@ -776,10 +776,10 @@
           </div>
         </div>
         <div class="cmd-grid" data-page-node-id="rE7saAHnFKp6n5unGmc9hL">
-          <!-- 设置检测时间（主 0x01 / 从 0x02，数据仅 05 / 0A / 0F 三档；只能由长改短） -->
+          <!-- 设置检测时间（主 0x01 / 从 0x02，数据仅 05 / 0A / 0F 三档；未结束检测时可任意改） -->
           <div class="cmd-card collapsed" data-page-node-id="JcSetTimeCard0001">
             <div class="cmd-card-title" data-page-node-id="JcSetTimeCard0002"><span data-page-node-id="JcSetTimeCard0003">设置检测时间</span><span class="toggle-arrow" data-page-node-id="JcSetTimeCard0004">▾</span></div>
-            <div class="cmd-card-desc" data-page-node-id="JcSetTimeCard0005">通过 FFE2 发送主 0x01 / 从 0x02，数据字节为检测时长：<b>0x05</b>=5 分钟、<b>0x0A</b>=10 分钟、<b>0x0F</b>=15 分钟（固件仅开放这三档）。<br>⚠ <b>设备默认 15 分钟，只能由长改短，不能由短改长</b> —— 设成 5 分钟后就无法再改回 10 / 15 分钟，设备会返回 <b>02</b> 失败（建议先确认档位再下发）。</div>
+            <div class="cmd-card-desc" data-page-node-id="JcSetTimeCard0005">通过 FFE2 发送主 0x01 / 从 0x02 设置检测时长：<b>0x05</b>=5、<b>0x0A</b>=10、<b>0x0F</b>=15 分钟（设备默认 15）。没有通道结束检测时可任意修改；有通道已结束则返回 <b>02</b> 失败。</div>
             <div class="cmd-card-actions" data-page-node-id="JcSetTimeCard0006">
               <div class="time-seg" data-page-node-id="JcSetTimeCard0007">
                 <button class="btn btn-sm seg-btn" type="button" data-time="5" data-page-node-id="JcSetTimeBtn0005">5 分钟</button>
@@ -3192,7 +3192,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   //   发送：5B 0D 0A 08 01 02 [TIME] 5D
   //     TIME：0x05 = 5min / 0x0A = 10min / 0x0F = 15min —— 固件目前只开放这三档，其它取值无效
   //   应答：5B 0D 0A 08 01 12 [RESULT] 5D（RESULT：01 成功 / 02 失败）
-  // ⚠ 设备默认 15 分钟，且**只能由长改短、不能由短改长**：设短之后再下发更长的档位，设备回 02。
+  // ⚠ 限制由设备判定：没有通道结束检测时可任意改（改长改短都行）；有通道已结束则返回 02。
   // 注意：主指令就是 0x01（表格原始定义，示例帧 5B 0D 0A 08 01 02 0A 5D 已逐字节核对），
   //       与 MAC 命令的 0xA1 是两条不同主指令，不要混用。
   const TIME_OPTIONS=[{min:5,byte:0x05},{min:10,byte:0x0A},{min:15,byte:0x0F}];
@@ -3236,8 +3236,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
         logCmd('成功', `检测时间已设为 ${opt.min} 分钟`);
         setCmdResult(resultSetTime, `设置成功：检测时间 = ${opt.min} 分钟（01）`, 'ok');
       }else if(r===0x02){
-        logCmd('失败', `设置检测时间失败（设备返回 02，当前 ${opt.min}min 不合规）`);
-        setCmdResult(resultSetTime, `设置失败：设备返回 02（只能由长改短，请选比当前更短的档位）`, 'err');
+        logCmd('失败', `设置检测时间失败（设备返回 02，当前 ${opt.min}min 未生效）`);
+        setCmdResult(resultSetTime, `设置失败：设备返回 02（有通道已结束检测，不允许改时间）`, 'err');
       }else{
         const hex=r.toString(16).padStart(2,'0').toUpperCase();
         logCmd('异常', `设置检测时间应答字节=${hex}`);
@@ -4071,7 +4071,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   });
   btnApplyTime.title='下发当前选中档位: '+TIME_OPTIONS.map(o=>`${o.min}min=${frameToHex(buildFrame(0x01,0x02,[o.byte]))}`).join('\n')+
                      '\n写后立即回读，'+(DEVICE_CMD_READ_TIMEOUT_MS/1000)+'s 超时；固件仅支持 5/10/15 三档'+
-                     '\n设备默认 15 分钟，只能由长改短（改短后再设更长会返回 02）';
+                     '\n设备默认 15 分钟；没有通道结束检测时可任意改，有通道已结束时下发会返回 02';
   btnApplyTime.addEventListener('click', applyTimeSetting);
   // 控制点灯：12 个点亮按钮（data-led 指定 LED 代码）+ 关闭所有灯（0x00，单独放置）；成功不断开 BLE
   ledButtons.forEach(b=>{
