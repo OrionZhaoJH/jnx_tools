@@ -557,11 +557,7 @@
           <!-- 单次测试 -->
           <div class="cmd-card collapsed">
             <div class="cmd-card-title"><span>单次测试</span><span class="toggle-arrow">▾</span></div>
-            <div class="cmd-card-desc">主指令 0x06 / 从指令 0x01。发送命令后等待“延时”读取返回值；若格式不符则自动重试——重试仅读取、不再重发命令。</div>
-            <div class="cmd-card-actions">
-              <label class="cmd-field">延时(ms)<input type="number" id="testDelayMs" class="cmd-input" value="1000" min="100" step="100"></label>
-              <label class="cmd-field">尝试次数<input type="number" id="testRetries" class="cmd-input" value="4" min="1" max="20"></label>
-            </div>
+            <div class="cmd-card-desc">主指令 0x06 / 从指令 0x01。发送命令后固定等待 900ms 读取返回值；若格式不符则自动重试，最多 3 次（重试仅读取、不再重发命令）。</div>
             <div class="cmd-card-actions">
               <button class="btn btn-primary btn-sm" id="btnTestIntegral">积分球测试</button>
               <button class="btn btn-primary btn-sm" id="btnTestNormal">普通测试</button>
@@ -735,11 +731,11 @@ const Utils = {
   const resultBrightness=document.getElementById('resultBrightness');
   const btnBrightnessEnter=document.getElementById('btnBrightnessEnter');
   const btnBrightnessExit=document.getElementById('btnBrightnessExit');
-  // 单次测试：可编辑的延时与重复次数
-  const testDelayMs=document.getElementById('testDelayMs');
-  const testRetries=document.getElementById('testRetries');
+  // 单次测试：固件已优化，间隔固定 900ms、最多重试 3 次（不再单独设置）
+  const TEST_DELAY_MS=900;
+  const TEST_RETRIES=3;
   // FFE2 命令交互所有可操作控件（FFE2 发现前全部禁用）
-  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnBrightnessEnter,btnBrightnessExit,btnReboot,btnShutdown,testDelayMs,testRetries];
+  const ffe2Controls=[detectTimeSelect,btnSetDetectTime,btnTestIntegral,btnTestNormal,btnCalBoot,btnCalMac,btnLightC,btnLightB,btnLightT,btnBrightnessEnter,btnBrightnessExit,btnReboot,btnShutdown];
 
   // State
   let device=null, server=null;
@@ -1988,21 +1984,12 @@ const Utils = {
   btnShutdown.addEventListener('click', ()=>sendControlCommand(0x03,'关闭设备'));
   btnBrightnessEnter.addEventListener('click', ()=>sendBrightnessMode(0x01,'进入亮度计模式'));
   btnBrightnessExit.addEventListener('click', ()=>sendBrightnessMode(0x02,'退出亮度计模式'));
-  // 单次测试：从卡片内的输入框读取延时与重复次数（仅首次发送命令，重试仅读取）
-  function clampInt(v, min, max, fallback){
-    let n=parseInt(v,10);
-    if(isNaN(n)) n=fallback;
-    return Math.min(max, Math.max(min, n));
-  }
+  // 单次测试：间隔固定 900ms、最多 3 次（仅首次发送命令，重试仅读取）
   btnTestIntegral.addEventListener('click', ()=>{
-    const delay=clampInt(testDelayMs.value, 100, 60000, 3000);
-    const retries=clampInt(testRetries.value, 1, 20, 2);
-    runCmdQuery(0x06, 0x01, delay, '命令发送中...', resultSingleTest, '积分球测试', {attempts:retries, resendOnRetry:false});
+    runCmdQuery(0x06, 0x01, TEST_DELAY_MS, '命令发送中...', resultSingleTest, '积分球测试', {attempts:TEST_RETRIES, resendOnRetry:false});
   });
   btnTestNormal.addEventListener('click', ()=>{
-    const delay=clampInt(testDelayMs.value, 100, 60000, 3000);
-    const retries=clampInt(testRetries.value, 1, 20, 2);
-    runCmdQuery(0x06, 0x02, delay, '命令发送中...', resultSingleTest, '普通测试', {attempts:retries, resendOnRetry:false});
+    runCmdQuery(0x06, 0x02, TEST_DELAY_MS, '命令发送中...', resultSingleTest, '普通测试', {attempts:TEST_RETRIES, resendOnRetry:false});
   });
   btnCalBoot.addEventListener('click', ()=>runCmdQuery(0x05, 0x01, 500, '查询中...', resultCal, '本次开机校准值'));
   btnCalMac.addEventListener('click', ()=>runCmdQuery(0x05, 0x02, 500, '查询中...', resultCal, '烧录 MAC 校准值'));
