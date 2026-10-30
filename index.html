@@ -27,7 +27,7 @@
     background:var(--bg); color:var(--text); min-height:100vh;
     display:flex;flex-direction:column; line-height:1.6;
   }
-  .container{max-width:900px;margin:0 auto;width:100%;padding:40px 24px;flex:1;}
+  .container{max-width:1400px;margin:0 auto;width:100%;padding:40px 24px;flex:1;}
 
   header{text-align:center;margin-bottom:48px;}
   header h1{
@@ -37,11 +37,15 @@
   header h1 .icon{font-size:2rem;}
   header p{color:var(--text-muted);margin-top:8px;font-size:1rem;}
 
-  /* ---- Tool grid ---- */
+  /* ---- Tool grid：瀑布流（列数随容器宽度自适应，卡片高度可不等） ---- */
   .tool-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    display:flex;
+    align-items:flex-start;
     gap:20px;
+  }
+  .tool-col{
+    flex:1 1 0;min-width:0;
+    display:flex;flex-direction:column;gap:20px;
   }
 
   .tool-card{
@@ -106,7 +110,7 @@
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 
-  .pwa-install-bar{max-width:900px;margin:0 auto;width:100%;padding:16px 24px 0;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+  .pwa-install-bar{max-width:1400px;margin:0 auto;width:100%;padding:16px 24px 0;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
   .pwa-install-btn{display:none;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;
     border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;transition:opacity .15s;}
   .pwa-install-btn:hover{opacity:.9;}
@@ -261,7 +265,15 @@ const TOOLS = [
  * ================================================================ */
 (function(){
   const grid = document.getElementById('toolGrid');
-  for(const tool of TOOLS){
+
+  /* ---- 瀑布流：先按序生成卡片，再依次放进「当前最矮的一列」 ----
+   * 列数由容器宽度决定（每列至少 MIN_CARD_WIDTH，最多 MAX_COLS 列），
+   * 窗口尺寸变化时重新分列。 */
+  const MIN_CARD_WIDTH = 300;
+  const COL_GAP = 20;   // 与 .tool-grid / .tool-col 的 gap 保持一致
+  const MAX_COLS = 4;
+
+  const cards = TOOLS.map((tool) => {
     const card = document.createElement('a');
     card.className = 'tool-card' + (tool.enabled ? '' : ' disabled');
     if(tool.enabled){
@@ -283,8 +295,46 @@ const TOOLS = [
         ? '<span class="tool-arrow">→</span>'
         : '<span class="coming-badge">敬请期待</span>'}
     `;
-    grid.appendChild(card);
+    return card;
+  });
+
+  const columnCount = (width) =>
+    Math.max(1, Math.min(MAX_COLS, Math.floor((width + COL_GAP) / (MIN_CARD_WIDTH + COL_GAP))));
+
+  let lastCols = 0;
+  function layout(){
+    const cols = columnCount(grid.clientWidth);
+    if (cols === lastCols) return;
+    lastCols = cols;
+
+    // 清空旧列（卡片元素仍被 cards 引用，可重新分配）
+    grid.textContent = '';
+    const columns = [];
+    for (let i = 0; i < cols; i++){
+      const col = document.createElement('div');
+      col.className = 'tool-col';
+      grid.appendChild(col);
+      columns.push(col);
+    }
+
+    // 按顺序把每张卡片放进累计高度最小的列，形成瀑布流
+    const heights = new Array(cols).fill(0);
+    for (const card of cards){
+      let target = 0;
+      for (let i = 1; i < cols; i++){
+        if (heights[i] < heights[target] - 0.5) target = i;
+      }
+      columns[target].appendChild(card);
+      heights[target] += card.offsetHeight + COL_GAP;
+    }
   }
+  layout();
+
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(layout, 120);
+  });
 
   // 注册 Service Worker，启用 PWA 离线/安装能力。
   // 注册后立即显式 update()：保证已安装的 PWA 每次启动都能马上检查并接管新版 SW（尤其 iOS）
