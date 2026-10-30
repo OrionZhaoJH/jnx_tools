@@ -167,7 +167,7 @@ test('Service Worker detects binary asset changes with equal decoded text', asyn
 });
 
 test('every refresh button deletes only JNx caches', () => {
-  for (const file of ['index.html', 'JNA_tools.html', 'JNA_Plus_Tool.html', 'JNB_Tool.html', 'JNC_tools.html']) {
+  for (const file of ['index.html', 'JNA_tools.html', 'JNA_QC_Tool.html', 'JNA_Plus_Tool.html', 'JNB_Tool.html', 'JNC_tools.html']) {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     assert.match(source, /keys\.filter\(k => k\.startsWith\('jnx-tools-'\)\)\.map\(k => caches\.delete\(k\)\)/, file);
   }

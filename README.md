@@ -12,6 +12,12 @@ JNx 系列产品辅助工具集合，数据均在本地处理，不上传任何�
 | JNC 工具 | 连接 JNC 开头的 BLE 设备，通过 FFE2 命令轮询 12 通道数据（C/B/T） | [JNC_tools.html](JNC_tools.html) |
 | JNB 工具 | JNB 系列：单通道 27 字节协议，连接后自动更新数据并绘制 C/T2/B/T1 实时曲线；FFE2 支持点灯 T1~T4、重启、关机 | [JNB_Tool.html](JNB_Tool.html) |
 
+## 质检工具
+
+| 工具 | 说明 | 入口 |
+| --- | --- | --- |
+| JNA 质检工具 | 连接 JNA 开头的 BLE 设备，保留 FFE1 解析与实时曲线；左右两组各按「读取数量」批量读 C/B/T（每次间隔 900ms、单行最多重试 3 次），汇总成 3 行 × (左+右) 列表格，一键复制为 TSV 粘进 Excel | [JNA_QC_Tool.html](JNA_QC_Tool.html) |
+
 ## 目录说明
 
 - [index.html](index.html) ：工具箱首页，展示所有工具入口卡片（可扩展）
