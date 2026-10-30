@@ -687,7 +687,8 @@ const Utils = {
   //   · 发现阶段首次 getPrimaryServices() 枚举不全。
   // 「连上就断开」与「连上但没找到 FFE1」是同一个坑的两种表现。
   btnConnect.addEventListener('click', async ()=>{
-    if(connecting) return;
+    // 已连接时按钮本身已禁用，这里再兜一层，避免任何路径重复弹设备选择窗
+    if(connecting || (device && device.gatt && device.gatt.connected)) return;
     connecting=true;
     syncConnectButtons();
     const keyword=nameFilter.value.trim();
@@ -929,17 +930,17 @@ const Utils = {
     syncConnectButtons();
   }
 
-  // 连接/断开按钮状态统一在此处理
+  // 连接/断开按钮状态统一在此处理：连接流程进行中、已连接、或不支持 Web Bluetooth 时，连接按钮不可点
   function syncConnectButtons(){
     const busy=connecting;
+    const linkOk=!!(device && device.gatt && device.gatt.connected);
     if(btnConnect){
-      btnConnect.disabled=busy;
+      btnConnect.disabled=busy || linkOk || !navigator.bluetooth;
       if(!busy && btnConnect.textContent.indexOf('发现特征中')>=0){
         btnConnect.textContent='🔗 连接 BLE 设备';
       }
     }
     if(btnDisconnect){
-      const linkOk=!!(device && device.gatt && device.gatt.connected);
       btnDisconnect.disabled=!linkOk || busy;
     }
   }

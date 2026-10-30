@@ -422,14 +422,15 @@ const Utils = {
   }
   function syncConnectButtons(){
     const linked=!!(device&&device.gatt&&device.gatt.connected);
-    btnConnect.disabled=connecting||linked;
+    btnConnect.disabled=connecting||linked||!navigator.bluetooth;
     btnDisconnect.disabled=!linked;
     btnClearCache.disabled=!lastDevice;
   }
 
   // ---- Connect ----
   btnConnect.addEventListener('click', async ()=>{
-    if(connecting) return;
+    // 已连接时按钮本身已禁用，这里再兜一层，避免任何路径重复弹设备选择窗
+    if(connecting || (device && device.gatt && device.gatt.connected)) return;
     connecting=true;
     userDisconnect=false;
     syncConnectButtons();

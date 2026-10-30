@@ -1369,7 +1369,8 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   //   · 发现阶段：首次 getPrimaryServices() 枚举不全（服务缓存尚未建立）。
   // 因此「连上就断开」和「连上但没找到 FFE1」本质是同一个坑的两种表现。
   btnConnect.addEventListener('click', async ()=>{
-    if(connecting) return;
+    // 已连接时按钮本身已禁用，这里再兜一层，避免任何路径重复弹设备选择窗
+    if(connecting || (device && device.gatt && device.gatt.connected)) return;
     connecting=true;
     syncConnectButtons();
     const keyword=nameFilter.value.trim();
@@ -1731,7 +1732,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     const busy=connecting;
     const linkOk=!!(device && device.gatt && device.gatt.connected);
     if(btnConnect){
-      btnConnect.disabled=busy || linkOk;
+      btnConnect.disabled=busy || linkOk || !navigator.bluetooth;
       if(!busy && btnConnect.textContent.indexOf('发现特征中')>=0){
         btnConnect.textContent='🔗 连接 BLE 设备';
       }
