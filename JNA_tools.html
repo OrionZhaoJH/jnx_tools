@@ -1596,6 +1596,9 @@ const Utils = {
     const status=dv.getUint8(0);
     if(status>4) return null; // 仅接受文档定义的 0x00-0x04
     const statusText=['未启动','正在检测','检测完成','待机超时','设备故障'][status]||('0x'+status.toString(16));
+    const swRaw=dv.getUint8(13);
+    const swVersion=swRaw & 0x7F;        // 最高位是「测试版」标志，版本号取低 7 位
+    const swTest=(swRaw & 0x80)!==0;     // 最高位为 1 → 测试版
     return {
       status, statusText,
       detectTime: dv.getUint16(1,false),
@@ -1603,7 +1606,7 @@ const Utils = {
       timestamp: dv.getUint16(7,false),
       startTime: dv.getUint16(9,false),
       endTime: dv.getUint16(11,false),
-      swVersion: dv.getUint8(13),
+      swVersion, swTest,
       C: dv.getUint16(14,false),
       B: dv.getUint16(16,false),
       T: dv.getUint16(18,false),
@@ -1640,7 +1643,7 @@ const Utils = {
     setField('timestamp', String(obj.timestamp), bytesHex(dv,7,8));
     setField('startTime', String(obj.startTime), bytesHex(dv,9,10));
     setField('endTime', String(obj.endTime), bytesHex(dv,11,12));
-    setField('swVersion', 'v'+obj.swVersion, bytesHex(dv,13,13));
+    setField('swVersion', 'v'+obj.swVersion+(obj.swTest?'（测试版）':''), bytesHex(dv,13,13));
     setField('C', String(obj.C), bytesHex(dv,14,15));
     setField('B', String(obj.B), bytesHex(dv,16,17));
     setField('T', String(obj.T), bytesHex(dv,18,19));
