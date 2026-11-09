@@ -800,6 +800,17 @@ const Utils = {
     btnConnect.disabled=true;
   }
 
+  // ---- 设备过滤 ----
+  // Web Bluetooth 没有「任意非空名字」这种过滤器：namePrefix 不能是空串，
+  // acceptAllDevices 又会把无名设备一起列出来。这里用「以某个可打印 ASCII 字符开头」
+  // 作为「设备必须有名字」的等价条件（filters 数组元素之间取「或」）：
+  // 无名设备的 name 为空，命中不了任何一条，浏览器在扫描阶段就把它挡在选择窗之外。
+  const NAMED_DEVICE_FILTERS=(()=>{
+    const list=[];
+    for(let c=33;c<=126;c++) list.push({namePrefix:String.fromCharCode(c)});
+    return list;
+  })();
+
   // ---- Connect ----
   // 连接分两阶段：① GATT 建链 → ② 特征发现。两阶段各自独立重试：
   //   · 建链阶段偶发「连上后立刻掉线」（gatt 报 connected 但服务树未就绪）；
@@ -816,9 +827,8 @@ const Utils = {
     if(keyword){
       options.filters=[{namePrefix:keyword}];
     }else{
-      // 名称为空：namePrefix 必须是非空字符串，无法用「空前缀」表达「仅显示有名称」的设备；
-      // 改用 services 过滤只列出广播了 FFE0（Nordic UART 串口）服务的设备，挡掉未知/不支持的杂牌 BLE。
-      options.filters=[{services:[FFE0_SERVICE]}];
+      // 没写过滤名：仍要求设备必须有名字（无名设备不会出现在选择窗里）
+      options.filters=NAMED_DEVICE_FILTERS;
     }
     // 每次点「连接」都重新弹设备选择窗口（用户明确要求：每次都自己选设备）。
     // 因此这里先无条件清掉旧引用，不使用任何"静默重连"路径。

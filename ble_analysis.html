@@ -427,6 +427,17 @@ const Utils = {
     btnClearCache.disabled=!lastDevice;
   }
 
+  // ---- 设备过滤 ----
+  // Web Bluetooth 没有「任意非空名字」这种过滤器：namePrefix 不能是空串，
+  // acceptAllDevices 又会把无名设备一起列出来。这里用「以某个可打印 ASCII 字符开头」
+  // 作为「设备必须有名字」的等价条件（filters 数组元素之间取「或」）：
+  // 无名设备的 name 为空，命中不了任何一条，浏览器在扫描阶段就把它挡在选择窗之外。
+  const NAMED_DEVICE_FILTERS=(()=>{
+    const list=[];
+    for(let c=33;c<=126;c++) list.push({namePrefix:String.fromCharCode(c)});
+    return list;
+  })();
+
   // ---- Connect ----
   btnConnect.addEventListener('click', async ()=>{
     // 已连接时按钮本身已禁用，这里再兜一层，避免任何路径重复弹设备选择窗
@@ -450,7 +461,8 @@ const Utils = {
       if(keyword){
         options.filters=[{namePrefix:keyword}];
       }else{
-        options.acceptAllDevices=true;
+        // 没写过滤名：仍要求设备必须有名字（无名设备不会出现在选择窗里）
+        options.filters=NAMED_DEVICE_FILTERS;
       }
       device=await navigator.bluetooth.requestDevice(options);
       device.addEventListener('gattserverdisconnected',onGattDisconnected);
