@@ -2219,7 +2219,7 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
   //  4 × (状态 1B + 剩余时间 2B + 检测结果 4B)        0..27
   //  计时 2B                                        28..29
   //  加样1/2/3/4 + 检测完成1/2/3/4   各 2B           30..45
-  //  版本号 1B                                       46
+  //  版本号 1B（最高位=1 为测试版，版本号取低 7 位，与 JNA 同规则）   46
   //  4 × (C 2B + B 2B + T 2B)  4 通道 CBT 值         47..70
   function parseFfe1Packet(dv){
     if(!dv || dv.byteLength < 47){
@@ -2312,11 +2312,14 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
     // 实时曲线：C/B/T 每 2s 刷新一次，整帧统一采样（仅「正在检测」的槽位推进）
     pushRtChartFrame(p);
 
-    const setField=(key, val)=>{
+    const setField=(key, val, raw)=>{
       const el=document.querySelector('#fte1Extras .field-box[data-key="'+key+'"]');
       if(!el) return;
       el.querySelector('.field-value').textContent = val;
-      if(typeof val==='number'){
+      // raw 显式给出时优先；否则数值字段按宽度补零显示（version 1B，其余 2B）
+      if(raw!==undefined){
+        el.querySelector('.field-raw').textContent = raw;
+      }else if(typeof val==='number'){
         const bytes = key==='version' ? 1 : 2;
         el.querySelector('.field-raw').textContent = '0x'+val.toString(16).padStart(bytes*2,'0').toUpperCase();
       }
@@ -2330,7 +2333,11 @@ const btnSerialClearData=document.getElementById('btnSerialClearData');
       }
     };
     setField('timer', p.timer);
-    setField('version', p.version);
+    // 版本号：与 JNA 同规则 —— 字节最高位为 1 表示测试版，版本号取低 7 位
+    const verNum=p.version & 0x7F;
+    const verTest=(p.version & 0x80)!==0;
+    setField('version', 'v'+verNum+(verTest?'（测试版）':''),
+             '0x'+p.version.toString(16).padStart(2,'0').toUpperCase());
     // 实时曲线：刷新状态提示并调度重绘（rAF 节流）
     updateRtChartHint(p);
     scheduleRtChartRedraw();
